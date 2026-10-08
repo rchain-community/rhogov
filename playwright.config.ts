@@ -18,5 +18,7 @@ export default defineConfig({
     viewport: { width: 1200, height: 900 },
     launchOptions: process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {},
     trace: "retain-on-failure",
+    // A stuck screen should fail in a minute with a snapshot, not wait out the whole test.
+    actionTimeout: 60_000,
   },
 });
