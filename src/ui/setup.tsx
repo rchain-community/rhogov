@@ -5,7 +5,7 @@ import { Gov } from "../chain/gov";
 import { generateKey, isValidKey, revAddressOf } from "../chain/keys";
 import { RNode, type NodeStatus } from "../chain/node";
 import {
-  NETWORKS, active, addCommunity, displayName, myAddr, parseInvite, secretKey, setDisplayName, setKey,
+  NETWORKS, R_WALLET, active, addCommunity, displayName, myAddr, parseInvite, secretKey, setDisplayName, setKey,
 } from "../state";
 import { Copy, Info, Spinner, act, go, notify, short } from "./kit";
 
@@ -118,6 +118,9 @@ export function Balance({ node, addr }: { node: string; addr: string }) {
       <b>{bal === undefined ? <Spinner /> : rev(bal)}</b>
       <button class="ghost small" onClick={() => setN((x) => x + 1)}>Refresh</button>
       {st.status?.devMode && <button class="small" onClick={faucet}>Get test REV</button>}
+      {st.status && !st.status.devMode && (
+        <span class="small">This node has no faucet. On the RChain testnet, <a href={R_WALLET} target="_blank" rel="noopener">r-wallet</a>'s faucet can fund <button class="ghost small" onClick={() => navigator.clipboard?.writeText(addr)}>your address ⧉</button>; elsewhere, ask someone to send you REV.</span>
+      )}
       {bal === 0 && <span class="muted small">Every action costs a little phlo (gas), paid in REV.</span>}
     </span>
   );

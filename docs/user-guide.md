@@ -35,8 +35,9 @@ Open rhogov. The first screen walks you through three short steps.
 
 **Step 1: choose a network.** A network is the blockchain your community uses.
 The **Rholang playground** is selected for you. It's free, it hands out test
-money, and it's the right place to start. Pick the **RChain testnet** or another
-node only if your community told you to.
+money, and it's the right place to start. The **RChain testnet** works the same
+way and is the shared public test network. Pick another node only if your
+community told you to.
 
 **Step 2: your identity.** Type the name you'd like others to see, then press
 **Continue**. rhogov creates a *key* for you in your browser. The key is your
@@ -44,8 +45,10 @@ identity: it signs everything you do, and it never leaves your device. There's
 no account, no email and no password. (Already have an RChain key? Choose **I
 have a key** and paste it.)
 
-Once your key exists you'll see your balance. On the playground, press **Get test
-REV**. A moment later you'll have enough to act. Every action costs a tiny fee,
+Once your key exists you'll see your balance. On the playground or the testnet,
+press **Get test REV**. A moment later you'll have enough to act. (The testnet
+faucet is the same one in [r-wallet](https://rhowallet.org), the RChain web
+wallet, so you can also use it from there.) Every action costs a tiny fee,
 paid in REV (see [section 11](#11-what-is-public-and-what-it-costs)).
 
 **Step 3: join or start a community.** If someone sent you an invite link,
@@ -280,7 +283,7 @@ On **Account** you can:
 - change your display name. On networks that have the chain's name directory,
   only your key can set your name there, and everyone sees it;
 - copy your **address**: give it to people who want to invite or message you;
-- check your **balance** and, on the playground, **Get test REV**;
+- check your **balance** and, on the playground or testnet, **Get test REV**;
 - **Download backup** of your key, or show it so you can paste it into another
   browser or device;
 - turn on **Show me the exact rholang before I sign**, to see precisely what you're
@@ -313,7 +316,7 @@ chose; there's no rhogov server, database or account.
 |---|---|
 | **"Can't reach it"** when choosing a network | Check the address. A local node needs `--api-host`. A page opened over `https://` can only reach `http://` nodes on your own computer. |
 | **"Waiting for a block…"** for a long time | The network is busy or idle. It usually finishes within a minute; if not, refresh later, since your action may still land. |
-| **A balance of 0**, or an action fails for lack of funds | On the playground, press **Get test REV** on Account. Elsewhere, ask someone to send you REV. |
+| **A balance of 0**, or an action fails for lack of funds | On the playground or testnet, press **Get test REV** on Account (on the testnet, [r-wallet](https://rhowallet.org)'s faucet works too). Elsewhere, ask someone to send you REV. |
 | **"This group is invite-only…"** | Ask one of its admins to invite you, using your address from Account. |
 | **"You're not on this issue's voter roll"** | You joined after the vote opened. Ask whoever opened it to add new members to the roll. |
 | **People show as an address, not a name** | That network has no name directory (the playground, today); names come from what people typed when joining a group. |

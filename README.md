@@ -102,8 +102,9 @@ Both then read and write the same groups, delegations, ratings and ballots.
 rhogov opens on the **Rholang playground** (`https://playground.rhobot.net`), a public
 rchain-rust dev chain with a faucet. A newcomer creates a key, presses **Get test REV**,
 and can start a community straight away; the newcomer test does exactly that in about
-30 seconds. The public **testnet** (`https://testnet.rhobot.net`, funded keys only), a
-**local node**, or any other rnode URL can be chosen instead.
+30 seconds. The public **testnet** (`https://testnet.rhobot.net`) has the same faucet (it's the one
+[r-wallet](https://rhowallet.org) uses), and a **local node** or any other rnode URL can be
+chosen instead.
 
 The playground's genesis predates the master dictionary, so display names can't be
 published there. rhogov detects that and falls back to the names people give when
