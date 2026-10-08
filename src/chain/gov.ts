@@ -383,7 +383,7 @@ export class Gov {
   async batch(kind: "group" | "issue" | "inbox", calls: [string, string[]][], t?: (s: string) => void): Promise<RhoValue[]> {
     const key = this.key();
     if (!key) throw new GovError("Set up your identity first (Account).");
-    const v = await this.node.deploy(batchProgram(this.c[kind], calls), key, { onTick: t, phloLimit: 20_000_000 });
+    const v = await this.node.deploy(batchProgram(this.c[kind], calls), key, { onTick: t, phloLimit: 3_000_000 });
     const answers = asList(v[0] ?? null);
     const bad = answers.find((a) => Array.isArray(a) && a[0] === "gov-error");
     if (bad) throw new GovError(humanError((bad as RhoValue[]).slice(1).map(String)));
@@ -452,7 +452,7 @@ export class Gov {
     const out: Record<string, string> = {};
     for (const [k, term] of Object.entries(progs)) {
       onTick?.(`installing ${k}…`);
-      const v = await node.deploy(forDeploy(term), key, { phloLimit: 50_000_000, onTick: (s) => onTick?.(`installing ${k}: ${s}`) });
+      const v = await node.deploy(forDeploy(term), key, { phloLimit: 2_000_000, onTick: (s) => onTick?.(`installing ${k}: ${s}`) });
       const uri = JSON.stringify(v).match(/rho:id:[a-z0-9]+/)?.[0];
       if (!uri) throw new GovError(`Installing ${k} produced no address: ${JSON.stringify(v).slice(0, 200)}`);
       out[k] = uri;

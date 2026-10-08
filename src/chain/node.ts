@@ -86,9 +86,12 @@ export class RNode {
   private async request(path: string, init?: RequestInit): Promise<unknown> {
     let res: Response;
     try {
-      res = await fetch(this.base + path, init);
+      // A request that never answers would leave a screen "reading" forever; a
+      // node's own explore deadline is 60 s, so give up a little after that.
+      res = await fetch(this.base + path, { ...init, signal: AbortSignal.timeout(75_000) });
     } catch (e) {
-      throw new NodeError(`Can't reach the node at ${this.url} (${(e as Error).message})`);
+      const why = (e as Error).name === "TimeoutError" ? "no answer in 75 s" : (e as Error).message;
+      throw new NodeError(`Can't reach the node at ${this.url} (${why})`);
     }
     const text = await res.text();
     let body: unknown;
@@ -145,7 +148,7 @@ export class RNode {
   }
 
   /** Sign and submit. Returns the deploy's signature, which is how it is found again. */
-  async submit(term: string, key: string, phloLimit = 5_000_000): Promise<string> {
+  async submit(term: string, key: string, phloLimit = 1_000_000): Promise<string> {
     const st = await this.status().catch(() => ({} as NodeStatus));
     const data: DeployData = {
       term,
@@ -192,17 +195,18 @@ export class RNode {
 
   /** REV balance of an address, in dust (1 REV = 10^8). */
   async balance(addr: string): Promise<number | null> {
-    const term = `new return, rl(\`rho:registry:lookup\`), vaultCh, balCh in {
-  rl!(\`rho:rchain:revVault\`, *vaultCh) |
-  for (@(_, RevVault) <- vaultCh) {
-    new v in {
-      @RevVault!("findOrCreate", ${JSON.stringify(addr)}, *v) |
-      for (@(true, vault) <- v) { @vault!("balance", *balCh) | for (@b <- balCh) { return!(b) } }
-    }
-  }
+    // The native channel's classic getBalance(address): the one shape every
+    // build answers (spec/API-SCHEMA.md, rho:rchain:revVault). findOrCreate
+    // changed on newer builds to take a deployer id, which a read cannot supply.
+    const term = `new return, revVault(\`rho:rchain:revVault\`), ret in {
+  revVault!("getBalance", ${JSON.stringify(addr)}, *ret) |
+  for (@b <- ret) { return!(b) }
 }`;
-    const v = await this.explore(term).catch(() => []);
-    return typeof v[0] === "number" ? v[0] : null;
+    let v: RhoValue[];
+    try { v = await this.explore(term); } catch { return null; } // couldn't ask: unknown
+    // An address that has never received REV has no vault yet, so the read
+    // answers nothing — that is a balance of 0, not an unknown one.
+    return typeof v[0] === "number" ? v[0] : 0;
   }
 
   /** Ask a dev node's native faucet for test REV (only on --dev-mode nodes with a deployer key). */

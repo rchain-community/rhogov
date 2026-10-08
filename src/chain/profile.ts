@@ -11,6 +11,7 @@ import { RNode, type RhoValue } from "./node";
 
 export const MASTERDICT_RESOLVE = "rho:id:fbcb5xks6kygyyeixsuq1ahpcb6jwahpmt5s5byfwfpcmi64bpqo";
 export const MASTERDICT_PUBLISH = "rho:id:3q9ax77mpszucp83yqomxe5c5161tg7u1mqfhw7b4k71j869bpiy";
+export class NoDirectory extends Error { constructor() { super("this chain has no name directory"); } }
 export const namePath = (addr: string) => `${addr}/profile/name`;
 
 export async function publishName(node: RNode, key: string, addr: string, name: string, onTick?: (s: string) => void): Promise<void> {
@@ -46,6 +47,10 @@ export async function resolveNames(node: RNode, addrs: string[]): Promise<Record
   }
 }`;
   const v = await node.explore(term);
+  // On a chain whose genesis predates the dictionary (the playground, today) the
+  // registry lookup never answers, so the read comes back empty. Say so, rather
+  // than reporting "nobody has a name" and inviting a publish that cannot land.
+  if (!v.length) throw new NoDirectory();
   const m = (v[0] ?? {}) as Record<string, RhoValue>;
   const out: Record<string, string> = {};
   for (const a of addrs) {

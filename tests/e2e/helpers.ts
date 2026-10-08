@@ -1,5 +1,7 @@
 import { type Browser, type Page, expect } from "@playwright/test";
 import { resolve } from "node:path";
+import { RNode } from "../../src/chain/node";
+import { NoDirectory, resolveNames } from "../../src/chain/profile";
 
 export const APP = "file://" + resolve("dist/index.html");
 export const NODE = process.env.RHOGOV_NODE ?? "http://127.0.0.1:40403";
@@ -61,4 +63,10 @@ export async function startCommunity(page: Page, name: string): Promise<string> 
   await settle(page);
   await page.goto(APP + "#/community");
   return page.locator("input[readonly]").inputValue();
+}
+
+/** Does this chain have the genesis name directory? (The playground's genesis predates it.) */
+export async function hasNameDirectory(): Promise<boolean> {
+  try { await resolveNames(new RNode(NODE), ["1111pJu4TJaJDNJDTinnftr2fcHvMfnDeTRXRzwgPfwuKmGMa5juj"]); return true; }
+  catch (e) { if (e instanceof NoDirectory) return false; throw e; }
 }

@@ -95,6 +95,18 @@ community's contracts (**Community → Where it lives**) with `/gov chain inbox|
 <uri>`, or add a room's contracts here (**Community → Enter contract addresses by hand**).
 Both then read and write the same groups, delegations, ratings and ballots.
 
+## Networks
+
+rhogov opens on the **Rholang playground** (`https://playground.rhobot.net`), a public
+rchain-rust dev chain with a faucet. A newcomer creates a key, presses **Get test REV**,
+and can start a community straight away; the newcomer test does exactly that in about
+30 seconds. The public **testnet** (`https://testnet.rhobot.net`, funded keys only), a
+**local node**, or any other rnode URL can be chosen instead.
+
+The playground's genesis predates the master dictionary, so display names can't be
+published there. rhogov detects that and falls back to the names people give when
+joining a group; a group's creator shows as a short address.
+
 ## Run it
 
 ```sh
@@ -119,10 +131,14 @@ anywhere else**.
 npm test                              # rgov-core selftest (91 checks) + unit tests
 npm run test:chain                    # the Gov API against a live node (25 checks)
 npm run build && npm run test:e2e     # the built file:// app in Chromium, 2–3 people at once
+RHOGOV_NODE=https://playground.rhobot.net npm run test:e2e -- newcomer   # fresh key + faucet
 ```
 
 `test:chain` and `test:e2e` need a node at `RHOGOV_NODE`
-(default `http://127.0.0.1:40403`) with the localnet keys funded.
+(default `http://127.0.0.1:40403`) with the localnet keys funded; the playground funds
+them too (`tests/chain-check.ts --node https://playground.rhobot.net`). Behind an
+intercepting proxy, set `RHOGOV_PROXY=1` for the browser tests and
+`NODE_USE_ENV_PROXY=1` for the Node ones.
 
 ## Layout
 

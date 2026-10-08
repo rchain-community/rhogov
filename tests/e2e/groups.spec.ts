@@ -1,6 +1,6 @@
 // Groups end to end: invite link, names, trust, delegation, a weighted vote, inbox, invitations.
 import { expect, test } from "@playwright/test";
-import { onboard, open, person, settle, startCommunity } from "./helpers";
+import { hasNameDirectory, onboard, open, person, settle, startCommunity } from "./helpers";
 
 test("a community decides with trust and delegation", async ({ browser }) => {
   const alice = await person(browser, "Alice");
@@ -27,9 +27,13 @@ test("a community decides with trust and delegation", async ({ browser }) => {
     await settle(p);
   }
 
-  // Names come from the chain's name directory, not from the group.
+  // Names come from the chain's name directory, not from the group. Without one
+  // (the playground), the group's creator shows as her short address.
   await open(bob, groupHash.replace(/\/?$/, "") + "/members");
-  await expect(bob.locator(".list .item", { hasText: "Alice" })).toBeVisible();
+  const named = await hasNameDirectory();
+  const ALICE = "1111bn92xHbttqWHEXqD8PiykFxgeUjizzquT6JRePj2pAoHFAuiK";
+  const aliceShown = named ? "Alice" : ALICE.slice(0, 8);
+  await expect(bob.locator(".list .item", { hasText: aliceShown })).toBeVisible();
   await expect(bob.getByRole("heading", { name: "3 members" })).toBeVisible();
 
   // Alice (admin, level 5) vouches for Bob at 4.
@@ -68,7 +72,7 @@ test("a community decides with trust and delegation", async ({ browser }) => {
   // Weights from the node: Alice 1+5 = 6; Bob 1+4 plus Carol's delegated 1 = 6.
   await open(bob, issueHash);
   await bob.getByText("Who voted, and with what weight").click();
-  await expect(bob.locator(".item", { hasText: "Alice" }).getByText("×6")).toBeVisible();
+  await expect(bob.locator(".item", { hasText: aliceShown }).getByText("×6")).toBeVisible();
   await expect(bob.locator(".item", { hasText: "You" }).getByText("×6")).toBeVisible();
 
   // Carol votes herself — overriding her delegation — and tips it.
@@ -91,7 +95,8 @@ test("a community decides with trust and delegation", async ({ browser }) => {
   // Inbox: Bob writes to Alice; Alice collects it, stamped from Bob.
   await open(bob, "#/inbox");
   await bob.getByRole("button", { name: "✎ New message" }).click();
-  await bob.locator(".modal select").selectOption({ label: "Alice" });
+  if (named) await bob.locator(".modal select").selectOption({ label: "Alice" });
+  else await bob.getByPlaceholder("or paste a REV address (1111…)").fill(ALICE);
   await bob.locator(".modal label", { hasText: "Subject" }).locator("input").fill("Seeds");
   await bob.locator(".modal textarea").fill("They arrive Tuesday.");
   await bob.getByRole("button", { name: "Send" }).click();

@@ -10,6 +10,11 @@ export default defineConfig({
   workers: 1,
   reporter: [["list"]],
   use: {
+    // Sandboxes that reach the internet only through an intercepting proxy
+    // (set RHOGOV_PROXY=1): route the browser through HTTPS_PROXY and accept its CA.
+    ...(process.env.RHOGOV_PROXY && process.env.HTTPS_PROXY
+      ? { proxy: { server: process.env.HTTPS_PROXY }, ignoreHTTPSErrors: true }
+      : {}),
     viewport: { width: 1200, height: 900 },
     launchOptions: process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {},
     trace: "retain-on-failure",

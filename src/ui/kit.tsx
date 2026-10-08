@@ -1,8 +1,8 @@
 // kit.tsx — shared UI pieces: routing, async data, the action runner, small widgets.
 import { signal } from "@preact/signals";
 import type { ComponentChildren } from "preact";
-import { useEffect, useState } from "preact/hooks";
-import { addressBook, myAddr, refresh, refreshTick, reviewBeforeSign } from "../state";
+import { useEffect, useRef, useState } from "preact/hooks";
+import { addressBook, forceTick, myAddr, refresh, refreshTick, reviewBeforeSign } from "../state";
 
 // --- routing (hash) ------------------------------------------------------------
 
@@ -25,15 +25,25 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]): Async<T> {
   const [n, setN] = useState(0);
   const [s, setS] = useState<{ data: T | undefined; error: string | null; loading: boolean }>({ data: undefined, error: null, loading: true });
   const tick = refreshTick.value;
+  // One read at a time per screen. A background refresh that lands while the
+  // previous read is still running is skipped, not stacked — stacking is how a
+  // slow public node gets buried under its own polling.
+  const inFlight = useRef(false);
+  const lastKey = useRef("");
+  const runId = useRef(0);
   useEffect(() => {
-    let live = true;
+    const key = JSON.stringify([...deps, n, forceTick.value]);
+    if (key === lastKey.current && inFlight.current) return; // a poll while still reading: skip
+    lastKey.current = key;
+    const id = ++runId.current; // only the newest read may set state
+    inFlight.current = true;
     setS((p) => ({ ...p, loading: true }));
     fn().then(
-      (data) => live && setS({ data, error: null, loading: false }),
-      (e) => live && setS((p) => ({ data: p.data, error: (e as Error).message ?? String(e), loading: false })),
-    );
-    return () => { live = false; };
+      (data) => id === runId.current && setS({ data, error: null, loading: false }),
+      (e) => id === runId.current && setS((p) => ({ data: p.data, error: (e as Error).message ?? String(e), loading: false })),
+    ).finally(() => { if (id === runId.current) inFlight.current = false; });
   }, [...deps, n, tick]);
+  useEffect(() => () => { runId.current++; }, []); // unmounted: ignore late answers
   return { ...s, reload: () => setN((x) => x + 1) };
 }
 
@@ -106,12 +116,12 @@ export async function act<T>(title: string, run: (onTick: (s: string) => void) =
     const out = await run((s) => t.update({ detail: TICK[s] ?? s }));
     t.update({ kind: "done", detail: opts.done ?? "Recorded on chain." });
     t.close(3500);
-    refresh();
+    refresh(true);
     return out;
   } catch (e) {
     t.update({ kind: "error", detail: (e as Error).message });
     t.close(12000);
-    refresh();
+    refresh(true);
     return undefined;
   }
 }

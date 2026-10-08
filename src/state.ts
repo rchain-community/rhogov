@@ -27,9 +27,9 @@ const load = <T,>(k: string, d: T): T => {
 const save = (k: string, v: unknown) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage refused */ } };
 
 export const NETWORKS = [
+  { id: "playground", label: "Rholang playground", url: "https://playground.rhobot.net", note: "A public rchain-rust dev chain — the default. Free test REV from its faucet." },
+  { id: "testnet", label: "RChain testnet", url: "https://testnet.rhobot.net", note: "The public multi-validator rchain-rust testnet. Needs a funded key." },
   { id: "local", label: "Local dev node", url: "http://127.0.0.1:40403", note: "A node on this computer (quantum-os scripts/localnet/run-node.sh, or rnode run -s)." },
-  { id: "testnet", label: "RChain testnet", url: "https://testnet.rhobot.net", note: "The public rchain-rust testnet. Needs a funded key." },
-  { id: "playground", label: "Rholang playground", url: "https://playground.rhobot.net", note: "A public single-node dev chain for trying things out." },
 ];
 
 // --- identity ----------------------------------------------------------------
@@ -147,11 +147,13 @@ export function dismiss(id: string) { dismissed.value = [...dismissed.value, id]
 
 /** Bumped after every write so screens re-read chain state. */
 export const refreshTick = signal(0);
-export const refresh = () => { refreshTick.value++; };
+/** Bumped after the user's own writes: forces a re-read even if a poll is running. */
+export const forceTick = signal(0);
+export const refresh = (force = false) => { if (force) forceTick.value++; refreshTick.value++; };
 
 // Other people act too: re-read quietly while the page is visible, and on return.
 // Screens keep showing what they have while a re-read is in flight.
 if (typeof window !== "undefined") {
-  setInterval(() => { if (document.visibilityState === "visible") refresh(); }, 10_000);
+  setInterval(() => { if (document.visibilityState === "visible") refresh(); }, 15_000);
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refresh(); });
 }
