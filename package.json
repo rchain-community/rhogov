@@ -1,0 +1,31 @@
+{
+  "name": "rhogov",
+  "version": "0.1.0",
+  "description": "An intuitive governance UI for RChain: groups, liquid democracy, trust and inboxes over rchain-rust's rho:gov natives and quantum-os's rgov-core contracts.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "node src/chain/rgov-core.js --selftest && tsx tests/unit.ts",
+    "test:chain": "tsx tests/chain-check.ts",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@noble/curves": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
+    "@preact/signals": "^2.3.1",
+    "preact": "^10.29.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.0",
+    "@preact/preset-vite": "^2.10.6",
+    "@types/node": "^26.6.4",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21",
+    "vite-plugin-singlefile": "^2.3.3"
+  }
+}

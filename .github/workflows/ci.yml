@@ -1,0 +1,14 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm test          # rgov-core selftest + unit tests (no node needed)
+      - run: npm run build     # typecheck + the single-file app
+      - uses: actions/upload-artifact@v4
+        with: { name: rhogov-index-html, path: dist/index.html }
