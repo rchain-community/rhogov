@@ -62,6 +62,9 @@ p { margin: 0 0 .8em; }
 .nav a:hover { background: var(--surface-2); }
 .nav a.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .nav .badge { margin-left: auto; }
+.side .guide { margin-top: auto; padding: .5rem .7rem; font-size: .85rem; color: var(--muted); text-decoration: none; border-radius: 9px; }
+.side .guide:hover { background: var(--surface-2); color: var(--text); }
+.side .guide + .foot { margin-top: 0; }
 .side .foot { margin-top: auto; font-size: .8rem; color: var(--muted); padding: .5rem .6rem; }
 main { padding: 1.5rem 2rem 4rem; max-width: 980px; width: 100%; min-width: 0; overflow-wrap: anywhere; }
 .topline { display: flex; align-items: center; gap: .8rem; margin-bottom: 1.2rem; flex-wrap: wrap; }
@@ -74,7 +77,10 @@ main { padding: 1.5rem 2rem 4rem; max-width: 980px; width: 100%; min-width: 0; o
   .grid { grid-template-columns: minmax(0, 1fr) !important; }
   .result { grid-template-columns: minmax(70px, 1fr) 2fr auto; }
   .side { position: fixed; bottom: 0; top: auto; left: 0; right: 0; height: auto; flex-direction: row; padding: .3rem; z-index: 20; border-right: 0; border-top: 1px solid var(--line); justify-content: space-around; }
-  .side .brand, .side .foot { display: none; }
+  .side .brand, .side .guide { margin-top: auto; padding: .5rem .7rem; font-size: .85rem; color: var(--muted); text-decoration: none; border-radius: 9px; }
+.side .guide:hover { background: var(--surface-2); color: var(--text); }
+.side .guide + .foot { margin-top: 0; }
+.side .foot { display: none; }
   .nav { display: contents; }
   .nav a { flex-direction: column; gap: 0; font-size: .72rem; padding: .35rem .5rem; }
   .nav a .badge { position: absolute; margin: 0 0 0 1.4rem; }

@@ -184,6 +184,7 @@ export function Welcome() {
       <div>
         <h1>Welcome to rhogov</h1>
         <p class="muted">Decide things together on RChain: groups, delegated voting, trust, and private inboxes — all on chain, with no administrator in the middle.</p>
+        <p class="small">New here? <a href="https://github.com/rchain-community/rhogov/blob/main/docs/user-guide.md" target="_blank" rel="noopener">Read the user guide</a> — five minutes.</p>
       </div>
       <div class="steps">
         <div class={cls(1)}>

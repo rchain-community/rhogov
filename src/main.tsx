@@ -12,6 +12,8 @@ import { Welcome } from "./ui/setup";
 import { IssueScreen } from "./ui/votes";
 import { CouncilScreen, CouncilsScreen } from "./ui/council";
 
+export const GUIDE = "https://github.com/rchain-community/rhogov/blob/main/docs/user-guide.md";
+
 const NAV = [
   ["/", "⌂", "Home"],
   ["/groups", "◎", "Groups"],
@@ -50,6 +52,7 @@ function App() {
       <nav class="side">
         <div class="brand"><span class="logo">ρ</span> rhogov</div>
         {ready && <div class="nav">{NAV.map(([p, icon, label]) => <a href={`#${p}`} class={on(p) ? "on" : ""}><span aria-hidden="true">{icon}</span> {label}</a>)}</div>}
+        <a class="guide" href={GUIDE} target="_blank" rel="noopener">? User guide</a>
         {ready && <div class="foot"><div><b>{active.value!.name}</b></div><div>{displayName.value} · <span class="mono">{short(myAddr.value!)}</span></div></div>}
       </nav>
       <main><Page /></main>

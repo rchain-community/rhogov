@@ -1,5 +1,7 @@
 # rhogov
 
+**[User guide →](docs/user-guide.md)** · **[Open the app →](https://rchain-community.github.io/rhogov/)**
+
 **Decide things together on RChain.** An intuitive governance app for the
 [rchain-rust](https://github.com/rchain-community/rchain-rust) node: groups, liquid
 democracy, a web of trust with accountability, multi-stakeholder councils, and inboxes,
