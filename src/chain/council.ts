@@ -123,6 +123,15 @@ export interface ChamberResult {
   share: Record<string, number>;
   ballots: number;
   members: number;
+  /** Raw approvals per option from this chamber's members, unweighted. */
+  votes: Record<string, number>;
+}
+
+/** How many ballots approve each option: a plain head count, no weights. */
+export function approvals(options: string[], ballots: Record<string, string[]>): Record<string, number> {
+  const n = Object.fromEntries(options.map((o) => [o, 0]));
+  for (const b of Object.values(ballots)) for (const o of new Set(b)) if (o in n) n[o]++;
+  return n;
 }
 
 /** Only the ballots of a chamber's own members. */

@@ -141,6 +141,8 @@ label.field .hint { font-weight: 400; color: var(--muted); font-size: .85rem; }
 .bar > span { display: block; height: 100%; background: var(--accent); border-radius: 99px; transition: width .4s; }
 .result { display: grid; grid-template-columns: minmax(90px, 1fr) 3fr auto; gap: .6rem; align-items: center; margin: .45rem 0; }
 .result.win .opt { font-weight: 700; }
+.result:has(.votes) { grid-template-columns: minmax(90px, 1fr) 3fr 3.2rem 4.5rem; }
+.result .votes { text-align: right; white-space: nowrap; }
 .empty { text-align: center; padding: 2rem 1rem; color: var(--muted); }
 .spinner { width: 16px; height: 16px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; display: inline-block; vertical-align: middle; }
 @keyframes spin { to { transform: rotate(360deg); } }

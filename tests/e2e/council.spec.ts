@@ -94,6 +94,9 @@ test("a council reaches a decision of record across stakeholder groups", async (
   }
   await open(bob, decision);
   await expect(bob.getByText("Leading overall: 5 seconds")).toBeVisible();
+  // Head counts beside the weighted scores: 2 for 5 seconds, 1 for 2 seconds.
+  await expect(bob.locator(".section .result.win").getByText("2 votes")).toBeVisible();
+  await expect(bob.getByText("3 people have voted.")).toBeVisible();
   // Each stakeholder group's own choice comes from the node's tally over its members.
   await expect(bob.locator(".item", { hasText: "Developers" }).getByText("Group's choice (node tally): 2 seconds")).toBeVisible();
   await expect(bob.locator(".item", { hasText: "Validators" }).getByText("Group's choice (node tally): 5 seconds")).toBeVisible();

@@ -1,5 +1,5 @@
 // unit.ts — offline checks (no node): decoding, keys, council arithmetic.
-import { approvalShare, chamberPower, combine, decodeArg, encodeArg, estimateBallot, parseEstimate } from "../src/chain/council";
+import { approvalShare, approvals, chamberPower, combine, decodeArg, encodeArg, estimateBallot, parseEstimate } from "../src/chain/council";
 import { toGroup } from "../src/chain/gov";
 import { revAddressOf } from "../src/chain/keys";
 import { decode } from "../src/chain/node";
@@ -49,6 +49,8 @@ const c = combine(["x", "y"], groups, { share: { A: 0.5, B: 0.3, C: 0.2 }, media
 ok("Σ power × share", Math.abs(c.score.x - 0.375) < 1e-9 && Math.abs(c.score.y - 0.425) < 1e-9 && c.winner === "y", c);
 const t = combine(["x", "y"], [{ chamber: { id: "A" }, share: { x: 0.5, y: 0.5 } }] as any, { share: { A: 1 }, median: {}, estimators: 0 });
 ok("a tie names no winner", t.winner === null && eq(t.tie.sort(), ["x", "y"]), t);
+ok("vote counts: one per person per option, unknown options ignored",
+  eq(approvals(["x", "y", "z"], { a: ["x", "y"], b: ["x", "x"], c: ["w"] }), { x: 2, y: 1, z: 0 }));
 
 // Arguments.
 ok("argument round trip keeps pipes in text", eq(decodeArg(encodeArg("con", "2s", "a | b")), { raw: "con|2s|a | b", side: "con", option: "2s", text: "a | b" }));

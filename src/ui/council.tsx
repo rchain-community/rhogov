@@ -4,6 +4,7 @@ import { useState } from "preact/hooks";
 import {
   type ChamberResult, type Council, type PhaseId, PHASES, STAKEHOLDERS, approvalShare, argsIssueId, chamberBallots,
   chamberId, chamberPower, combine, councilsOf, decodeArg, encodeArg, estimateBallot, isAuxIssue, parseEstimate, weightsIssueId,
+  approvals,
 } from "../chain/council";
 import { type Group, type Issue, makeId, q, qList, qSet } from "../chain/gov";
 import { displayName, gov, myAddr } from "../state";
@@ -374,7 +375,7 @@ function DecisionScreen({ d, iid }: { d: CouncilData; iid: string }) {
     const results: ChamberResult[] = await Promise.all(d.chambers.map(async (ch) => {
       const b = chamberBallots(ch, i.ballots);
       const outcome = Object.keys(b).length ? await G.chamberOutcome(ch.id, iid, b).catch(() => null) : null;
-      return { chamber: ch, outcome, share: approvalShare(i.options, outcome), ballots: Object.keys(b).length, members: ch.members.length };
+      return { chamber: ch, outcome, share: approvalShare(i.options, outcome), ballots: Object.keys(b).length, members: ch.members.length, votes: approvals(i.options, b) };
     }));
     return { i, args, results };
   }, [G.c.issue, iid, d.group.id]);
@@ -520,6 +521,9 @@ function Deliberation({ i, args, open }: { i: Issue; args: Issue | null; open: b
 
 function StakeholderResults({ i, results, power, total }: { i: Issue; results: ChamberResult[]; power: ReturnType<typeof chamberPower>; total: ReturnType<typeof combine> }) {
   const max = Math.max(0.0001, ...Object.values(total.score));
+  const votes = approvals(i.options, i.ballots);
+  const voters = Object.keys(i.ballots).length;
+  const plural = (n: number) => `${n} vote${n === 1 ? "" : "s"}`;
   return (
     <div class="section card">
       <h2>Results by stakeholder group</h2>
@@ -530,8 +534,10 @@ function StakeholderResults({ i, results, power, total }: { i: Issue; results: C
           <span class="opt">{o}</span>
           <div class="bar"><span style={{ width: `${(100 * total.score[o]) / max}%` }} /></div>
           <b class="small">{pct(total.score[o])}</b>
+          <span class="small muted votes">{plural(votes[o] ?? 0)}</span>
         </div>
       ))}
+      <p class="small muted">{voters} {voters === 1 ? "person has" : "people have"} voted. Vote counts are approvals, one per person per option, before any weighting; the score is weighted.</p>
       <p class="small muted">Overall score = Σ group voting power × that group's weighted approval. A group that hasn't voted adds nothing; its power isn't handed to the others.</p>
       <div class="list small" style={{ marginTop: ".6rem" }}>
         {results.map((r) => (
@@ -543,7 +549,7 @@ function StakeholderResults({ i, results, power, total }: { i: Issue; results: C
             </div>
             <div class="grow">
               {i.options.map((o) => (
-                <div class="result" style={{ margin: ".2rem 0" }}><span class="muted">{o}</span><div class="bar"><span style={{ width: pct(r.share[o] ?? 0) }} /></div><span class="muted">{pct(r.share[o] ?? 0)}</span></div>
+                <div class="result" style={{ margin: ".2rem 0" }}><span class="muted">{o}</span><div class="bar"><span style={{ width: pct(r.share[o] ?? 0) }} /></div><span class="muted">{pct(r.share[o] ?? 0)}</span><span class="muted votes">{plural(r.votes[o] ?? 0)}</span></div>
               ))}
             </div>
           </div>
