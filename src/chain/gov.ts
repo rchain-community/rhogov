@@ -12,6 +12,7 @@
 // "fromDeployerId"), so a write can only ever touch the caller's own row.
 
 import * as core from "./rgov-core.js";
+import { revAddressOf } from "./keys";
 import { RNode, type RhoValue } from "./node";
 
 export const q = (s: string) => JSON.stringify(String(s));
@@ -267,6 +268,12 @@ export function batchProgram(uri: string, calls: [string, string[]][]): string {
 }`);
 }
 
+/** Names compare without case or surrounding space: "Aria" and "aria " are one name. */
+export const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/** The hidden group holding a community's names (see Gov.names). */
+export const NAMES_GID = "~names";
+
 export class Gov {
   readonly node: RNode;
   constructor(public c: Community, private key: () => string | null) {
@@ -299,9 +306,34 @@ export class Gov {
   async group(gid: string): Promise<Group | null> { return toGroup(gid, await this.read(this.c.group, "groupOf", [q(gid)])); }
 
   async groups(): Promise<Group[]> {
-    const ids = await this.groupIds();
+    const ids = (await this.groupIds()).filter((id) => id !== NAMES_GID);
     const all = await Promise.all(ids.map((id) => this.group(id).catch(() => null)));
     return all.filter((g): g is Group => !!g);
+  }
+
+  // --- names -----------------------------------------------------------------
+  // A community's own name list, for chains without a name directory: an open
+  // group nobody sees as a group, whose members' labels are their names. Each
+  // label is set by its own key (join is a self verb), so nobody can name
+  // anyone else.
+
+  /** address → name, from the community's name list. */
+  async names(): Promise<Record<string, string>> {
+    const g = await this.group(NAMES_GID).catch(() => null);
+    return Object.fromEntries((g?.members ?? []).filter((m) => m.label && m.label !== NAMES_GID).map((m) => [m.addr, m.label]));
+  }
+
+  /**
+   * Put your name on the community's list, in one deploy: create the list if
+   * nobody has yet (an "already" answer is fine), leave it, and join under the
+   * new name, so the creator is listed by name like everyone else and a
+   * rename is the same three steps.
+   */
+  async setName(name: string, t?: (s: string) => void) {
+    const me = this.key() ? revAddressOf(this.key()!) : "";
+    const taken = Object.entries(await this.names()).find(([a, n]) => a !== me && sameName(n, name));
+    if (taken) throw new GovError(`“${name}” is already someone else's name in this community. Names are unique here: choose another on Account.`);
+    return this.batch("group", [["create", [q(NAMES_GID), q(NAMES_GID), q("open")]], ["leave", [q(NAMES_GID)]], ["join", [q(NAMES_GID), q(name)]]], t);
   }
 
   createGroup(gid: string, name: string, policy: "open" | "invite", t?: (s: string) => void) {

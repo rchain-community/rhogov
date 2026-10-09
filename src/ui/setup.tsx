@@ -79,7 +79,7 @@ export function IdentityForm({ onDone }: { onDone?: () => void }) {
   return (
     <div class="stack">
       <label class="field">Your name
-        <span class="hint">What others see when you join a group. You can use a different name per group.</span>
+        <span class="hint">What others see instead of your address. It must be unique in each community you use; if it's taken, you'll be asked to pick another.</span>
         <input value={name} placeholder="e.g. Ada" onInput={(e) => setName((e.target as HTMLInputElement).value)} />
       </label>
       <div class="seg" role="tablist">

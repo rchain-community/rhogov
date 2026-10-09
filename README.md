@@ -54,6 +54,8 @@ no backend, no relay, no database and no account:
 - **Inbox.** Anyone can message anyone; the sender is stamped on chain from the key, so it
   can't be forged. Counts are public and contents are not served by the read API.
   **Collect** consumes the messages into this browser. Messages are not encrypted.
+  New arrivals raise an alert, a count on Inbox and one in the tab title (one free read
+  a minute).
 - **Multi-stakeholder councils**: see below.
 - **Review before signing.** An Account setting shows the exact rholang before each signature.
 
@@ -107,8 +109,10 @@ and can start a community straight away; the newcomer test does exactly that in 
 chosen instead.
 
 The playground's genesis predates the master dictionary, so display names can't be
-published there. rhogov detects that and falls back to the names people give when
-joining a group; a group's creator shows as a short address.
+published there. rhogov detects that and keeps a **name list per community** instead:
+an open group (`~names`, hidden from the group lists) whose members' labels are their
+names. Each label is set by its own key (`join` is a self verb), and names are unique
+within a community (checked by the app before it signs).
 
 ## Run it
 

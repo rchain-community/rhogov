@@ -49,7 +49,7 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]): Async<T> {
 
 // --- toasts ----------------------------------------------------------------------
 
-interface Toast { id: number; title: string; detail?: string; kind: "busy" | "done" | "error"; since?: number }
+interface Toast { id: number; title: string; detail?: string; kind: "busy" | "done" | "error" | "info"; since?: number; action?: { label: string; href: string } }
 export const toasts = signal<Toast[]>([]);
 let tid = 0;
 function pushToast(t: Omit<Toast, "id">) {
@@ -61,9 +61,11 @@ function pushToast(t: Omit<Toast, "id">) {
   };
 }
 /** Errors stay until dismissed: they are what someone has to act on. */
-export const notify = (title: string, detail?: string, kind: Toast["kind"] = "done") => {
-  const t = pushToast({ title, detail, kind });
-  if (kind !== "error") t.close(4000);
+export const notify = (title: string, detail?: string, kind: Toast["kind"] = "done", action?: Toast["action"]) => {
+  const t = pushToast({ title, detail, kind, action });
+  if (kind === "done") t.close(4000);
+  // "info" (a new message, say) waits to be seen, but not forever.
+  if (kind === "info") t.close(60_000);
 };
 
 const dismiss = (id: number) => (toasts.value = toasts.value.filter((x) => x.id !== id));
@@ -79,10 +81,11 @@ function Elapsed({ since }: { since: number }) {
 function ToastCard({ t }: { t: Toast }) {
   return (
     <div class={`toast ${t.kind}`} role={t.kind === "error" ? "alert" : "status"}>
-      {t.kind === "busy" ? <span class="spinner" /> : <span class="icon">{t.kind === "done" ? "✓" : "⚠"}</span>}
+      {t.kind === "busy" ? <span class="spinner" /> : <span class="icon">{t.kind === "done" ? "✓" : t.kind === "info" ? "✉" : "⚠"}</span>}
       <div class="grow">
         <div class="t">{t.kind === "error" ? `Couldn't finish: ${t.title}` : t.title}</div>
         {t.detail && <div class="d">{t.detail}</div>}
+        {t.action && <a class="toast-action" href={t.action.href} onClick={() => dismiss(t.id)}>{t.action.label} →</a>}
         {t.kind === "busy" && t.since && <div class="d">Waiting <Elapsed since={t.since} /> · you can keep using the app; this card stays until it's done.</div>}
       </div>
       {t.kind !== "busy" && <button class="ghost small" onClick={() => dismiss(t.id)} aria-label="Dismiss">✕</button>}
@@ -94,12 +97,39 @@ function ToastCard({ t }: { t: Toast }) {
  * Work in progress and failures sit in the middle of the screen, where they are
  * seen; a success is a brief note in the corner.
  */
+/** Where the centre card was dragged to, as an offset from the middle; remembered. */
+const POS_KEY = "rhogov:card-offset";
+const cardOffset = signal<{ x: number; y: number }>((() => { try { return JSON.parse(localStorage.getItem(POS_KEY) ?? "") ?? { x: 0, y: 0 }; } catch { return { x: 0, y: 0 }; } })());
+
+/** Drag the card by any part that isn't a button or link; double-click puts it back in the middle. */
+function dragCard(e: PointerEvent) {
+  if ((e.target as HTMLElement).closest("button, a") || e.button !== 0) return;
+  e.preventDefault();
+  const start = { x: e.clientX, y: e.clientY }, from = cardOffset.value;
+  const half = { x: window.innerWidth / 2 - 40, y: window.innerHeight / 2 - 40 }; // keep it on screen
+  const clamp = (v: number, m: number) => Math.max(-m, Math.min(m, v));
+  const move = (m: PointerEvent) => { cardOffset.value = { x: clamp(from.x + m.clientX - start.x, half.x), y: clamp(from.y + m.clientY - start.y, half.y) }; };
+  const up = () => {
+    window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up);
+    try { localStorage.setItem(POS_KEY, JSON.stringify(cardOffset.value)); } catch { /* storage refused */ }
+  };
+  window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
+}
+const recentre = () => { cardOffset.value = { x: 0, y: 0 }; try { localStorage.removeItem(POS_KEY); } catch { /* storage refused */ } };
+
 export function Toasts() {
-  const centre = toasts.value.filter((t) => t.kind !== "done");
-  const corner = toasts.value.filter((t) => t.kind === "done");
+  const centre = toasts.value.filter((t) => t.kind === "busy" || t.kind === "error");
+  const corner = toasts.value.filter((t) => t.kind === "done" || t.kind === "info");
+  const { x, y } = cardOffset.value;
   return (
     <>
-      {centre.length > 0 && <div class="toasts centre" aria-live="assertive">{centre.map((t) => <ToastCard key={t.id} t={t} />)}</div>}
+      {centre.length > 0 && (
+        <div class="toasts centre" aria-live="assertive" title="Drag to move · double-click to centre"
+          style={{ transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))` }}
+          onPointerDown={dragCard} onDblClick={recentre}>
+          {centre.map((t) => <ToastCard key={t.id} t={t} />)}
+        </div>
+      )}
       <div class="toasts" aria-live="polite">{corner.map((t) => <ToastCard key={t.id} t={t} />)}</div>
     </>
   );
@@ -197,14 +227,13 @@ export function Copy({ text, label = "Copy" }: { text: string; label?: string })
   );
 }
 
+/** A person: their name, with their REV address one click away (tooltip and copy). */
 export function Addr({ addr, avatar = true }: { addr: string; avatar?: boolean }) {
-  const named = addr === myAddr.value || !!addressBook.value[addr];
   return (
     <span class="addr" title={addr}>
       {avatar && <Avatar addr={addr} size={26} />}
       <span class="nm">{nameOf(addr)}</span>
-      {named && <span class="ad">{short(addr)}</span>}
-      <Copy text={addr} label="Copy address" />
+      <Copy text={addr} label={`Copy ${nameOf(addr) === "You" ? "your" : `${nameOf(addr)}'s`} REV address`} />
     </span>
   );
 }

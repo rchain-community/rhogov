@@ -4,6 +4,7 @@ import type { InboxMessage } from "../chain/gov";
 import { looksLikeRevAddress } from "../chain/keys";
 import { active, addressBook, archive, archived, gov, learnNames, myAddr, setArchive } from "../state";
 import { learnFrom } from "./groups";
+import { checkInbox } from "./inbox-watch";
 import { Addr, Info, Loading, Modal, act, go, nameOf, useAsync } from "./kit";
 
 export function InboxScreen() {
@@ -20,6 +21,7 @@ export function InboxScreen() {
   const collect = async () => {
     const got = await act("Collecting your messages", (t) => G.receive(t), { done: "Messages collected." });
     if (got && got.length) { archive(me, c, got); setMsgs(archived(me, c)); }
+    checkInbox(true);
   };
   const remove = (m: InboxMessage) => { const next = msgs.filter((x) => x !== m); setArchive(me, c, next); setMsgs(next); };
 

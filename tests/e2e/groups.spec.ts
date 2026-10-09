@@ -1,6 +1,6 @@
 // Groups end to end: invite link, names, trust, delegation, a weighted vote, inbox, invitations.
 import { expect, test } from "@playwright/test";
-import { hasNameDirectory, onboard, open, person, settle, startCommunity } from "./helpers";
+import { onboard, open, person, settle, startCommunity } from "./helpers";
 
 test("a community decides with trust and delegation", async ({ browser }) => {
   const alice = await person(browser, "Alice");
@@ -27,13 +27,13 @@ test("a community decides with trust and delegation", async ({ browser }) => {
     await settle(p);
   }
 
-  // Names come from the chain's name directory, not from the group. Without one
-  // (the playground), the group's creator shows as her short address.
+  // Names come from the chain's name directory, or without one (the playground)
+  // from the community's own name list: either way the group's creator, whom the
+  // contract labels with the group's name, shows by HER name, never an address.
   await open(bob, groupHash.replace(/\/?$/, "") + "/members");
-  const named = await hasNameDirectory();
-  const ALICE = "1111bn92xHbttqWHEXqD8PiykFxgeUjizzquT6JRePj2pAoHFAuiK";
-  const aliceShown = named ? "Alice" : ALICE.slice(0, 8);
-  await expect(bob.locator(".list .item", { hasText: aliceShown })).toBeVisible();
+  await expect(bob.locator(".list .item", { hasText: "Alice" })).toBeVisible({ timeout: 120_000 });
+  // …and her address is one click away.
+  await expect(bob.getByRole("button", { name: "Copy Alice's REV address" })).toBeVisible();
   await expect(bob.getByRole("heading", { name: "3 members" })).toBeVisible();
 
   // Alice (admin, level 5) vouches for Bob at 4.
@@ -72,7 +72,7 @@ test("a community decides with trust and delegation", async ({ browser }) => {
   // Weights from the node: Alice 1+5 = 6; Bob 1+4 plus Carol's delegated 1 = 6.
   await open(bob, issueHash);
   await bob.getByText("Who voted, and with what weight").click();
-  await expect(bob.locator(".item", { hasText: aliceShown }).getByText("×6")).toBeVisible();
+  await expect(bob.locator(".item", { hasText: "Alice" }).getByText("×6")).toBeVisible();
   await expect(bob.locator(".item", { hasText: "You" }).getByText("×6")).toBeVisible();
 
   // Carol votes herself — overriding her delegation — and tips it.
@@ -95,15 +95,18 @@ test("a community decides with trust and delegation", async ({ browser }) => {
   // Inbox: Bob writes to Alice; Alice collects it, stamped from Bob.
   await open(bob, "#/inbox");
   await bob.getByRole("button", { name: "✎ New message" }).click();
-  if (named) await bob.locator(".modal select").selectOption({ label: "Alice" });
-  else await bob.getByPlaceholder("or paste a REV address (1111…)").fill(ALICE);
+  await bob.locator(".modal select").selectOption({ label: "Alice" });
   await bob.locator(".modal label", { hasText: "Subject" }).locator("input").fill("Seeds");
   await bob.locator(".modal textarea").fill("They arrive Tuesday.");
   await bob.getByRole("button", { name: "Send" }).click();
   await settle(bob);
   await open(alice, "#/");
   await expect(alice.getByText("1 new message")).toBeVisible();
-  await open(alice, "#/inbox");
+  // Wherever she is, the app tells her: an alert, a count on Inbox, and one in the tab title.
+  await expect(alice.getByText("A new message is waiting")).toBeVisible({ timeout: 120_000 });
+  await expect(alice.locator(".nav a", { hasText: "Inbox" }).locator(".count")).toHaveText("1");
+  await expect(alice).toHaveTitle(/^\(1\) rhogov/);
+  await alice.getByRole("link", { name: "Open Inbox →" }).click();
   await alice.getByRole("button", { name: "Collect" }).click();
   await settle(alice);
   await expect(alice.locator(".card", { hasText: "They arrive Tuesday." }).getByText("Bob")).toBeVisible();

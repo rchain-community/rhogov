@@ -199,6 +199,13 @@ Press **✎ New message**, pick a person or paste their address, and send.
 - **Collect** takes your messages out of the chain and keeps them in your
   browser. After that they're gone from the chain, so nobody else can take them.
 - Invitations to groups arrive here too, with a button to open the group.
+- **You're told when something arrives**, wherever you are in the app: an alert
+  with an **Open Inbox** link, a count next to **Inbox**, and the count in the
+  browser tab's title, e.g. "(2) rhogov". The app checks about once a minute
+  while its page is open (checking is a free read, nothing is signed).
+- **Old messages live in the browser that collected them.** Collecting removes
+  them from the chain, so another browser or device with the same key won't see
+  them, and clearing this browser's site data deletes them.
 
 ![The inbox](images/inbox.png)
 
@@ -280,8 +287,10 @@ must be added to the open decisions. The facilitator sees an **Add them** button
 
 On **Account** you can:
 
-- change your display name. On networks that have the chain's name directory,
-  only your key can set your name there, and everyone sees it;
+- change your display name. Everyone sees your name instead of your address, and
+  only your key can set it: in the chain's name directory where the network has
+  one, otherwise on the community's own name list. A name must be **unique in
+  the community**: if someone already has it, you're asked to pick another;
 - copy your **address**: give it to people who want to invite or message you;
 - check your **balance** and, on the playground or testnet, **Get test REV**;
 - **Download backup** of your key, or show it so you can paste it into another
@@ -316,11 +325,12 @@ chose; there's no rhogov server, database or account.
 |---|---|
 | **"Can't reach it"** when choosing a network | Check the address. A local node needs `--api-host`. A page opened over `https://` can only reach `http://` nodes on your own computer. |
 | **"Waiting for a block…"** for a long time | A card in the middle of the screen shows each action in progress, with how long it has waited; you can keep using the app meanwhile. The network is busy or idle. It usually finishes within a minute, and gives up after 4; if so, refresh later before retrying, since your action may still land. |
-| **"Couldn't finish: …"** | The card stays until you close it, and says what went wrong and what to do. |
+| **"Couldn't finish: …"** | The card stays until you close it, and says what went wrong and what to do. You can drag either card out of the way; double-click puts it back in the middle. |
 | **A balance of 0**, **Start community** greyed out, "Not enough REV", or "The node refused this deploy without giving a reason" | On the playground or testnet, press **Get test REV** on Account (on the testnet, [r-wallet](https://rhowallet.org)'s faucet works too). Elsewhere, ask someone to send you REV. |
 | **"This group is invite-only…"** | Ask one of its admins to invite you, using your address from Account. |
 | **"You're not on this issue's voter roll"** | You joined after the vote opened. Ask whoever opened it to add new members to the roll. |
-| **People show as an address, not a name** | That network has no name directory (the playground, today); names come from what people typed when joining a group. |
+| **People show as an address, not a name** | They haven't set a name yet, or haven't had the REV for the one small deploy it takes; it appears once they do. Every person's address is one click away with the ⧉ copy button beside their name. |
+| **"“Name” is taken"** | Someone else in this community already uses that name. Choose another on **Account**. |
 | **Something looks out of date** | rhogov re-reads every 15 seconds; your own actions show up straight away. Reloading the page also works. |
 
 ## 13. Glossary

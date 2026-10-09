@@ -2,7 +2,7 @@
 // council → stakeholder groups → voting-power estimates (median) →
 // deliberation (pros/cons) → stakeholder-weighted vote → decision of record.
 import { expect, test } from "@playwright/test";
-import { hasNameDirectory, onboard, open, person, settle, startCommunity } from "./helpers";
+import { onboard, open, person, settle, startCommunity } from "./helpers";
 
 test("a council reaches a decision of record across stakeholder groups", async ({ browser }) => {
   const alice = await person(browser, "Alice");
@@ -112,5 +112,5 @@ test("a council reaches a decision of record across stakeholder groups", async (
   await expect(record.getByText("Small validators fall behind")).toHaveCount(0); // dissent is about the winner only
   // Names come from the chain's name directory; without one (the playground) the
   // facilitator shows as her short address.
-  await expect(carol.getByText(`Facilitated by ${(await hasNameDirectory()) ? "Alice" : "1111bn92"}`)).toBeVisible();
+  await expect(carol.getByText("Facilitated by Alice")).toBeVisible();
 });

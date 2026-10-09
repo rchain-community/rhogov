@@ -66,7 +66,3 @@ export async function startCommunity(page: Page, name: string): Promise<string> 
 }
 
 /** Does this chain have the genesis name directory? (The playground's genesis predates it.) */
-export async function hasNameDirectory(): Promise<boolean> {
-  try { await resolveNames(new RNode(NODE), ["1111pJu4TJaJDNJDTinnftr2fcHvMfnDeTRXRzwgPfwuKmGMa5juj"]); return true; }
-  catch (e) { if (e instanceof NoDirectory) return false; throw e; }
-}

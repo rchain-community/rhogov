@@ -103,9 +103,32 @@ const published = new Map<string, string | null>(); // addr → published name, 
 let pending = new Set<string>();
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
+/** Names people put on their community's name list (Gov.names): over group labels, under the directory. */
+const listed = new Map<string, string>();
+let listedFor = "";
+/** The active community's whole list (replacing another community's), or `merge` one entry into it. */
+export function learnListed(names: Record<string, string>, merge = false) {
+  const c = active.value?.group ?? "";
+  if (!merge || c !== listedFor) { listed.clear(); listedFor = c; }
+  for (const [a, n] of Object.entries(names)) listed.set(a, n);
+  rebuild({});
+}
+export const listedName = (addr: string) => listed.get(addr);
+
+/** Names as people gave them, before duplicates are told apart (addressBook is what to show). */
+let raw: Record<string, string> = {};
+export const rawNames = () => raw;
+
 function rebuild(labels: Record<string, string>) {
-  const next = { ...addressBook.value, ...labels };
+  const next = { ...raw, ...labels };
+  for (const [a, n] of listed) next[a] = n;
   for (const [a, n] of published) if (n) next[a] = n;
+  raw = { ...next };
+  // Two people with one name (a race, or from before names were unique) are told
+  // apart by the end of their address rather than silently confused.
+  const byName = new Map<string, string[]>();
+  for (const [a, n] of Object.entries(next)) { const k = n.trim().toLowerCase(); byName.set(k, [...(byName.get(k) ?? []), a]); }
+  for (const addrs of byName.values()) if (addrs.length > 1) for (const a of addrs) next[a] = `${next[a]} (…${a.slice(-4)})`;
   if (JSON.stringify(next) !== JSON.stringify(addressBook.value)) addressBook.value = next;
 }
 

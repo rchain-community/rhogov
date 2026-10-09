@@ -27,7 +27,7 @@ export function AccountScreen() {
       <h1>Account</h1>
       <div class="card stack">
         <label class="field">Your name
-          <span class="hint">Published in the chain's name directory under your own address — only your key can set it, and everyone sees it.</span>
+          <span class="hint">What everyone sees instead of your address, set by your key alone: in the chain's name directory where it has one, otherwise on this community's name list. Unique within the community.</span>
           <div class="row"><input class="grow" value={name} onInput={(e) => setName((e.target as HTMLInputElement).value)} />
             <button disabled={name.trim() === displayName.value || !name.trim()} onClick={() => { setDisplayName(name.trim()); syncMyName(true); }}>Save</button></div>
         </label>
