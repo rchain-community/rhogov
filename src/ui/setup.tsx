@@ -23,6 +23,9 @@ export function useNodeStatus(url: string) {
   return s;
 }
 
+/** The one install deploy reserves 2,000,000 phlo at price 1 = 2,000,000 dust (0.02 REV). */
+const INSTALL_NEEDS = 2_000_000;
+
 export const rev = (dust: number | null | undefined) => (dust == null ? "—" : `${(dust / 1e8).toLocaleString(undefined, { maximumFractionDigits: 4 })} REV`);
 
 // --- network --------------------------------------------------------------------
@@ -101,22 +104,33 @@ export function IdentityForm({ onDone }: { onDone?: () => void }) {
   );
 }
 
-export function Balance({ node, addr }: { node: string; addr: string }) {
+/**
+ * One refresh signal for every balance on screen. The setup page shows the same
+ * balance twice (the identity step and the community form, which needs it to
+ * enable "Start community"), so a faucet request in one must refresh both.
+ */
+const balanceTick = signal(0);
+const refreshBalances = () => { balanceTick.value++; };
+
+export function Balance({ node, addr, onBalance }: { node: string; addr: string; onBalance?: (b: number | null) => void }) {
   const [bal, setBal] = useState<number | null | undefined>(undefined);
-  const [n, setN] = useState(0);
+  const tick = balanceTick.value;
   const st = useNodeStatus(node);
-  useEffect(() => { new RNode(node).balance(addr).then(setBal, () => setBal(null)); }, [node, addr, n]);
+  useEffect(() => {
+    new RNode(node).balance(addr).then((b) => { setBal(b); onBalance?.(b); }, () => { setBal(null); onBalance?.(null); });
+  }, [node, addr, tick]);
   const faucet = async () => {
     try {
       await new RNode(node).faucet(addr);
-      notify("Test REV requested", "It arrives with the next block.");
-      setTimeout(() => setN((x) => x + 1), 6000);
+      notify("Test REV requested", "It arrives with the next block — usually a few seconds.");
+      // Re-read until it shows up, rather than once and hoping; a slow block can take a minute.
+      for (const ms of [3000, 6000, 10000, 16000, 25000, 40000, 60000, 90000]) setTimeout(refreshBalances, ms);
     } catch (e) { notify("Faucet unavailable", (e as Error).message, "error"); }
   };
   return (
     <span class="row">
       <b>{bal === undefined ? <Spinner /> : rev(bal)}</b>
-      <button class="ghost small" onClick={() => setN((x) => x + 1)}>Refresh</button>
+      <button class="ghost small" onClick={refreshBalances}>Refresh</button>
       {st.status?.devMode && <button class="small" onClick={faucet}>Get test REV</button>}
       {st.status && !st.status.devMode && (
         <span class="small">This node has no faucet. On the RChain testnet, <a href={R_WALLET} target="_blank" rel="noopener">r-wallet</a>'s faucet can fund <button class="ghost small" onClick={() => navigator.clipboard?.writeText(addr)}>your address ⧉</button>; elsewhere, ask someone to send you REV.</span>
@@ -133,6 +147,7 @@ export function CommunityForm({ node }: { node: string }) {
   const [link, setLink] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [bal, setBal] = useState<number | null | undefined>(undefined);
   const invite = parseInvite(link);
   const join = () => { if (invite) { addCommunity(invite); go("/"); } };
   const start = async () => {
@@ -168,7 +183,9 @@ export function CommunityForm({ node }: { node: string }) {
           <Info>
             The contracts are quantum-os's <b>rgov-core</b>. They store facts only — members, delegations, trust ratings, censures, ballots — and every write can only change the signer's own row, because your identity is derived on chain from your key. Trust levels, censure, vote weights and the tally are computed by the node's built-in <span class="mono">rho:gov:*</span> functions, so nobody (including you, the installer) controls the outcome. As installer you have no power inside any group.
           </Info>
-          <div><button class="primary" disabled={!name.trim() || busy || !secretKey.value} onClick={start}>{busy ? <><Spinner /> Installing…</> : "Start community"}</button></div>
+          {myAddr.value && <div class="small">Your balance: <Balance node={node} addr={myAddr.value} onBalance={setBal} /></div>}
+          {bal !== undefined && bal !== null && bal < INSTALL_NEEDS && <div class="callout warn small">Starting a community needs about {(INSTALL_NEEDS / 1e8).toFixed(2)} REV to cover three deploys' fees. Get test REV first, and wait a few seconds for it to arrive.</div>}
+          <div><button class="primary" disabled={!name.trim() || busy || !secretKey.value || (bal != null && bal < INSTALL_NEEDS)} onClick={start}>{busy ? <><Spinner /> Installing…</> : "Start community"}</button></div>
         </>
       )}
     </div>

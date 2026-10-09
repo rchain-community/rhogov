@@ -17,15 +17,17 @@ test("a newcomer goes from nothing to a decision", async ({ browser }) => {
   await me.getByPlaceholder("e.g. Ada").fill("Newcomer");
   await me.getByRole("button", { name: "Continue" }).click(); // "Create a new key" is the default
 
-  await expect(me.getByText("0 REV")).toBeVisible();
-  await me.getByRole("button", { name: "Get test REV" }).click();
-  await expect(me.getByText("Test REV requested")).toBeVisible();
-  await expect(async () => {
-    await me.getByRole("button", { name: "Refresh" }).click();
-    await expect(me.getByText(/^0\.\d+ REV$/)).toBeVisible({ timeout: 3000 });
-  }).toPass({ timeout: 120_000, intervals: [3000] });
-
+  await expect(me.getByText("0 REV").first()).toBeVisible();
+  // Unfunded, starting a community must be refused up front, saying why,
+  // not attempted and failed by the node with no reason given.
   await me.getByRole("button", { name: "Start a new community" }).click();
+  await me.getByPlaceholder("e.g. RChain Cooperative").fill("Too early");
+  await expect(me.getByText("needs about 0.02 REV")).toBeVisible();
+  await expect(me.getByRole("button", { name: "Start community" })).toBeDisabled();
+  await me.getByRole("button", { name: "Get test REV" }).first().click();
+  await expect(me.getByText("Test REV requested")).toBeVisible();
+  // The balance re-reads itself after a faucet request; the button enables when it lands.
+  await expect(me.getByRole("button", { name: "Start community" })).toBeEnabled({ timeout: 120_000 });
   await me.getByPlaceholder("e.g. RChain Cooperative").fill(`Newcomer test ${Date.now()}`);
   await me.getByRole("button", { name: "Start community" }).click();
   await settle(me);

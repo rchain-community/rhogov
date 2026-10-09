@@ -15,7 +15,7 @@
 // every one of those spellings (spec/API-SCHEMA.md rule 1, "the client accepting
 // both forms").
 
-import { type DeployData, signDeployData } from "./keys";
+import { type DeployData, revAddressOf, signDeployData } from "./keys";
 
 export type RhoValue =
   | null
@@ -74,6 +74,17 @@ export interface NodeStatus {
 }
 
 export class NodeError extends Error {}
+
+const rev = (dust: number) => `${(dust / 1e8).toLocaleString(undefined, { maximumFractionDigits: 4 })} REV`;
+
+/** Not enough REV to pre-charge a deploy. `faucet` = this node can hand out test REV. */
+export class InsufficientFunds extends NodeError {
+  constructor(public have: number, public need: number, public faucet: boolean) {
+    super(`Not enough REV: this action reserves up to ${rev(need)} for its fee and your balance is ${rev(have)}. ` +
+      (faucet ? "Press “Get test REV” (on Account, or in the setup steps) and try again once it arrives — it lands with the next block."
+              : "Ask someone to send REV to your address (Account), then try again."));
+  }
+}
 
 /** The newest block per node URL, shared by every RNode so one writer's block is every reader's. */
 const tips = new Map<string, { hash: string; at: number }>();
@@ -150,10 +161,16 @@ export class RNode {
   /** Sign and submit. Returns the deploy's signature, which is how it is found again. */
   async submit(term: string, key: string, phloLimit = 1_000_000): Promise<string> {
     const st = await this.status().catch(() => ({} as NodeStatus));
+    // The node pre-charges phloLimit × phloPrice, and a deploy it cannot charge
+    // fails with no useful reason ("deploy error message not available…").
+    // Check first and say what is actually wrong.
+    const price = Math.max(1, st.minPhloPrice ?? 1);
+    const bal = await this.balance(revAddressOf(key));
+    if (bal !== null && bal < phloLimit * price) throw new InsufficientFunds(bal, phloLimit * price, !!st.devMode);
     const data: DeployData = {
       term,
       timestamp: Date.now(),
-      phloPrice: Math.max(1, st.minPhloPrice ?? 1),
+      phloPrice: price,
       phloLimit,
       validAfterBlockNumber: Math.max(0, (st.latestBlockNumber ?? 0) - 1),
       shardId: st.shardId || "root",
@@ -169,7 +186,7 @@ export class RNode {
    * Wait for a block to carry the deploy, then return what it sent to deployId.
    * `onTick` reports progress so the UI can say "waiting for a block…".
    */
-  async outcome(sig: string, { timeoutMs = 120_000, onTick }: { timeoutMs?: number; onTick?: (s: string) => void } = {}): Promise<RhoValue[]> {
+  async outcome(sig: string, { timeoutMs = 240_000, onTick }: { timeoutMs?: number; onTick?: (s: string) => void } = {}): Promise<RhoValue[]> {
     const until = Date.now() + timeoutMs;
     let delay = 800;
     while (Date.now() < until) {
@@ -184,7 +201,7 @@ export class RNode {
       const np = j?.NotProcessed ?? j?.notProcessed;
       onTick?.(np?.status ? String(np.status) : "waiting");
     }
-    throw new NodeError("No block carried the deploy in time. It may still land — refresh in a minute.");
+    throw new NodeError("Still waiting for a block after 4 minutes, so this network is busy or stalled. The action may yet land: refresh in a few minutes before trying again, or you may do it twice.");
   }
 
   async deploy(term: string, key: string, opts: { phloLimit?: number; onTick?: (s: string) => void } = {}): Promise<RhoValue[]> {

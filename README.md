@@ -37,7 +37,7 @@ no backend, no relay, no database and no account:
 
 ## What you can do
 
-- **Communities.** Start one (installs the three contracts with your key, in three blocks)
+- **Communities.** Start one (installs the three contracts with your key, in one deploy; Start stays disabled until your balance covers its fee, about 0.02 REV)
   or join one with an invite link. Every community is independent.
 - **Groups.** Open or invite-only. Admins invite by address (with an inbox notification)
   and promote admins; anyone can join an open group.

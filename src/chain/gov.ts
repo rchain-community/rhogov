@@ -445,18 +445,27 @@ export class Gov {
 
   // --- installation ----------------------------------------------------------
 
-  /** Deploy fresh Inbox, Group and Issue contracts; returns their registry URIs. */
+  /**
+   * Deploy fresh Inbox, Group and Issue contracts — in ONE deploy, so a
+   * community is installed all-or-nothing, with one signature and one block.
+   * Each install program is self-contained and reports
+   * ["installed", <name>, <uri>, <owner>] on deployId; the three run in parallel.
+   */
   static async install(nodeUrl: string, key: string, onTick?: (s: string) => void): Promise<{ inbox: string; group: string; issue: string }> {
     const node = new RNode(nodeUrl);
-    const progs = { inbox: core.installInboxProgram(), group: core.installGroupProgram(), issue: core.installIssueProgram() };
+    const term = forDeploy([core.installInboxProgram(), core.installGroupProgram(), core.installIssueProgram()].join("\n|\n"));
+    onTick?.("installing Inbox, Group and Issue…");
+    // Measured: each install uses ~390k phlo, so three fit in 2M with room to spare.
+    const v = await node.deploy(term, key, { phloLimit: 2_000_000, onTick });
     const out: Record<string, string> = {};
-    for (const [k, term] of Object.entries(progs)) {
-      onTick?.(`installing ${k}…`);
-      const v = await node.deploy(forDeploy(term), key, { phloLimit: 2_000_000, onTick: (s) => onTick?.(`installing ${k}: ${s}`) });
-      const uri = JSON.stringify(v).match(/rho:id:[a-z0-9]+/)?.[0];
-      if (!uri) throw new GovError(`Installing ${k} produced no address: ${JSON.stringify(v).slice(0, 200)}`);
-      out[k] = uri;
-    }
+    const visit = (x: RhoValue): void => {
+      if (!Array.isArray(x)) return;
+      if (x[0] === "installed" && typeof x[1] === "string" && typeof x[2] === "string") out[x[1].toLowerCase()] = x[2];
+      else x.forEach(visit);
+    };
+    v.forEach(visit);
+    const missing = ["inbox", "group", "issue"].filter((k) => !/^rho:id:/.test(out[k] ?? ""));
+    if (missing.length) throw new GovError(`The install deploy landed but did not report ${missing.join(", ")}: ${JSON.stringify(v).slice(0, 200)}`);
     return out as { inbox: string; group: string; issue: string };
   }
 }
