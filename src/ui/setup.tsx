@@ -179,12 +179,12 @@ export function CommunityForm({ node }: { node: string }) {
           <label class="field">Community name
             <input value={name} placeholder="e.g. RChain Cooperative" onInput={(e) => setName((e.target as HTMLInputElement).value)} />
           </label>
-          <p class="muted small">This deploys three governance contracts — Inbox, Group and Issue — on <span class="mono">{node}</span>, signed by your key. It takes three blocks and a little REV. Anyone you invite uses the same contracts.</p>
+          <p class="muted small">This deploys three governance contracts — Inbox, Group and Issue — on <span class="mono">{node}</span>, signed by your key. It takes one block and about 0.02 REV. Anyone you invite uses the same contracts.</p>
           <Info>
             The contracts are quantum-os's <b>rgov-core</b>. They store facts only — members, delegations, trust ratings, censures, ballots — and every write can only change the signer's own row, because your identity is derived on chain from your key. Trust levels, censure, vote weights and the tally are computed by the node's built-in <span class="mono">rho:gov:*</span> functions, so nobody (including you, the installer) controls the outcome. As installer you have no power inside any group.
           </Info>
           {myAddr.value && <div class="small">Your balance: <Balance node={node} addr={myAddr.value} onBalance={setBal} /></div>}
-          {bal !== undefined && bal !== null && bal < INSTALL_NEEDS && <div class="callout warn small">Starting a community needs about {(INSTALL_NEEDS / 1e8).toFixed(2)} REV to cover three deploys' fees. Get test REV first, and wait a few seconds for it to arrive.</div>}
+          {bal !== undefined && bal !== null && bal < INSTALL_NEEDS && <div class="callout warn small">Starting a community needs about {(INSTALL_NEEDS / 1e8).toFixed(2)} REV to cover the install's fee. Get test REV first, and wait a few seconds for it to arrive.</div>}
           <div><button class="primary" disabled={!name.trim() || busy || !secretKey.value || (bal != null && bal < INSTALL_NEEDS)} onClick={start}>{busy ? <><Spinner /> Installing…</> : "Start community"}</button></div>
         </>
       )}

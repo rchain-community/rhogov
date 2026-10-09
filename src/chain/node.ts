@@ -176,7 +176,17 @@ export class RNode {
       shardId: st.shardId || "root",
     };
     const { deployer, signature } = signDeployData(data, key);
-    const reply = await this.post("/api/deploy", { data, deployer, signature, sigAlgorithm: "secp256k1" });
+    let reply: unknown;
+    try {
+      reply = await this.post("/api/deploy", { data, deployer, signature, sigAlgorithm: "secp256k1" });
+    } catch (e) {
+      // The node's answer for a deploy it would not take says nothing about why.
+      if (/not available in cache|executed on another node/i.test((e as Error).message))
+        throw new NodeError("The node refused this deploy without giving a reason. The usual cause is a balance too low for the fee " +
+          "(check Account; on a test network press “Get test REV” and wait for it to arrive). If your balance is fine, try again in a minute. " +
+          `Node said: “${(e as Error).message}”`);
+      throw e;
+    }
     const text = typeof reply === "string" ? reply : JSON.stringify(reply);
     if (!/success/i.test(text)) throw new NodeError(text);
     return signature;

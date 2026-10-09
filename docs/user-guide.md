@@ -315,8 +315,9 @@ chose; there's no rhogov server, database or account.
 | What you see | What to do |
 |---|---|
 | **"Can't reach it"** when choosing a network | Check the address. A local node needs `--api-host`. A page opened over `https://` can only reach `http://` nodes on your own computer. |
-| **"Waiting for a block…"** for a long time | The network is busy or idle. It usually finishes within a minute; if not, refresh later, since your action may still land. |
-| **A balance of 0**, or an action fails for lack of funds | On the playground or testnet, press **Get test REV** on Account (on the testnet, [r-wallet](https://rhowallet.org)'s faucet works too). Elsewhere, ask someone to send you REV. |
+| **"Waiting for a block…"** for a long time | A card in the middle of the screen shows each action in progress, with how long it has waited; you can keep using the app meanwhile. The network is busy or idle. It usually finishes within a minute, and gives up after 4; if so, refresh later before retrying, since your action may still land. |
+| **"Couldn't finish: …"** | The card stays until you close it, and says what went wrong and what to do. |
+| **A balance of 0**, **Start community** greyed out, "Not enough REV", or "The node refused this deploy without giving a reason" | On the playground or testnet, press **Get test REV** on Account (on the testnet, [r-wallet](https://rhowallet.org)'s faucet works too). Elsewhere, ask someone to send you REV. |
 | **"This group is invite-only…"** | Ask one of its admins to invite you, using your address from Account. |
 | **"You're not on this issue's voter roll"** | You joined after the vote opened. Ask whoever opened it to add new members to the roll. |
 | **People show as an address, not a name** | That network has no name directory (the playground, today); names come from what people typed when joining a group. |

@@ -49,7 +49,7 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]): Async<T> {
 
 // --- toasts ----------------------------------------------------------------------
 
-interface Toast { id: number; title: string; detail?: string; kind: "busy" | "done" | "error" }
+interface Toast { id: number; title: string; detail?: string; kind: "busy" | "done" | "error"; since?: number }
 export const toasts = signal<Toast[]>([]);
 let tid = 0;
 function pushToast(t: Omit<Toast, "id">) {
@@ -60,22 +60,48 @@ function pushToast(t: Omit<Toast, "id">) {
     close: (ms = 0) => setTimeout(() => { toasts.value = toasts.value.filter((x) => x.id !== id); }, ms),
   };
 }
-export const notify = (title: string, detail?: string, kind: Toast["kind"] = "done") => pushToast({ title, detail, kind }).close(kind === "error" ? 9000 : 4000);
+/** Errors stay until dismissed: they are what someone has to act on. */
+export const notify = (title: string, detail?: string, kind: Toast["kind"] = "done") => {
+  const t = pushToast({ title, detail, kind });
+  if (kind !== "error") t.close(4000);
+};
 
-export function Toasts() {
+const dismiss = (id: number) => (toasts.value = toasts.value.filter((x) => x.id !== id));
+
+/** Seconds since `since`, ticking, so a long wait visibly is one. */
+function Elapsed({ since }: { since: number }) {
+  const [, tick] = useState(0);
+  useEffect(() => { const h = setInterval(() => tick((n) => n + 1), 1000); return () => clearInterval(h); }, []);
+  const s = Math.floor((Date.now() - since) / 1000);
+  return <span class="elapsed">{s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${s % 60} s`}</span>;
+}
+
+function ToastCard({ t }: { t: Toast }) {
   return (
-    <div class="toasts" aria-live="polite">
-      {toasts.value.map((t) => (
-        <div key={t.id} class={`toast ${t.kind}`} role="status">
-          {t.kind === "busy" ? <span class="spinner" /> : <span>{t.kind === "done" ? "✓" : "⚠"}</span>}
-          <div class="grow">
-            <div class="t">{t.title}</div>
-            {t.detail && <div class="d">{t.detail}</div>}
-          </div>
-          {t.kind !== "busy" && <button class="ghost small" onClick={() => (toasts.value = toasts.value.filter((x) => x.id !== t.id))} aria-label="Dismiss">✕</button>}
-        </div>
-      ))}
+    <div class={`toast ${t.kind}`} role={t.kind === "error" ? "alert" : "status"}>
+      {t.kind === "busy" ? <span class="spinner" /> : <span class="icon">{t.kind === "done" ? "✓" : "⚠"}</span>}
+      <div class="grow">
+        <div class="t">{t.kind === "error" ? `Couldn't finish: ${t.title}` : t.title}</div>
+        {t.detail && <div class="d">{t.detail}</div>}
+        {t.kind === "busy" && t.since && <div class="d">Waiting <Elapsed since={t.since} /> · you can keep using the app; this card stays until it's done.</div>}
+      </div>
+      {t.kind !== "busy" && <button class="ghost small" onClick={() => dismiss(t.id)} aria-label="Dismiss">✕</button>}
     </div>
+  );
+}
+
+/**
+ * Work in progress and failures sit in the middle of the screen, where they are
+ * seen; a success is a brief note in the corner.
+ */
+export function Toasts() {
+  const centre = toasts.value.filter((t) => t.kind !== "done");
+  const corner = toasts.value.filter((t) => t.kind === "done");
+  return (
+    <>
+      {centre.length > 0 && <div class="toasts centre" aria-live="assertive">{centre.map((t) => <ToastCard key={t.id} t={t} />)}</div>}
+      <div class="toasts" aria-live="polite">{corner.map((t) => <ToastCard key={t.id} t={t} />)}</div>
+    </>
   );
 }
 
@@ -111,7 +137,7 @@ export async function act<T>(title: string, run: (onTick: (s: string) => void) =
     const ok = await new Promise<boolean>((resolve) => { review.value = { title, term: opts.preview!, resolve }; });
     if (!ok) return undefined;
   }
-  const t = pushToast({ title, detail: "Signing…", kind: "busy" });
+  const t = pushToast({ title, detail: "Signing…", kind: "busy", since: Date.now() });
   try {
     const out = await run((s) => t.update({ detail: TICK[s] ?? s }));
     t.update({ kind: "done", detail: opts.done ?? "Recorded on chain." });
@@ -120,7 +146,6 @@ export async function act<T>(title: string, run: (onTick: (s: string) => void) =
     return out;
   } catch (e) {
     t.update({ kind: "error", detail: (e as Error).message });
-    t.close(12000);
     refresh(true);
     return undefined;
   }
