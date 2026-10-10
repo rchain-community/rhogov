@@ -1,6 +1,7 @@
 // unit.ts — offline checks (no node): decoding, keys, council arithmetic.
 import { approvalShare, approvals, chamberPower, combine, decodeArg, encodeArg, estimateBallot, parseEstimate } from "../src/chain/council";
 import { toGroup } from "../src/chain/gov";
+import { resolvePerson } from "../src/chain/people";
 import { revAddressOf } from "../src/chain/keys";
 import { decode } from "../src/chain/node";
 
@@ -51,6 +52,25 @@ const t = combine(["x", "y"], [{ chamber: { id: "A" }, share: { x: 0.5, y: 0.5 }
 ok("a tie names no winner", t.winner === null && eq(t.tie.sort(), ["x", "y"]), t);
 ok("vote counts: one per person per option, unknown options ignored",
   eq(approvals(["x", "y", "z"], { a: ["x", "y"], b: ["x", "x"], c: ["w"] }), { x: 2, y: 1, z: 0 }));
+
+// Choosing a person by name or address.
+{
+  const A = "1111bn92xHbttqWHEXqD8PiykFxgeUjizzquT6JRePj2pAoHFAuiK", B = "1111pJu4TJaJDNJDTinnftr2fcHvMfnDeTRXRzwgPfwuKmGMa5juj";
+  const C = "1111gW5kkGxHg7xDg6dRkZx2f7qxTizJzaCH9VEM1oJKWRvSX9Sk5";
+  const people = { [A]: "Aria", [B]: "Jim", [C]: "jim" };
+  const r1 = resolvePerson(" aria ", people);
+  ok("a name resolves, ignoring case and space", r1.ok && r1.addr === A);
+  const r2 = resolvePerson(B, people);
+  ok("an address is taken as typed", r2.ok && r2.addr === B && r2.name === "Jim");
+  const r3 = resolvePerson("Jim", people);
+  ok("a shared name is ambiguous", !r3.ok && r3.why === "ambiguous" && r3.matches!.length === 2);
+  const r4 = resolvePerson(`jim (…${C.slice(-4)})`, people);
+  ok("the disambiguated form picks one", r4.ok && r4.addr === C);
+  const r5 = resolvePerson("Zed", people);
+  ok("an unknown name is refused", !r5.ok && r5.why === "unknown");
+  const r6 = resolvePerson("1111bn92xHbttqWHEX", people);
+  ok("a truncated address is called out", !r6.ok && (r6.why === "bad-address" || r6.why === "unknown"));
+}
 
 // Arguments.
 ok("argument round trip keeps pipes in text", eq(decodeArg(encodeArg("con", "2s", "a | b")), { raw: "con|2s|a | b", side: "con", option: "2s", text: "a | b" }));

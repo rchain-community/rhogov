@@ -1,7 +1,5 @@
 import { type Browser, type Page, expect } from "@playwright/test";
 import { resolve } from "node:path";
-import { RNode } from "../../src/chain/node";
-import { NoDirectory, resolveNames } from "../../src/chain/profile";
 
 export const APP = "file://" + resolve("dist/index.html");
 export const NODE = process.env.RHOGOV_NODE ?? "http://127.0.0.1:40403";

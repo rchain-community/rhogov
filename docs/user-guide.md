@@ -87,13 +87,15 @@ groups you're in and the others in the community.
 **Create a group** with **＋ New group** and choose who can join:
 
 - **Open**: anyone in the community can join.
-- **Invite only**: an admin invites people by their address, and they join when
-  they're ready.
+- **Invite only**: an admin invites people, and they join when they're ready.
 
 ![Creating a group](images/new-group.png)
 
 Whoever creates a group is its first **admin**. Admins can invite people (with
-an optional message to their inbox) and make other members admins. Admins have
+an optional message to their inbox) and make other members admins. To invite
+someone, type their **name** (names in the community are suggested as you type)
+or paste their **REV address**. An address works even for someone who isn't in
+the community yet; a name must belong to exactly one person here. Admins have
 no extra say in votes, apart from the trust they start with
 ([section 6](#6-trust)).
 
@@ -191,7 +193,8 @@ below two-thirds.
 ## 8. Inbox
 
 Anyone in the community can send you a message, and you can message anyone.
-Press **✎ New message**, pick a person or paste their address, and send.
+Press **✎ New message**, type the person's name (or paste their REV address),
+and send.
 
 - The sender's name is attached by the contract itself, so it can't be faked.
 - Anyone can see *how many* messages you have waiting, but the contents aren't
@@ -327,7 +330,8 @@ chose; there's no rhogov server, database or account.
 | **"Waiting for a block…"** for a long time | A card in the middle of the screen shows each action in progress, with how long it has waited; you can keep using the app meanwhile. The network is busy or idle. It usually finishes within a minute, and gives up after 4; if so, refresh later before retrying, since your action may still land. |
 | **"Couldn't finish: …"** | The card stays until you close it, and says what went wrong and what to do. You can drag either card out of the way; double-click puts it back in the middle. |
 | **A balance of 0**, **Start community** greyed out, "Not enough REV", or "The node refused this deploy without giving a reason" | On the playground or testnet, press **Get test REV** on Account (on the testnet, [r-wallet](https://rhowallet.org)'s faucet works too). Elsewhere, ask someone to send you REV. |
-| **"This group is invite-only…"** | Ask one of its admins to invite you, using your address from Account. |
+| **"This group is invite-only…"** | Ask one of its admins to invite you, by your name or your address from Account. |
+| **"No one in this community is called …"** | Check the spelling, or ask for their REV address and paste that instead. Someone shows up by name only once they've set it. |
 | **"You're not on this issue's voter roll"** | You joined after the vote opened. Ask whoever opened it to add new members to the roll. |
 | **People show as an address, not a name** | They haven't set a name yet, or haven't had the REV for the one small deploy it takes; it appears once they do. Every person's address is one click away with the ⧉ copy button beside their name. |
 | **"“Name” is taken"** | Someone else in this community already uses that name. Choose another on **Account**. |

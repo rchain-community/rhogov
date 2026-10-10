@@ -1,9 +1,8 @@
 // groups.tsx — the groups directory and a group's page (members, trust, delegation, votes).
 import { useState } from "preact/hooks";
 import { type Group, type Issue, type Standing, makeId } from "../chain/gov";
-import { looksLikeRevAddress } from "../chain/keys";
 import { displayName, gov, learnNames, myAddr } from "../state";
-import { Addr, Info, Loading, Modal, Trust, act, go, href, nameOf, useAsync } from "./kit";
+import { Addr, Info, Loading, Modal, PersonField, Trust, act, go, href, nameOf, useAsync } from "./kit";
 import { IssueCard, NewIssueModal } from "./votes";
 import { COUNCIL_PREFIX } from "../chain/council";
 
@@ -317,24 +316,21 @@ export function DelegateModal({ g, issueId, issueTitle, onClose }: { g: Group; i
 
 function InviteModal({ g, onClose }: { g: Group; onClose: () => void }) {
   const G = gov.value!;
-  const [addr, setAddr] = useState("");
+  const [addr, setAddr] = useState<string | null>(null);
   const [notify, setNotify] = useState(true);
-  const ok = looksLikeRevAddress(addr);
+  const already = !!addr && g.members.some((m) => m.addr === addr);
   const send = async () => {
-    const a = addr.trim();
+    const a = addr!;
     onClose();
     if (g.policy === "invite") await act(`Inviting ${nameOf(a)}`, (t) => G.invite(g.id, a, t), { done: "Invitation recorded on chain." });
-    if (notify) await act("Sending the invitation to their inbox", (t) => G.send(a, "invite", { gid: g.id, group: g.name, body: `You're invited to join ${g.name}.` }, t), { done: "Delivered to their inbox." });
+    if (notify) await act(`Sending ${nameOf(a)} the invitation`, (t) => G.send(a, "invite", { gid: g.id, group: g.name, body: `You're invited to join ${g.name}.` }, t), { done: "Delivered to their inbox." });
   };
   return (
     <Modal title={`Invite someone to ${g.name}`} onClose={onClose}
-      actions={<><button onClick={onClose}>Cancel</button><button class="primary" disabled={!ok} onClick={send}>Invite</button></>}>
+      actions={<><button onClick={onClose}>Cancel</button><button class="primary" disabled={!addr || already} onClick={send}>Invite</button></>}>
       <div class="stack">
-        <label class="field">Their REV address
-          <span class="hint">They can copy it from their Account page.</span>
-          <input class="mono" value={addr} placeholder="1111…" onInput={(e) => setAddr((e.target as HTMLInputElement).value)} />
-        </label>
-        {addr && !ok && <span class="badge danger">That doesn't look like a REV address</span>}
+        <PersonField label="Who" onChange={setAddr} />
+        {already && <span class="badge warn">{nameOf(addr!)} is already a member.</span>}
         <label class="row"><input type="checkbox" style={{ width: "auto" }} checked={notify} onChange={(e) => setNotify((e.target as HTMLInputElement).checked)} /> Also send them a message with a link to join</label>
         {g.policy === "open" && <p class="muted small">This group is open, so anyone can already join; the message just lets them know.</p>}
       </div>

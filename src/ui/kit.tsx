@@ -2,7 +2,8 @@
 import { signal } from "@preact/signals";
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { addressBook, forceTick, myAddr, refresh, refreshTick, reviewBeforeSign } from "../state";
+import { resolvePerson } from "../chain/people";
+import { addressBook, forceTick, gov, learnListed, learnNames, myAddr, rawNames, refresh, refreshTick, reviewBeforeSign } from "../state";
 
 // --- routing (hash) ------------------------------------------------------------
 
@@ -245,4 +246,47 @@ export function Trust({ level }: { level: number | undefined }) {
 
 export function Info({ children }: { children: ComponentChildren }) {
   return <details class="small"><summary>How does this work?</summary><div style={{ marginTop: ".5rem" }}>{children}</div></details>;
+}
+
+// --- choosing a person -------------------------------------------------------------
+
+let fieldIds = 0;
+
+/**
+ * A person by name or by REV address. Suggests the community's names as you
+ * type; a name must match exactly one person here, and an address is taken as
+ * typed (someone not in the community yet can still be invited or messaged).
+ * Reports the chosen address, or null while it doesn't name anyone.
+ */
+export function PersonField({ label, hint, initial = "", onChange }: { label: string; hint?: string; initial?: string; onChange: (addr: string | null) => void }) {
+  const G = gov.value!;
+  const [text, setText] = useState(initial ? (addressBook.value[initial] ?? initial) : "");
+  const [id] = useState(() => `people-${++fieldIds}`);
+  // Everyone this community knows: members of any group, and its name list.
+  const people = useAsync(async () => {
+    const [gs, listed] = await Promise.all([G.groups().catch(() => []), G.names().catch(() => ({}))]);
+    learnListed(listed, true);
+    // Group labels (not a creator's, which is the group's name), and directory names where there is one.
+    learnNames(gs.flatMap((g) => g.members.map((m) => ({ addr: m.addr, label: m.label !== g.name ? m.label : "" }))));
+    const addrs = new Set([...gs.flatMap((g) => g.members.map((m) => m.addr)), ...Object.keys(listed)]);
+    return [...addrs];
+  }, [G.c.group]);
+  const names = Object.fromEntries((people.data ?? []).map((a) => [a, rawNames()[a] ?? ""]).filter(([, n]) => n));
+  const r = resolvePerson(text, names);
+  useEffect(() => { onChange(r.ok ? r.addr : null); }, [r.ok ? r.addr : null]);
+  const suggestions = (people.data ?? []).filter((a) => a !== myAddr.value && addressBook.value[a]).map((a) => addressBook.value[a]).sort();
+  return (
+    <label class="field">{label}
+      <span class="hint">{hint ?? "Type their name, or paste their REV address (from their Account page)."}</span>
+      <input value={text} list={id} placeholder="A name, or 1111…" autocomplete="off" onInput={(e) => setText((e.target as HTMLInputElement).value)} />
+      <datalist id={id}>{suggestions.map((n) => <option value={n} />)}</datalist>
+      {text.trim() && (r.ok
+        ? <span class="small muted">→ <Addr addr={r.addr} avatar={false} />{!r.name && " (not known in this community yet)"}</span>
+        : <span class="badge danger">{
+            r.why === "ambiguous" ? `${r.matches!.length} people here are called “${text.trim()}”; pick one from the list.`
+            : r.why === "bad-address" ? "That doesn't look like a complete REV address."
+            : people.loading && !people.data ? "Looking up names…"
+            : `No one in this community is called “${text.trim()}”. Check the spelling, or paste their REV address.`}</span>)}
+    </label>
+  );
 }

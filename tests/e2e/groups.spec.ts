@@ -95,7 +95,8 @@ test("a community decides with trust and delegation", async ({ browser }) => {
   // Inbox: Bob writes to Alice; Alice collects it, stamped from Bob.
   await open(bob, "#/inbox");
   await bob.getByRole("button", { name: "✎ New message" }).click();
-  await bob.locator(".modal select").selectOption({ label: "Alice" });
+  await bob.locator(".modal").getByLabel("To").fill("alice"); // a name, any case
+  await expect(bob.locator(".modal").getByText("→")).toContainText("Alice");
   await bob.locator(".modal label", { hasText: "Subject" }).locator("input").fill("Seeds");
   await bob.locator(".modal textarea").fill("They arrive Tuesday.");
   await bob.getByRole("button", { name: "Send" }).click();
@@ -113,7 +114,7 @@ test("a community decides with trust and delegation", async ({ browser }) => {
   await open(alice, "#/inbox");
   await expect(alice.getByText("No new messages on chain.")).toBeVisible();
 
-  // An invite-only group: Alice invites Carol by address, with a message.
+  // An invite-only group: Alice invites Carol by name, with a message.
   await open(alice, "#/groups");
   await alice.getByRole("button", { name: "＋ New group" }).click();
   await alice.getByPlaceholder("e.g. Budget committee").fill("Inner circle");
@@ -121,11 +122,14 @@ test("a community decides with trust and delegation", async ({ browser }) => {
   await alice.getByRole("button", { name: "Create group" }).click();
   await settle(alice);
   const inner = await alice.evaluate(() => location.hash);
-  await open(carol, "#/account");
-  const carolFull = await carol.locator(".card .mono").first().textContent();
   await open(alice, inner + "/members");
   await alice.getByRole("button", { name: "Invite someone" }).click();
-  await alice.getByPlaceholder("1111…").fill(carolFull!.trim());
+  // By name: a misspelling is refused with a reason, the right name resolves to her address.
+  await alice.locator(".modal").getByLabel("Who").fill("Karol");
+  await expect(alice.getByText("No one in this community is called “Karol”")).toBeVisible();
+  await expect(alice.getByRole("button", { name: "Invite", exact: true })).toBeDisabled();
+  await alice.locator(".modal").getByLabel("Who").fill("Carol");
+  await expect(alice.locator(".modal").getByText("→")).toContainText("Carol");
   await alice.getByRole("button", { name: "Invite", exact: true }).click();
   await settle(alice);
   await open(carol, "#/");

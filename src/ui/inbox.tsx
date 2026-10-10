@@ -1,11 +1,10 @@
 // inbox.tsx — on-chain messages. Sending is public-write; receiving consumes.
 import { useState } from "preact/hooks";
 import type { InboxMessage } from "../chain/gov";
-import { looksLikeRevAddress } from "../chain/keys";
-import { active, addressBook, archive, archived, gov, learnNames, myAddr, setArchive } from "../state";
+import { active, archive, archived, gov, learnNames, myAddr, setArchive } from "../state";
 import { learnFrom } from "./groups";
 import { checkInbox } from "./inbox-watch";
-import { Addr, Info, Loading, Modal, act, go, nameOf, useAsync } from "./kit";
+import { Addr, Info, Loading, Modal, PersonField, act, go, nameOf, useAsync } from "./kit";
 
 export function InboxScreen() {
   const G = gov.value!;
@@ -71,25 +70,15 @@ export function InboxScreen() {
 
 export function Compose({ initial, onClose }: { initial: { to?: string; subject?: string }; onClose: () => void }) {
   const G = gov.value!;
-  const [to, setTo] = useState(initial.to ?? "");
+  const [to, setTo] = useState<string | null>(initial.to ?? null);
   const [subject, setSubject] = useState(initial.subject ?? "");
   const [body, setBody] = useState("");
-  const known = Object.entries(addressBook.value).filter(([a]) => a !== myAddr.value);
-  const ok = looksLikeRevAddress(to) && body.trim();
+  const ok = !!to && body.trim();
   return (
     <Modal title="New message" onClose={onClose}
-      actions={<><button onClick={onClose}>Cancel</button><button class="primary" disabled={!ok} onClick={() => { onClose(); act(`Sending to ${nameOf(to)}`, (t) => G.send(to.trim(), "note", { subject: subject.trim(), body: body.trim() }, t), { done: "Delivered to their inbox." }); }}>Send</button></>}>
+      actions={<><button onClick={onClose}>Cancel</button><button class="primary" disabled={!ok} onClick={() => { onClose(); act(`Sending to ${nameOf(to!)}`, (t) => G.send(to!, "note", { subject: subject.trim(), body: body.trim() }, t), { done: "Delivered to their inbox." }); }}>Send</button></>}>
       <div class="stack">
-        <label class="field">To
-          {known.length > 0 && (
-            <select value={known.some(([a]) => a === to) ? to : ""} onChange={(e) => setTo((e.target as HTMLSelectElement).value)}>
-              <option value="">Choose someone…</option>
-              {known.map(([a, n]) => <option value={a}>{n}</option>)}
-            </select>
-          )}
-          <input class="mono" placeholder="or paste a REV address (1111…)" value={to} onInput={(e) => setTo((e.target as HTMLInputElement).value)} />
-          {to && !looksLikeRevAddress(to) && <span class="badge danger">That doesn't look like a REV address</span>}
-        </label>
+        <PersonField label="To" initial={initial.to} onChange={setTo} />
         <label class="field">Subject<input value={subject} onInput={(e) => setSubject((e.target as HTMLInputElement).value)} /></label>
         <label class="field">Message<textarea rows={5} value={body} onInput={(e) => setBody((e.target as HTMLTextAreaElement).value)} /></label>
         <p class="muted small">Not encrypted — readable in chain state until collected.</p>
