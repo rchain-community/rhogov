@@ -1,4 +1,5 @@
 // setup.tsx — getting started: network, identity, community. Also the Account screen pieces.
+import { GUIDE } from "./help";
 import { signal } from "@preact/signals";
 import { useEffect, useState } from "preact/hooks";
 import { Gov } from "../chain/gov";
@@ -204,7 +205,7 @@ export function Welcome() {
       <div>
         <h1>Welcome to rhogov</h1>
         <p class="muted">Decide things together on RChain: groups, delegated voting, trust, and private inboxes — all on chain, with no administrator in the middle.</p>
-        <p class="small">New here? <a href="https://github.com/rchain-community/rhogov/blob/main/docs/user-guide.md" target="_blank" rel="noopener">Read the user guide</a> — five minutes.</p>
+        <p class="small">New here? <a href={GUIDE} target="_blank" rel="noopener">Read the user guide</a> — five minutes.</p>
       </div>
       <div class="steps">
         <div class={cls(1)}>

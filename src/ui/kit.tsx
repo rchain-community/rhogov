@@ -52,6 +52,13 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]): Async<T> {
 
 interface Toast { id: number; title: string; detail?: string; kind: "busy" | "done" | "error" | "info"; since?: number; action?: { label: string; href: string } }
 export const toasts = signal<Toast[]>([]);
+
+/** The last few failures this session, for a problem report (Help → Report a problem). */
+export const recentErrors: { at: string; title: string; detail?: string; route: string }[] = [];
+function logError(title: string, detail?: string) {
+  recentErrors.push({ at: new Date().toISOString(), title, detail, route: location.hash || "#/" });
+  if (recentErrors.length > 5) recentErrors.shift();
+}
 let tid = 0;
 function pushToast(t: Omit<Toast, "id">) {
   const id = ++tid;
@@ -63,6 +70,7 @@ function pushToast(t: Omit<Toast, "id">) {
 }
 /** Errors stay until dismissed: they are what someone has to act on. */
 export const notify = (title: string, detail?: string, kind: Toast["kind"] = "done", action?: Toast["action"]) => {
+  if (kind === "error") logError(title, detail);
   const t = pushToast({ title, detail, kind, action });
   if (kind === "done") t.close(4000);
   // "info" (a new message, say) waits to be seen, but not forever.
@@ -176,6 +184,7 @@ export async function act<T>(title: string, run: (onTick: (s: string) => void) =
     refresh(true);
     return out;
   } catch (e) {
+    logError(title, (e as Error).message);
     t.update({ kind: "error", detail: (e as Error).message });
     refresh(true);
     return undefined;

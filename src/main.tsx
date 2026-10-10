@@ -1,6 +1,7 @@
 import { render } from "preact";
 import { useEffect } from "preact/hooks";
 import { syncMyName } from "./ui/name-sync";
+import { Help } from "./ui/help";
 import { UpdateBanner, watchForUpdates } from "./ui/update";
 import { checkInbox, titleWithCount, waitingCount } from "./ui/inbox-watch";
 import "./styles.css";
@@ -14,7 +15,6 @@ import { Welcome } from "./ui/setup";
 import { IssueScreen } from "./ui/votes";
 import { CouncilScreen, CouncilsScreen } from "./ui/council";
 
-export const GUIDE = "https://github.com/rchain-community/rhogov/blob/main/docs/user-guide.md";
 
 const NAV = [
   ["/", "⌂", "Home"],
@@ -59,7 +59,7 @@ function App() {
       <nav class="side">
         <div class="brand"><span class="logo">ρ</span> rhogov</div>
         {ready && <div class="nav">{NAV.map(([p, icon, label]) => <a href={`#${p}`} class={on(p) ? "on" : ""}><span aria-hidden="true">{icon}</span> {label}{p === "/inbox" && (waitingCount.value ?? 0) > 0 && <span class="count" aria-label={`${waitingCount.value} new`}>{waitingCount.value}</span>}</a>)}</div>}
-        <a class="guide" href={GUIDE} target="_blank" rel="noopener">? User guide</a>
+        <Help />
         <div class="build muted" title="The version of rhogov this page is running">version {__BUILD__}</div>
         {ready && <div class="foot"><div><b>{active.value!.name}</b></div><div>{displayName.value} · <span class="mono">{short(myAddr.value!)}</span></div></div>}
       </nav>

@@ -7,7 +7,9 @@ import { signal } from "@preact/signals";
 import { toasts } from "./kit";
 
 const EVERY = 5 * 60_000;
-const newer = signal<string | null>(null);
+/** The newer build that's been published, if any. */
+export const newVersion = signal<string | null>(null);
+const newer = newVersion;
 const later = signal<string | null>(null);
 
 async function check() {

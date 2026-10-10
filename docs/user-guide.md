@@ -324,6 +324,19 @@ chose; there's no rhogov server, database or account.
 
 ## 12. Troubleshooting
 
+**Help is in the menu** (bottom left; on a phone, **? Help** at the end of the bottom bar):
+
+- **Help for you** explains the screen you're on and lists your next steps, worked
+  out from where you are. For example: finish setup; your balance is too low to act;
+  others still see your address, not your name; a vote needs your ballot; you joined
+  after a vote opened; messages are waiting; or you're in no group yet. Each step has a
+  link that takes you there.
+- **User guide** is this page, and **About rhogov** is the project's README.
+- **Report a problem** opens a GitHub issue for you to check and submit. It comes
+  filled in with your rhogov version, network, community, address, balance, what Help
+  suggested, and your recent errors. Your key is never included, and you see exactly
+  what's sent before anything leaves the page.
+
 | What you see | What to do |
 |---|---|
 | **"Can't reach it"** when choosing a network | Check the address. A local node needs `--api-host`. A page opened over `https://` can only reach `http://` nodes on your own computer. |

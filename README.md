@@ -60,6 +60,10 @@ no backend, no relay, no database and no account:
   New arrivals raise an alert, a count on Inbox and one in the tab title (one free read
   a minute).
 - **Multi-stakeholder councils**: see below.
+- **Help that knows where you are.** Help in the menu explains the current screen and lists
+  next steps from your state (setup, funds, name, groups, votes, inbox). **Report a problem**
+  opens a GitHub issue pre-filled with your version, network, community, balance, those
+  suggestions and recent errors, never your key.
 - **Review before signing.** An Account setting shows the exact rholang before each signature.
 
 ### Multi-stakeholder councils
