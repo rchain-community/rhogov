@@ -34,6 +34,9 @@ no backend, no relay, no database and no account:
 - **reads** are `explore-deploy` against the newest block; **writes** are signed deploys whose
   answers come back through `deploy-status`;
 - an **invite link** carries only the node URL and the three contract addresses.
+- **updates**: the build also publishes `version.json` (the commit). An open page checks it
+  every 5 minutes and when the tab comes back into view, and offers to reload when it
+  differs. A page opened from disk skips the check.
 
 ## What you can do
 

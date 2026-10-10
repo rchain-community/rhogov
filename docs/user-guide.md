@@ -335,6 +335,7 @@ chose; there's no rhogov server, database or account.
 | **"You're not on this issue's voter roll"** | You joined after the vote opened. Ask whoever opened it to add new members to the roll. |
 | **People show as an address, not a name** | They haven't set a name yet, or haven't had the REV for the one small deploy it takes; it appears once they do. Every person's address is one click away with the ⧉ copy button beside their name. |
 | **"“Name” is taken"** | Someone else in this community already uses that name. Choose another on **Account**. |
+| **"A new version of rhogov is available"** | A newer rhogov was published while your page was open. Press **Reload** (nothing you've done is lost), or **Later**. The version you're running is shown at the bottom of the menu. |
 | **Something looks out of date** | rhogov re-reads every 15 seconds; your own actions show up straight away. Reloading the page also works. |
 
 ## 13. Glossary

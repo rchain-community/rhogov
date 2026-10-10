@@ -185,3 +185,8 @@ details summary { cursor: pointer; color: var(--muted); }
 .rank .r { display: flex; align-items: center; gap: .6rem; padding: .5rem .7rem; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
 .rank .r .pos { font-weight: 700; color: var(--accent); width: 1.4rem; }
 .rank .r.off { opacity: .55; }
+
+/* new-version banner */
+.update { position: sticky; top: 0; z-index: 40; display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 10px; padding: .6rem .8rem; margin-bottom: 1rem; }
+.update span { flex: 1; min-width: 12rem; }
+.build { font-size: .72rem; padding: 0 .7rem; }

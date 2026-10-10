@@ -1,6 +1,7 @@
 import { render } from "preact";
 import { useEffect } from "preact/hooks";
 import { syncMyName } from "./ui/name-sync";
+import { UpdateBanner, watchForUpdates } from "./ui/update";
 import { checkInbox, titleWithCount, waitingCount } from "./ui/inbox-watch";
 import "./styles.css";
 import { active, displayName, myAddr, refreshTick } from "./state";
@@ -59,9 +60,10 @@ function App() {
         <div class="brand"><span class="logo">ρ</span> rhogov</div>
         {ready && <div class="nav">{NAV.map(([p, icon, label]) => <a href={`#${p}`} class={on(p) ? "on" : ""}><span aria-hidden="true">{icon}</span> {label}{p === "/inbox" && (waitingCount.value ?? 0) > 0 && <span class="count" aria-label={`${waitingCount.value} new`}>{waitingCount.value}</span>}</a>)}</div>}
         <a class="guide" href={GUIDE} target="_blank" rel="noopener">? User guide</a>
+        <div class="build muted" title="The version of rhogov this page is running">version {__BUILD__}</div>
         {ready && <div class="foot"><div><b>{active.value!.name}</b></div><div>{displayName.value} · <span class="mono">{short(myAddr.value!)}</span></div></div>}
       </nav>
-      <main><Page /></main>
+      <main><UpdateBanner /><Page /></main>
       <Toasts />
       <ReviewModal />
     </div>
@@ -69,3 +71,4 @@ function App() {
 }
 
 render(<App />, document.getElementById("app")!);
+watchForUpdates();
