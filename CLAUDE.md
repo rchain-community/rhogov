@@ -42,7 +42,7 @@ rchain-rust's `rho:gov:*` natives.
   - Pros and cons live on `<iid>.args`.
   - The phase is recorded in the facilitator's result.
 - **`src/chain/rgov-core.js` is vendored from quantum-os.**
-  - Don't edit it here: change it upstream, then run `scripts/sync-rgov-core.sh`.
+  - Don't edit it here: change it upstream, then run `scripts/sync-rgov-core.sh ../quantum-os`.
   - A contract change belongs in a quantum-os issue or PR. Example: inbox history,
     quantum-os#241.
 - **Names, not addresses.** People are shown by name everywhere, with their REV address
