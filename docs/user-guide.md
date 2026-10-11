@@ -1,6 +1,6 @@
 # rhogov user guide
 
-rhogov helps a group of people decide things together on RChain. You can vote,
+[rhogov](https://rchain-community.github.io/rhogov/#/) helps a group of people decide things together on RChain. You can vote,
 hand your vote to someone you trust, vouch for each other, hold each other to
 account, send each other messages, and run decisions across several kinds of
 stakeholders. Everything is recorded on the blockchain, and no administrator
