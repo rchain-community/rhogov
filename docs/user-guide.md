@@ -29,7 +29,7 @@ anything about blockchains to follow it.
 
 ## 1. Getting started
 
-Open rhogov. The first screen walks you through three short steps.
+Open [rhogov]([url](https://rchain-community.github.io/rhogov). The first screen walks you through three short steps.
 
 ![The welcome screen](images/welcome.png)
 
