@@ -45,5 +45,9 @@ An `uninvite(gid, addr)` verb, admin-gated, deleting the entry from `invited` â€
 ## Client-side note
 
 Whatever the contract does, a UI that renders a permanently-published address with no way to
-withdraw it should say so at the moment of inviting. That disclosure is client-fixable and
-registered separately.
+withdraw it should say so at the moment of inviting. **That disclosure is now in place** (PR #66): the
+invite modal says the address is written into the group's public state, cannot be withdrawn, and stays
+there until they join.
+
+It is a warning, not a remedy. The remedy is the verb this issue asks for, and until it exists a
+mistaken or declined invitation stays published.

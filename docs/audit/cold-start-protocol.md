@@ -7,6 +7,11 @@ first group's Members tab.**
 It exists because a tester opened rhogov, found it empty, and had no idea what to do. The
 docs explain the app well; the *first-run signalling* was never designed.
 
+> **Status: all eight findings are fixed and every probe passes (2026-10-12).** What follows is the
+> method and the findings **as found** — the text below is present-tense because that is how a finding
+> is written, not because the defect is still there. For what fixed each one, and which of them no
+> probe covers, see [`register.md`](register.md) → *Where these stand*.
+
 ## What this audit is not
 
 It is not a feature audit, and not a bug hunt in the chain layer. It asks one question of

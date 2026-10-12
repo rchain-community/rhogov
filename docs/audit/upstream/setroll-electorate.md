@@ -51,7 +51,11 @@ explicitly; today `locked` is not consulted.
 
 ## Reproduction (client-observable)
 
-The red-team probe `RP3` (`tests/e2e/redteam/redteam.probe.spec.ts`) asserts the client-side
-half: changing the roll while results are visible raises no confirmation, unlike closing the vote
-(`src/ui/votes.tsx:111` vs `:168`). The contract half is reproducible with any client by opening
-an issue, casting a ballot, and calling `setRoll` with a different address list before closing.
+The red-team probe `RP3` (`tests/e2e/redteam/redteam.probe.spec.ts`) asserted the client-side half:
+changing who may vote while results are visible raised no confirmation, unlike closing the vote.
+**That half is fixed** (PR #66) — the write now asks first, states that the change replaces who may
+vote, and is keyed so it cannot be fired twice. **RP3 passes.**
+
+None of that touches this issue: the contract still permits the replacement. It is reproducible with
+any client by opening an issue, casting a ballot, and calling `setRoll` with a different address list
+before closing.

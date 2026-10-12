@@ -44,6 +44,10 @@ purely by convention.
 
 ## Note on the app's side
 
-The client half is registered separately: a council's recorded decision carries no persistent
-compare-to-tally badge, unlike the votes screen (`council.tsx:599-611` vs `votes.tsx:267-274`).
-That is fixable in this repo and does not depend on this issue.
+The client half is registered separately and **is now done** (PR #71): a council's recorded decision
+carries its provenance rather than a bare winner, and a vote's record keeps the node's answer *together
+with the weights it was taken over*, so a reader can see what it was taken from instead of comparing it
+against a tally that keeps moving.
+
+That changes what a reader can check. It does not change what this issue is about: **whose** proposal is
+the record is still convention, and nothing on chain marks one as authoritative.

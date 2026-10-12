@@ -7,6 +7,12 @@ question is:
 > **If a competent adversary wants a decision, a name, a signature or a weight, what does the
 > app let them have — and can the person affected tell?**
 
+> **Status: all sixteen findings are addressed and all five probes pass (2026-10-12).** The scenarios,
+> predictions and injects below are the record of the exercise as it was played. What fixed each
+> finding, and which half of it remains upstream, is in
+> [`register-redteam.md`](register-redteam.md) → *Where these stand*; the upstream half is collected in
+> [#75](https://github.com/rchain-community/rhogov/issues/75).
+
 This is the second exercise against rhogov. The [cold-start
 audit](cold-start-protocol.md) asked whether a *stranger* could find their way; this one asks
 what a *hostile expert* can take. Findings live in [`register-redteam.md`](register-redteam.md).
@@ -346,8 +352,11 @@ one-founder group shows no roll control and no Censure button).
 | RP6 | T6 | live | RT-06 |
 | — | T3, T4, T5, T8, T9, T10, T11 | live | no probe yet — evidence-pending issues RT-03, RT-04, RT-05, RT-08, RT-09, RT-10, RT-11 |
 
-All twelve scenarios have a filed issue; seven of them (the row above) rest on reading rather than
-a probe, and each of those carries an "Evidence-pending" marker on its issue.
+All twelve scenarios have a filed issue; seven of them (the row above) rest on reading rather than a
+probe, and each of those carried an "Evidence-pending" marker on its issue. **Those seven are fixed
+too** — they were never probed, so nothing turns green to prove them; `register-redteam.md` →
+*Where these stand* names what fixed each, and the upstream halves are in
+[#75](https://github.com/rchain-community/rhogov/issues/75).
 
 ## Findings register
 
