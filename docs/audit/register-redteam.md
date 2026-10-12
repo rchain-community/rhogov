@@ -167,3 +167,8 @@ contract change is named rather than quietly counted as done.
 ```sh
 npm run test:redteam    # 5 passed, 0 failed, against a local node
 ```
+
+**The "Remains" column is collected in [#75](https://github.com/rchain-community/rhogov/issues/75)** — the
+handoff to quantum-os, naming @jimscarver. Nothing in it blocks the app: each of those findings has
+either a fix or a disclosure, and what is left is the case where rhogov can warn but the chain still
+permits the write.

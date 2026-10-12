@@ -151,6 +151,8 @@ filed in quantum-os (#244, #245, #246).
 **What is not done, and is not this repo's to do:** the contract halves. `setRoll` still permits
 replacing an electorate, `propose` is still ungated, and an invitation still cannot be withdrawn.
 The `setRole`/`leave` last-admin guard remains **undrafted** — written up nowhere, filed nowhere.
+All four are collected in [#75](https://github.com/rchain-community/rhogov/issues/75), the handoff to
+quantum-os.
 
 The findings themselves are unchanged — that is the point of keeping them. What changed is the code
 they were about: every probe that was red when this register was written passes now.
