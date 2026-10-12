@@ -13,7 +13,7 @@
 
 import * as core from "./rgov-core.js";
 import { revAddressOf } from "./keys";
-import { nameError } from "./people";
+import { looksLike, nameError } from "./people";
 import { RNode, type RhoValue } from "./node";
 
 export const q = (s: string) => JSON.stringify(String(s));
@@ -334,7 +334,7 @@ export class Gov {
     const me = this.key() ? revAddressOf(this.key()!) : "";
     const bad = nameError(name);
     if (bad) throw new GovError(bad);
-    const taken = Object.entries(await this.names()).find(([a, n]) => a !== me && sameName(n, name));
+    const taken = Object.entries(await this.names()).find(([a, n]) => a !== me && looksLike(n, name));
     if (taken) throw new GovError(`“${name}” is already someone else's name in this community. Names are unique here: choose another on Account.`);
     return this.batch("group", [["create", [q(NAMES_GID), q(NAMES_GID), q("open")]], ["leave", [q(NAMES_GID)]], ["join", [q(NAMES_GID), q(name)]]], t);
   }
@@ -486,12 +486,21 @@ export class Gov {
    * Each install program is self-contained and reports
    * ["installed", <name>, <uri>, <owner>] on deployId; the three run in parallel.
    */
-  static async install(nodeUrl: string, key: string, onTick?: (s: string) => void): Promise<{ inbox: string; group: string; issue: string }> {
+  /**
+   * Install the three contracts in one deploy. `resume` is the signature of an
+   * earlier install that never confirmed: it is looked for instead of
+   * installing a second set. `onSubmitted` gets a new install's signature as
+   * soon as it exists, so the caller can remember it.
+   */
+  static async install(nodeUrl: string, key: string, onTick?: (s: string) => void,
+    opts: { resume?: string; onSubmitted?: (sig: string) => void } = {}): Promise<{ inbox: string; group: string; issue: string }> {
     const node = new RNode(nodeUrl);
     const term = forDeploy([core.installInboxProgram(), core.installGroupProgram(), core.installIssueProgram()].join("\n|\n"));
-    onTick?.("installing Inbox, Group and Issue…");
+    onTick?.(opts.resume ? "Looking for the community you started earlier…" : "installing Inbox, Group and Issue…");
     // Measured: each install uses ~390k phlo, so three fit in 2M with room to spare.
-    const v = await node.deploy(term, key, { phloLimit: 2_000_000, onTick });
+    const v = opts.resume
+      ? await node.outcome(opts.resume, { onTick })
+      : await node.deploy(term, key, { phloLimit: 2_000_000, onTick, onSubmitted: opts.onSubmitted });
     const out: Record<string, string> = {};
     const visit = (x: RhoValue): void => {
       if (!Array.isArray(x)) return;

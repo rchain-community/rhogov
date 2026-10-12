@@ -54,6 +54,8 @@ rchain-rust's `rho:gov:*` natives.
     an address. Every new person picker should use one of them.
   - Names come from the chain's name directory where one exists. Otherwise they come from
     the community's hidden `~names` group (`Gov.names` / `setName`).
+  - The address book is **per community** (`inScope` in `state.ts`): labels from another
+    community never show. Uniqueness uses `looksLike`/`nameSkeleton` (look-alikes collide).
   - Names are unique **within a community**, case-sensitive, and never start with a digit
     (`nameError` in `people.ts`). Typed text starting with a digit is an address.
   - **A name belongs to its key.** Switching keys (`setKey`) drops the old name; the new
@@ -83,7 +85,11 @@ tests/        unit.ts   chain-check.ts (live API)   e2e/*.spec.ts (Playwright, f
 
 ## Conventions
 
-- **Every chain write goes through `act(title, run, {done})`** (in `kit.tsx`).
+- **Every chain write goes through `act(title, run, {done})`** (in `kit.tsx`). The same
+  title can't run twice at once. Never advise repeating a write that may still land:
+  `RNode.deploy` throws `StillUnknown` (keep the signature, don't retry), `NotCarried` (safe
+  to retry) or `DeployFailed` (ran and failed, fee charged). A reasonless refusal is
+  checked for 2 minutes before either verdict.
   - It shows the centred, draggable progress card ("Waiting N s") and refreshes after the
     write.
   - On failure it shows a persistent error card and logs to `recentErrors`.

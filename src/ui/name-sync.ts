@@ -2,9 +2,8 @@ import { revAddressOf } from "../chain/keys";
 import { RNode } from "../chain/node";
 import { publishName, resolveNames } from "../chain/profile";
 import { signal } from "@preact/signals";
-import { nameError } from "../chain/people";
+import { looksLike, nameError } from "../chain/people";
 import { active, displayName, gov, setDisplayName, rawNames, learnListed, listedName, myAddr, notePublished, publishedName, secretKey } from "../state";
-import { sameName } from "../chain/gov";
 import { act, notify } from "./kit";
 
 // Enough for the one name deploy (batch phlo limit), so an unfunded newcomer
@@ -42,7 +41,7 @@ export async function syncMyName(force = false) {
     // list says you are part of this community). One small deploy, once funded.
     const ensureListed = async (n: string) => {
       if (listedName(me) === n || failedFor === `${c.group}|${me}|${n}|list`) return;
-      if (Object.entries(await G.names().catch(() => ({} as Record<string, string>))).some(([a, x]) => a !== me && sameName(x, n))) return;
+      if (Object.entries(await G.names().catch(() => ({} as Record<string, string>))).some(([a, x]) => a !== me && looksLike(x, n))) return;
       const b = await node.balance(revAddressOf(key));
       if (b !== null && b < NAME_NEEDS) return;
       const ok = await act("Putting your name on this community's list", (t) => G.setName(n, t), { done: `People in ${c.name} can now find you as “${n}”.` });
@@ -65,8 +64,9 @@ export async function syncMyName(force = false) {
     // community's name list, or the directory where there is one. A label
     // someone typed when joining a group is not a claim and doesn't block.
     const listed = await G.names().catch(() => ({} as Record<string, string>));
-    const holder = Object.entries(listed).find(([a, n]) => a !== me && sameName(n, name))
-      ?? (have !== null ? Object.entries(rawNames()).find(([a, n]) => a !== me && publishedName(a) && sameName(n, name)) : undefined);
+    // Look-alikes count as taken too: "Adα" (Greek α) can't sit beside "Ada".
+    const holder = Object.entries(listed).find(([a, n]) => a !== me && looksLike(n, name))
+      ?? (have !== null ? Object.entries(rawNames()).find(([a, n]) => a !== me && publishedName(a) && looksLike(n, name)) : undefined);
     if (holder) {
       failedFor = attempt;
       nameProblem.value = { name, holder: holder[0] };
@@ -74,7 +74,7 @@ export async function syncMyName(force = false) {
       const said = `rhogov:name-taken:${c.group}:${me}:${name.toLowerCase()}:${holder[0]}`;
       let told = false;
       try { told = !!localStorage.getItem(said); localStorage.setItem(said, "1"); } catch { /* storage refused */ }
-      if (!told || force) notify(`“${name}” is taken`, `In this community someone else has claimed it, so others see you as “${name} (unclaimed)” until you choose another name on Account. If that address is an old key of yours and you still have it, sign in with it, rename it, then sign back in with this key. Account explains how.`, "error");
+      if (!told || force) notify(`“${name}” is taken`, `In this community someone else has claimed it (or a name that looks the same), so others see you as “${name} (unclaimed)” until you choose another name on Account. If that address is an old key of yours and you still have it, sign in with it, rename it, then sign back in with this key. Account explains how.`, "error");
       return;
     }
     nameProblem.value = null;

@@ -5,7 +5,7 @@ import { useEffect, useState } from "preact/hooks";
 import { Gov } from "../chain/gov";
 import { generateKey, isValidKey, revAddressOf } from "../chain/keys";
 import { nameError } from "../chain/people";
-import { RNode, type NodeStatus } from "../chain/node";
+import { RNode, StillUnknown, type NodeStatus } from "../chain/node";
 import {
   NETWORKS, R_WALLET, active, addCommunity, displayName, keyName, myAddr, parseInvite, secretKey, setKey,
 } from "../state";
@@ -169,13 +169,33 @@ export function CommunityForm({ node }: { node: string }) {
   const [bal, setBal] = useState<number | null | undefined>(undefined);
   const invite = parseInvite(link);
   const join = () => { if (invite) { addCommunity(invite); go("/"); } };
+  // An install that was sent but never confirmed (a stalled network, a closed
+  // tab): remembered, so pressing Start again looks for it rather than paying
+  // for a second set of contracts.
+  const pendingKey = `rhogov:pending-install:${node}:${myAddr.value}`;
+  const [pending, setPending] = useState<{ sig: string; name: string } | null>(() => { try { return JSON.parse(localStorage.getItem(pendingKey) ?? "null"); } catch { return null; } });
+  const remember = (p: { sig: string; name: string } | null) => {
+    setPending(p);
+    try { if (p) localStorage.setItem(pendingKey, JSON.stringify(p)); else localStorage.removeItem(pendingKey); } catch { /* storage refused */ }
+  };
   const start = async () => {
     const key = secretKey.value;
-    if (!key || !name.trim()) return;
+    const cname = (pending?.name ?? name).trim();
+    if (!key || !cname) return;
     setBusy(true);
-    const uris = await act("Starting your community", (t) => Gov.install(node, key, t), { done: "Three contracts installed: Inbox, Group, Issue." });
+    let unknown = false;
+    const uris = await act("Starting your community", async (t) => {
+      try {
+        return await Gov.install(node, key, t, { resume: pending?.sig, onSubmitted: (sig) => remember({ sig, name: cname }) });
+      } catch (e) {
+        // Still unknown: keep remembering it. Definitely not carried, or failed: forget it.
+        if (e instanceof StillUnknown) unknown = true; else remember(null);
+        throw e;
+      }
+    }, { done: "Three contracts installed: Inbox, Group, Issue." });
     setBusy(false);
-    if (uris) { addCommunity({ name: name.trim(), node, ...uris }); go("/groups"); }
+    if (uris) { remember(null); addCommunity({ name: cname, node, ...uris }); go("/groups"); }
+    else if (!unknown) remember(null);
   };
   return (
     <div class="stack">
@@ -195,6 +215,12 @@ export function CommunityForm({ node }: { node: string }) {
         </>
       ) : (
         <>
+          {pending && (
+            <div class="callout warn small stack">
+              <span>You started <b>{pending.name}</b> earlier and it hasn't confirmed yet. <b>Look for “{pending.name}”</b> checks whether it was carried, instead of installing another (which would cost again).</span>
+              <span><button class="ghost small" onClick={() => { if (confirm(`Forget "${pending.name}" and install a new community? If the earlier one is carried later, you'll have paid for both.`)) remember(null); }}>Forget it and start fresh</button></span>
+            </div>
+          )}
           <label class="field">Community name
             <input value={name} placeholder="e.g. RChain Cooperative" onInput={(e) => setName((e.target as HTMLInputElement).value)} />
           </label>
@@ -204,7 +230,7 @@ export function CommunityForm({ node }: { node: string }) {
           </Info>
           {myAddr.value && <div class="small">Your balance: <Balance node={node} addr={myAddr.value} onBalance={setBal} /></div>}
           {bal !== undefined && bal !== null && bal < INSTALL_NEEDS && <div class="callout warn small">Starting a community needs about {(INSTALL_NEEDS / 1e8).toFixed(2)} REV to cover the install's fee. Get test REV first, and wait a few seconds for it to arrive.</div>}
-          <div><button class="primary" disabled={!name.trim() || busy || !secretKey.value || (bal != null && bal < INSTALL_NEEDS)} onClick={start}>{busy ? <><Spinner /> Installing…</> : "Start community"}</button></div>
+          <div><button class="primary" disabled={!(pending?.name ?? name).trim() || busy || !secretKey.value || (!pending && bal != null && bal < INSTALL_NEEDS)} onClick={start}>{busy ? <><Spinner /> {pending ? "Looking…" : "Installing…"}</> : pending ? `Look for “${pending.name}”` : "Start community"}</button></div>
         </>
       )}
     </div>

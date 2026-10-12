@@ -1,7 +1,8 @@
 // unit.ts — offline checks (no node): decoding, keys, council arithmetic.
 import { approvalShare, approvals, chamberPower, combine, decodeArg, encodeArg, estimateBallot, parseEstimate } from "../src/chain/council";
 import { toGroup } from "../src/chain/gov";
-import { filterPeople, nameError, resolvePerson, suggestNames } from "../src/chain/people";
+import { addCommunity, addressBook, learnNames, nameNotes, setActive } from "../src/state";
+import { filterPeople, looksLike, nameError, resolvePerson, suggestNames } from "../src/chain/people";
 import { revAddressOf } from "../src/chain/keys";
 import { decode } from "../src/chain/node";
 
@@ -73,7 +74,26 @@ ok("vote counts: one per person per option, unknown options ignored",
   const nm = (a: string) => people[a];
   ok("filtering people: names starting with what's typed, exact capitals first", eq(filterPeople("j", [A, B, C], nm), [C, B]));
   ok("…an empty filter keeps everyone; digits filter by address", eq(filterPeople("", [A, B], nm), [A, B]) && eq(filterPeople("1111pJ", [A, B, C], nm), [B]));
+  ok("look-alikes are one name: Greek α, Cyrillic а, fullwidth, zero-width", looksLike("Ada", "Adα") && looksLike("Ada", "Аda") && looksLike("Ada", "Ａｄａ") && looksLike("Ada", "Ad\u200Ba"));
+  ok("…and shapes that coincide: l/I/1, O/0, rn/m", looksLike("Ian", "lan") && looksLike("B0b", "BOb") && looksLike("Kim", "Kirn"));
+  ok("capitals still count where shapes differ", !looksLike("Jim", "jim") && !looksLike("Ada", "ada"));
+  ok("mixed alphabets and invisible characters are refused", nameError("Adα") !== "" && nameError("Ad\u200Ba") !== "" && nameError("Αδα") === "" && nameError("Анна") === "");
   ok("a name can't start with a digit", nameError("1st") !== "" && nameError("Ada") === "" && nameError("  ") !== "");
+}
+
+// Names belong to one community (#38a): a group label learned in A isn't shown in B.
+{
+  const A = { name: "A", node: "http://n", inbox: "rho:id:a1", group: "rho:id:a2", issue: "rho:id:a3" };
+  const B = { name: "B", node: "http://n", inbox: "rho:id:b1", group: "rho:id:b2", issue: "rho:id:b3" };
+  addCommunity(A); addCommunity(B);
+  setActive(A.group);
+  learnNames([{ addr: "1111T", label: "Treasurer" }, { addr: "1111U", label: "Ada" }, { addr: "1111V", label: "Adα" }]);
+  ok("look-alike labels are numbered, neither shown as the owner", addressBook.value["1111U"] === "Ada (1)" && addressBook.value["1111V"] === "Adα (2)" && !!nameNotes.value["1111U"]);
+  ok("a label shows in the community that gave it", addressBook.value["1111T"] === "Treasurer");
+  setActive(B.group);
+  learnNames([]);
+  ok("…and not in another community", addressBook.value["1111T"] === undefined);
+  setActive(null);
 }
 
 // Arguments.

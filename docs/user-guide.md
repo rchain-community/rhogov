@@ -304,7 +304,10 @@ On **Account** you can:
   one, otherwise on the community's own name list. A name must be **unique in
   the community**: if someone already has it, you're asked to pick another.
   Capitals count ("Jim" and "jim" are different names), and a name can't start
-  with a number (that's how addresses start). **Your name belongs to your key**:
+  with a number (that's how addresses start). Names that *look* the same count as
+  the same: "Adα" (with a Greek α) can't sit beside "Ada", and a name can't mix
+  alphabets or contain invisible characters. If two people already share a
+  name, both are numbered, "(1)" and "(2)"; the numbers don't say who was first. **Your name belongs to your key**:
   sign in with the same key on another device and its name comes with it,
   whatever you typed there;
 - copy your **address**: give it to people who want to invite or message you;
@@ -353,9 +356,12 @@ chose; there's no rhogov server, database or account.
 | What you see | What to do |
 |---|---|
 | **"Can't reach it"** when choosing a network | Check the address. A local node needs `--api-host`. A page opened over `https://` can only reach `http://` nodes on your own computer. |
-| **"Waiting for a block…"** for a long time | A card in the middle of the screen shows each action in progress, with how long it has waited; you can keep using the app meanwhile. The network is busy or idle. It usually finishes within a minute, and gives up after 4; if so, refresh later before retrying, since your action may still land. |
+| **"Waiting for a block…"** for a long time | A card in the middle of the screen shows each action in progress, with how long it has waited; you can keep using the app meanwhile. The network is busy or idle. It usually finishes within a minute; rhogov keeps checking for up to 15. **Don't repeat the action while it waits**: it could happen twice (pressing the same button again just points you at the card). |
+| **"It hasn't appeared in a block after 15 minutes"** | The network is stalled and the action may still land later, so don't repeat it yet. If it was starting a community, the setup screen remembers it and offers **Look for “name”**, which checks for that one instead of installing (and paying for) a second set. |
+| **"The node didn't confirm it…"** | The node refused without a reason, which sometimes means it was carried anyway. rhogov watches for it for 2 minutes: if it lands, it finishes normally; if not, it tells you it was not carried, nothing was charged, and trying again is safe. |
+| **"…failed, so nothing changed; its fee was still charged"** | The action ran in a block and was rejected. A failed action still costs its fee, like any other. |
 | **"Couldn't finish: …"** | The card stays until you close it, and says what went wrong and what to do. You can drag either card out of the way; double-click puts it back in the middle. |
-| **A balance of 0**, **Start community** greyed out, "Not enough REV", or "The node refused this deploy without giving a reason" | On the playground or testnet, press **Get test REV** on Account (on the testnet, [r-wallet](https://rhowallet.org)'s faucet works too). Elsewhere, ask someone to send you REV. |
+| **A balance of 0**, **Start community** greyed out, or "Not enough REV" | On the playground or testnet, press **Get test REV** on Account (on the testnet, [r-wallet](https://rhowallet.org)'s faucet works too). Elsewhere, ask someone to send you REV. |
 | **"This group is invite-only…"** | Ask one of its admins to invite you, by your name or your address from Account. |
 | **"No one in your communities is called …"** | Check the spelling (capitals count), or ask for their REV address and paste that instead. People are found by name across all the communities you've joined on that network, once they have a name. |
 | **"You're not on this issue's voter roll"** | You joined after the vote opened. Ask whoever opened it to add new members to the roll. |

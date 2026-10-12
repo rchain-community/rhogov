@@ -64,3 +64,4 @@ test("switching to an existing key brings its name; a stray label doesn't block 
   await expect(alice.locator(".list .item .nm", { hasText: `${name} (unclaimed)` })).toBeVisible();
   await expect(alice.locator(".list .item .nm", { hasText: /^1111/ })).toHaveCount(0);
 });
+

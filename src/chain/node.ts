@@ -86,6 +86,26 @@ export class InsufficientFunds extends NodeError {
   }
 }
 
+/**
+ * A deploy that may or may not have been carried, after rhogov has checked as
+ * long as it reasonably can. Its `sig` is how to look for it again. Repeating
+ * the action could do it twice, so the message says so and nothing suggests it.
+ */
+export class StillUnknown extends NodeError {
+  constructor(public sig: string, message: string) { super(message); }
+}
+
+/** The deploy was definitely not carried: trying again is safe. */
+export class NotCarried extends NodeError {}
+
+/** The deploy ran in a block and failed. Its fee was charged. */
+export class DeployFailed extends NodeError {}
+
+/** The node refused a deploy with no reason, which can mean it was carried elsewhere. */
+class Unconfirmed extends NodeError {
+  constructor(public sig: string, public nodeSaid: string) { super(nodeSaid); }
+}
+
 /** The newest block per node URL, shared by every RNode so one writer's block is every reader's. */
 const tips = new Map<string, { hash: string; at: number }>();
 
@@ -180,11 +200,10 @@ export class RNode {
     try {
       reply = await this.post("/api/deploy", { data, deployer, signature, sigAlgorithm: "secp256k1" });
     } catch (e) {
-      // The node's answer for a deploy it would not take says nothing about why.
-      if (/not available in cache|executed on another node/i.test((e as Error).message))
-        throw new NodeError("The node refused this deploy without giving a reason. The usual cause is a balance too low for the fee " +
-          "(check Account; on a test network press “Get test REV” and wait for it to arrive). If your balance is fine, try again in a minute. " +
-          `Node said: “${(e as Error).message}”`);
+      // The node's answer for a deploy it would not take says nothing about why,
+      // and "executed on another node" can mean it WAS carried. The balance was
+      // checked above, so look for it before saying anything about retrying.
+      if (/not available in cache|executed on another node/i.test((e as Error).message)) throw new Unconfirmed(signature, (e as Error).message);
       throw e;
     }
     const text = typeof reply === "string" ? reply : JSON.stringify(reply);
@@ -196,8 +215,8 @@ export class RNode {
    * Wait for a block to carry the deploy, then return what it sent to deployId.
    * `onTick` reports progress so the UI can say "waiting for a block…".
    */
-  async outcome(sig: string, { timeoutMs = 240_000, onTick }: { timeoutMs?: number; onTick?: (s: string) => void } = {}): Promise<RhoValue[]> {
-    const until = Date.now() + timeoutMs;
+  async outcome(sig: string, { timeoutMs = 15 * 60_000, onTick, unconfirmed = false }: { timeoutMs?: number; onTick?: (s: string) => void; unconfirmed?: boolean } = {}): Promise<RhoValue[]> {
+    const start = Date.now(), until = start + timeoutMs;
     let delay = 800;
     while (Date.now() < until) {
       await new Promise((r) => setTimeout(r, delay));
@@ -207,15 +226,30 @@ export class RNode {
       const ok = j?.ProcessedWithSuccess ?? j?.processedWithSuccess;
       if (ok) { this.invalidate(); return ((ok.deployResult ?? []) as unknown[]).map(decode); }
       const bad = j?.ProcessedWithError ?? j?.processedWithError;
-      if (bad) throw new NodeError(`The node ran the deploy and it failed: ${String(bad.deployError ?? JSON.stringify(bad)).slice(0, 400)}`);
+      if (bad) throw new DeployFailed(`The node ran it in a block and it failed, so nothing changed; its fee was still charged. The node said: ${String(bad.deployError ?? JSON.stringify(bad)).slice(0, 400)}`);
       const np = j?.NotProcessed ?? j?.notProcessed;
-      onTick?.(np?.status ? String(np.status) : "waiting");
+      onTick?.(unconfirmed ? "unconfirmed" : Date.now() - start > 4 * 60_000 ? "slow" : np?.status ? String(np.status) : "waiting");
     }
-    throw new NodeError("Still waiting for a block after 4 minutes, so this network is busy or stalled. The action may yet land: refresh in a few minutes before trying again, or you may do it twice.");
+    if (unconfirmed)
+      throw new NotCarried("The node didn't accept this, and it hasn't appeared in any block in the 2 minutes rhogov watched for it, so it was not carried and nothing was charged. It's safe to try again.");
+    throw new StillUnknown(sig, "It hasn't appeared in a block after 15 minutes, so this network is stalled. It may still be carried later. Don't repeat it yet, or it could happen twice: check again later (for a community, the setup screen offers to look for this one instead of installing another).");
   }
 
-  async deploy(term: string, key: string, opts: { phloLimit?: number; onTick?: (s: string) => void } = {}): Promise<RhoValue[]> {
-    const sig = await this.submit(term, key, opts.phloLimit);
+  /**
+   * Submit and wait for the outcome. `onSubmitted` gets the signature as soon as
+   * it exists, so a caller can remember a deploy that might still land later.
+   */
+  async deploy(term: string, key: string, opts: { phloLimit?: number; onTick?: (s: string) => void; onSubmitted?: (sig: string) => void } = {}): Promise<RhoValue[]> {
+    let sig: string;
+    try {
+      sig = await this.submit(term, key, opts.phloLimit);
+    } catch (e) {
+      if (!(e instanceof Unconfirmed)) throw e;
+      opts.onSubmitted?.(e.sig);
+      opts.onTick?.("unconfirmed");
+      return this.outcome(e.sig, { onTick: opts.onTick, timeoutMs: 120_000, unconfirmed: true });
+    }
+    opts.onSubmitted?.(sig);
     opts.onTick?.("submitted");
     return this.outcome(sig, { onTick: opts.onTick });
   }

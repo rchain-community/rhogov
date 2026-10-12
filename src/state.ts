@@ -5,10 +5,11 @@
 // community you use, and the inbox messages you have already received (receive
 // consumes them on chain, so this browser is where they live afterwards).
 
-import { signal, computed } from "@preact/signals";
+import { signal, computed, effect } from "@preact/signals";
 import { Gov, type Community, type InboxMessage } from "./chain/gov";
 import { isValidKey, revAddressOf } from "./chain/keys";
 import { RNode } from "./chain/node";
+import { nameSkeleton } from "./chain/people";
 import { resolveNames } from "./chain/profile";
 
 const LS = {
@@ -124,13 +125,27 @@ const published = new Map<string, string | null>(); // addr → published name, 
 let pending = new Set<string>();
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
+// Everything here belongs to ONE community (and the directory to one network):
+// a label someone typed joining a group in community A says nothing about who
+// they are in B. Switching community starts the book afresh (#38).
+let scope = "", scopeNode = "";
+function inScope() {
+  const c = active.value, here = c ? `${c.node}|${c.group}` : "", node = c?.node ?? "";
+  if (here === scope) return;
+  scope = here;
+  raw = {};
+  listed.clear();
+  if (node !== scopeNode) { scopeNode = node; published.clear(); pending = new Set(); }
+  addressBook.value = {};
+  nameNotes.value = {};
+}
+
 /** Names people put on their community's name list (Gov.names): over group labels, under the directory. */
 const listed = new Map<string, string>();
-let listedFor = "";
-/** The active community's whole list (replacing another community's), or `merge` one entry into it. */
+/** The active community's whole list (replacing what was known), or `merge` one entry into it. */
 export function learnListed(names: Record<string, string>, merge = false) {
-  const c = active.value?.group ?? "";
-  if (!merge || c !== listedFor) { listed.clear(); listedFor = c; }
+  inScope();
+  if (!merge) listed.clear();
   for (const [a, n] of Object.entries(names)) listed.set(a, n);
   rebuild({});
 }
@@ -140,31 +155,49 @@ export const listedName = (addr: string) => listed.get(addr);
 let raw: Record<string, string> = {};
 export const rawNames = () => raw;
 
+/** Why a name is shown with a marker ("(unclaimed)", "(2)"), for its tooltip. */
+export const nameNotes = signal<Record<string, string>>({});
+
+// Switching community empties the book at once, not on the next name lookup.
+effect(() => { void active.value; inScope(); });
+
 function rebuild(labels: Record<string, string>) {
+  inScope();
   const next = { ...raw, ...labels };
   for (const [a, n] of listed) next[a] = n;
   for (const [a, n] of published) if (n) next[a] = n;
-  // Names are always shown, never an address. A name someone CLAIMED (the
-  // community's name list, or the directory) shows as itself; the same name
-  // merely typed as a group label by someone else is marked "(unclaimed)", so
-  // a stray label (an old key, say) can't pass for the real owner.
-  const isClaim = (a: string) => listed.has(a) || !!published.get(a);
   raw = { ...next };
-  const byName = new Map<string, string[]>();
-  for (const [a, n] of Object.entries(next)) { const k = n.trim(); byName.set(k, [...(byName.get(k) ?? []), a]); }
-  for (const addrs of byName.values()) {
+  // Names are always shown, never an address. Names that LOOK alike (the same
+  // letters, or look-alike letters from another alphabet: "Ada" / "Adα") are
+  // one name here. A name someone CLAIMED (the community's name list, or the
+  // directory) shows as itself; the same name merely typed as a group label by
+  // someone else is marked "(unclaimed)".
+  const isClaim = (a: string) => listed.has(a) || !!published.get(a);
+  const notes: Record<string, string> = {};
+  const byLook = new Map<string, string[]>();
+  for (const [a, n] of Object.entries(next)) { const k = nameSkeleton(n); byLook.set(k, [...(byLook.get(k) ?? []), a]); }
+  for (const addrs of byLook.values()) {
     if (addrs.length < 2) continue;
     const claims = addrs.filter(isClaim).sort();
-    for (const a of addrs) if (!isClaim(a) && claims.length) next[a] = `${next[a]} (unclaimed)`;
-    // Two claims on one name (a race): numbered in a fixed order, so everyone sees the same.
-    claims.forEach((a, i) => { if (i > 0) next[a] = `${next[a]} (${i + 1})`; });
-    // Labels only, no claim: also numbered.
-    if (!claims.length) addrs.sort().forEach((a, i) => { if (i > 0) next[a] = `${next[a]} (${i + 1})`; });
+    for (const a of addrs) if (!isClaim(a) && claims.length) {
+      next[a] = `${next[a]} (unclaimed)`;
+      notes[a] = "Someone else in this community has claimed this name; this person only typed it when joining a group.";
+    }
+    // Two claims, or two labels with no claim: who was first isn't recorded on
+    // chain, so neither is shown as the owner. Both are numbered, in a fixed
+    // order (by address) so everyone sees the same numbers.
+    const same = claims.length > 1 ? claims : claims.length ? [] : [...addrs].sort();
+    same.forEach((a, i) => {
+      next[a] = `${next[a]} (${i + 1})`;
+      notes[a] = `${same.length} people here go by this name (or one that looks the same). The numbers tell them apart; they don't say who had it first, which isn't recorded.`;
+    });
   }
   if (JSON.stringify(next) !== JSON.stringify(addressBook.value)) addressBook.value = next;
+  if (JSON.stringify(notes) !== JSON.stringify(nameNotes.value)) nameNotes.value = notes;
 }
 
 export function learnNames(pairs: { addr: string; label: string }[]) {
+  inScope();
   const labels: Record<string, string> = {};
   for (const { addr, label } of pairs) {
     if (label && !published.get(addr)) labels[addr] = label;

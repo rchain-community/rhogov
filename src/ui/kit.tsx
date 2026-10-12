@@ -4,7 +4,7 @@ import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { filterPeople, resolvePerson, suggestNames } from "../chain/people";
 import { Gov } from "../chain/gov";
-import { addressBook, communities, forceTick, gov, learnListed, learnNames, myAddr, refresh, refreshTick, reviewBeforeSign } from "../state";
+import { addressBook, communities, forceTick, gov, nameNotes, learnListed, learnNames, myAddr, refresh, refreshTick, reviewBeforeSign } from "../state";
 
 // --- routing (hash) ------------------------------------------------------------
 
@@ -150,7 +150,12 @@ const TICK: Record<string, string> = {
   Pooled: "In the node's queue, waiting for a block…",
   "Block not yet available": "Waiting for a block…",
   waiting: "Waiting for a block…",
+  slow: "Still not in a block after 4 minutes: the network is slow. rhogov keeps checking; don't repeat this, or it could happen twice.",
+  unconfirmed: "The node didn't confirm it, but it may have been carried anyway. Checking for it before anything else…",
 };
+
+/** Actions waiting for a block, by title: the same one can't be started twice at once. */
+const inFlight = new Set<string>();
 
 // --- review-before-sign ---------------------------------------------------------
 
@@ -177,6 +182,11 @@ export async function act<T>(title: string, run: (onTick: (s: string) => void) =
     const ok = await new Promise<boolean>((resolve) => { review.value = { title, term: opts.preview!, resolve }; });
     if (!ok) return undefined;
   }
+  if (inFlight.has(title)) {
+    notify(`Already in progress: ${title}`, "It's still waiting for a block (see the card). Pressing again would do it twice.", "info");
+    return undefined;
+  }
+  inFlight.add(title);
   const t = pushToast({ title, detail: "Signing…", kind: "busy", since: Date.now() });
   try {
     const out = await run((s) => t.update({ detail: TICK[s] ?? s }));
@@ -189,6 +199,8 @@ export async function act<T>(title: string, run: (onTick: (s: string) => void) =
     t.update({ kind: "error", detail: (e as Error).message });
     refresh(true);
     return undefined;
+  } finally {
+    inFlight.delete(title);
   }
 }
 
@@ -242,7 +254,7 @@ export function Copy({ text, label = "Copy" }: { text: string; label?: string })
 /** A person: their name, with their REV address one click away (tooltip and copy). */
 export function Addr({ addr, avatar = true }: { addr: string; avatar?: boolean }) {
   return (
-    <span class="addr" title={addr}>
+    <span class="addr" title={nameNotes.value[addr] ? `${nameNotes.value[addr]}\n${addr}` : addr}>
       {avatar && <Avatar addr={addr} size={26} />}
       <span class="nm">{nameOf(addr)}</span>
       <Copy text={addr} label={`Copy ${nameOf(addr) === "You" ? "your" : `${nameOf(addr)}'s`} REV address`} />
