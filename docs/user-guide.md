@@ -340,10 +340,11 @@ On **Account** you can:
 - check your **balance** and, on the playground or testnet, **Get test REV**;
 - **Download backup** of your key, or show it so you can paste it into another
   browser or device;
-- turn on **Show me the exact rholang before I sign, where rhogov can show it**, to
-  see precisely what you're signing. It can show the rholang for some actions today
-  and not others; the exact source is on chain either way, and anyone can read it
-  there. The setting says which is which.
+- turn on **Show me the exact rholang before I sign each action**, to see precisely
+  what you're signing. Anything that moves trust, membership, voting weight or money
+  is shown and waits for you. Routine housekeeping — putting your name on the
+  community's list, sending a message — signs without asking, so it can happen
+  quietly in the background.
 
 Your key **is** you. Anyone who has it can act as you, so keep backups private
 and offline. If it's lost, that identity can't be recovered.
