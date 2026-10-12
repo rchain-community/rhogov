@@ -288,7 +288,7 @@ function Results({ i, out }: { i: Issue; out: Outcome }) {
           })}
         </div>
       )}
-      <Info>
+      <Info title="How the node counts these votes">
         Nobody counts these votes by hand — not the opener, not this app. The ballots, delegations and trust ratings are public facts in the Group and Issue contracts, and this page asks the node to run its built-in functions over them (<span class="mono">trustLevels → censure → resolveWeights → tally</span>). Anyone can repeat the same query and must get the same answer. A recorded result is a claim by whoever recorded it; the badge shows whether it matches.
       </Info>
     </div>

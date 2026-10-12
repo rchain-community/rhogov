@@ -225,7 +225,7 @@ export function CommunityForm({ node }: { node: string }) {
             <input value={name} placeholder="e.g. RChain Cooperative" onInput={(e) => setName((e.target as HTMLInputElement).value)} />
           </label>
           <p class="muted small">This deploys three governance contracts — Inbox, Group and Issue — on <span class="mono">{node}</span>, signed by your key. It takes one block and about 0.02 REV. Anyone you invite uses the same contracts.</p>
-          <Info>
+          <Info title="What gets installed, and where">
             The contracts are quantum-os's <b>rgov-core</b>. They store facts only — members, delegations, trust ratings, censures, ballots — and every write can only change the signer's own row, because your identity is derived on chain from your key. Trust levels, censure, vote weights and the tally are computed by the node's built-in <span class="mono">rho:gov:*</span> functions, so nobody (including you, the installer) controls the outcome. As installer you have no power inside any group.
           </Info>
           {myAddr.value && <div class="small">Your balance: <Balance node={node} addr={myAddr.value} onBalance={setBal} /></div>}

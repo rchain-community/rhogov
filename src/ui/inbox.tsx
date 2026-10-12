@@ -58,7 +58,7 @@ export function InboxScreen() {
         </div>
       )}
       <div class="section">
-        <Info>
+        <Info title="Who can read these messages">
           <p>Your inbox lives in the community's Inbox contract. Anyone can drop a message in; the sender's name is stamped by the contract from their key, so it can't be faked. Anyone can see <i>how many</i> messages you have, but the public read interface never shows their contents.</p>
           <p><b>Collect</b> takes the messages out of the contract and keeps them in this browser — on chain they're gone afterwards, so a second reader can't take them too. Messages are not encrypted: they sit in chain state until collected, so don't send secrets.</p>
         </Info>

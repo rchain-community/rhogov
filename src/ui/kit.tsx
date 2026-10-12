@@ -337,8 +337,14 @@ export function Trust({ level }: { level: number | undefined }) {
   return <span class="trust" title={`Trust level ${l} of 5`} aria-label={`Trust level ${l} of 5`}>{[1, 2, 3, 4, 5].map((i) => <i class={i <= l ? "on" : ""} />)}</span>;
 }
 
-export function Info({ children }: { children: ComponentChildren }) {
-  return <details class="small"><summary>How does this work?</summary><div style={{ marginTop: ".5rem" }}>{children}</div></details>;
+/**
+ * A collapsed explanation. The summary names the question it answers, because a
+ * reader who cannot tell what is behind a closed "How does this work?" has no
+ * reason to open it — which is how four separate findings read as "undisclosed"
+ * when the text was already on the page. Pass `title` at every call site.
+ */
+export function Info({ title = "How does this work?", children }: { title?: string; children: ComponentChildren }) {
+  return <details class="small"><summary>{title}</summary><div style={{ marginTop: ".5rem" }}>{children}</div></details>;
 }
 
 // --- choosing a person -------------------------------------------------------------

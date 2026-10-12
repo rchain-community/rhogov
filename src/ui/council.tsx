@@ -251,7 +251,7 @@ function Stakeholders({ d }: { d: CouncilData }) {
         })}
       </div>
       {sel.length > 0 && <div><button class="primary" onClick={join}>Join {sel.length} group{sel.length > 1 ? "s" : ""}</button></div>}
-      <Info>
+      <Info title="What a stakeholder group is">
         Each stakeholder group is an ordinary rhogov group: its admins invite, its members rate each other's trust, delegate and censure — and all of that applies <b>within</b> that group when a council decision is counted. Admins of invite-only groups (e.g. validators) invite people by address on the group's Members page.
       </Info>
     </div>
@@ -290,7 +290,7 @@ function PowerPanel({ d }: { d: CouncilData }) {
         ))}
         {onRoll ? <div><button class="primary" disabled={!tot} onClick={submit}>{mine ? "Update my estimate" : "Submit estimate"}</button></div>
           : <p class="callout warn small">{me && d.participants.includes(me) ? "The facilitator needs to add you to the roll first." : "Join a stakeholder group to take part."}</p>}
-        <Info>Voting power is the <b>median</b> of everyone's estimate for each group, so a few extreme estimates can't swing it. Estimates are public ballots on the council's estimate issue (<span class="mono">{d.weights?.id}</span>); anyone can recompute the median. Footnote [c] of the design doc argues validators should weigh more than other groups because they secure the network — this is where the participants decide how much more.</Info>
+        <Info title="How the voting power is worked out">Voting power is the <b>median</b> of everyone's estimate for each group, so a few extreme estimates can't swing it. Estimates are public ballots on the council's estimate issue (<span class="mono">{d.weights?.id}</span>); anyone can recompute the median. Footnote [c] of the design doc argues validators should weigh more than other groups because they secure the network — this is where the participants decide how much more.</Info>
       </div>
     </div>
   );
@@ -560,7 +560,7 @@ function StakeholderResults({ i, results, power, total }: { i: Issue; results: C
           </div>
         ))}
       </div>
-      <Info>Within each stakeholder group the node computes trust levels, applies censures, resolves delegation (only to members of the same group) and weighs each ballot by <span class="mono">rho:gov:*</span> — over that group's members' ballots only. If you're in several groups, your ballot counts in each. The combination across groups is the weighted sum above, from public data anyone can recompute.</Info>
+      <Info title="How the node counts each group">Within each stakeholder group the node computes trust levels, applies censures, resolves delegation (only to members of the same group) and weighs each ballot by <span class="mono">rho:gov:*</span> — over that group's members' ballots only. If you're in several groups, your ballot counts in each. The combination across groups is the weighted sum above, from public data anyone can recompute.</Info>
     </div>
   );
 }

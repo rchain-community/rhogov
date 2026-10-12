@@ -262,7 +262,7 @@ function Members({ g, st }: { g: Group; st: Standing }) {
         </div>
       </div>
       {g.invited.length > 0 && <div class="small muted">Invited, not joined yet: {g.invited.map((a) => <span style={{ marginRight: ".6rem" }}><Addr addr={a} avatar={false} /></span>)}</div>}
-      <Info>
+      <Info title="How trust and delegation work in this group">
         <p><b>Trust</b> starts with the admins (level 5) and flows down: a rating you give can be at most one below your own level, so two members nobody trusts can't vouch each other up. The node computes everyone's level with its <span class="mono">rho:gov:trustLevels</span> function; each member's vote weighs <b>1 + their level</b>. Until anyone rates anyone, every vote weighs 1.</p>
         <p><b>Delegation</b> is liquid: if you don't vote, your weight passes to your delegate — and on to theirs if they don't vote either. Voting yourself always overrides it. Loops abstain.</p>
         <p><b>Censure</b> is accountability: when at least two-thirds (and at least two) of the members at or above someone's level censure them, their trust drops to 0 and everyone who vouched for them loses what they staked.</p>
