@@ -123,15 +123,34 @@ Two further seams stay **unfiled and undrafted**, because confirming them needs 
 native source rather than this repo: the censure threshold's ceiling-rounding and cascading slash,
 and trust weighting activating on a single rating (`src/chain/gov.ts:210-213`).
 
-## Status
+## Status — 2026-10-12
 
-- 7 root-cause issues open (#52–#58), labelled `root-cause`.
-- 28 findings closed as superseded, each with a comment naming its root cause, its sibling findings,
-  its probe and the probe's verbatim failure.
-- 6 singletons open, each edited with its root cause and fix plan.
-- 3 upstream issues filed in quantum-os: #244 (`setRoll`), #245 (`propose`), #246 (`uninvite`). The
-  drafts in `upstream/` now carry their filed number.
-- #36 rewritten as the ownership table for these root causes.
+**Every unit here is done, and every probe passes.** Fixed across five waves, one PR each, plus two
+units another session landed ahead of them:
 
-The findings themselves are unchanged. Every probe that was red before this pass is still red, and
-will be until the code changes.
+| Unit | Fixed in |
+|---|---|
+| RC-01 empty states (#52) | PR #68 |
+| RC-02 the write gate (#53) | PR #66 (identity + risk), PR #73 (review where the rholang is) |
+| RC-03 weight nobody could see (#54) | PR #71 |
+| RC-04 result provenance (#55) | PR #71 |
+| RC-05 failure and stale states (#56) | `e15c476` (the way out), PR #72 (the silent half) |
+| RC-06 copy vs. facts (#57) | PR #70 |
+| RC-07 jargon on the controls (#58) | PR #70 |
+| #10 an invite re-asks the network and the community | `c6a7182` |
+| #26 an invitation is public and cannot be withdrawn | PR #66 (the disclosure) — the real fix is upstream |
+| #30 an invite naming an unchosen node | `c6a7182` |
+| #38 names | `2cca707` |
+| #39 retry advice | `2cca707` |
+| #47 the quiet power-user corner | PR #72 |
+
+The register's own history is intact: the 28 findings still sit in `register.md` and
+`register-redteam.md` with their probes and verbatim failures, and the 3 upstream issues are still
+filed in quantum-os (#244, #245, #246).
+
+**What is not done, and is not this repo's to do:** the contract halves. `setRoll` still permits
+replacing an electorate, `propose` is still ungated, and an invitation still cannot be withdrawn.
+The `setRole`/`leave` last-admin guard remains **undrafted** — written up nowhere, filed nowhere.
+
+The findings themselves are unchanged — that is the point of keeping them. What changed is the code
+they were about: every probe that was red when this register was written passes now.

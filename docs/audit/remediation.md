@@ -7,14 +7,23 @@ orders them for fixing, by **criticality × triviality**, descending: cheap-but-
 **This document fixes nothing.** It is the order and the reasoning; the fixes are separate work, and
 each unit's own issue carries its fix plan and design scope.
 
-### Status — amended 2026-10-12
+### Status — executed, 2026-10-12
 
-**Two units are done.** `2cca707` landed `Fixes #38` (names) and `Fixes #39` (retry), and both issues
-auto-closed. So the order below covers the **11 remaining units**; #38 and #39 keep their rows, marked
-done, because their ratings are what the rest were ranked against. What they left open is recorded
-under [Done](#done-two-units-already-landed).
+**All thirteen units are fixed and every probe passes.** The order below was followed: five waves, one
+PR each, plus the two units `2cca707` landed ahead of them.
 
-Three ratings are corrected in this amendment, and two counts. Each is marked **✎**.
+| Wave | Units | PR |
+|---|---|---|
+| 0 — the enablers | RC-02's gate (identity, `risk`/`key`, the in-flight lock), the `Info` gloss lever | #66 |
+| 1 | #10, #30 (already fixed by `c6a7182`), RC-01 | #68 |
+| 2 | RC-06, RC-07 | #70 |
+| 3 | #26 (needed nothing further), RC-03, RC-04 | #71 |
+| 4 | RC-05 (the silent half), #47 | #72 |
+| 5 | RC-02's review half — the last red probe | #73 |
+
+Three ratings were corrected in the amendment, and two counts; each is marked **✎**. What was learned
+about the ordering instrument is under [Where the metric misfires](#where-the-metric-misfires) and has
+not been edited away — it is the reason the order was followed with judgement rather than literally.
 
 ## The two scales
 
@@ -270,6 +279,11 @@ of them is complete without it.
 
 ## Status
 
-Two of the thirteen units are fixed (#38, #39) and eleven remain. The order is a recommendation for
-whoever picks the work up, and every rating carries the count or the `I/X/D` it came from so it can be
-argued with rather than merely followed.
+**Done.** All thirteen units are fixed, all seventeen probes pass, and the working rules this document
+set for itself were kept: a wave that reddened a guard was reverted rather than patched forward (Help's
+next-step wording, PR #68), a copy change that made a probe pass while the cause stood was refused
+(the RC-07 five-rename shortcut, the RC-02 two-edit variant), and a claimed fix from another session
+was measured rather than trusted (`c6a7182`'s "P7a, P7b and RP2 now pass" — they did).
+
+Every rating still carries the count or the `I/X/D` it came from, so the order can be argued with
+rather than merely followed — and the arguments it lost are recorded rather than tidied away.

@@ -154,8 +154,9 @@ Two passes, reconciled:
    persona per pass, recording each finding with the record above. A persona "passes" only if
    they can name the app's purpose **and** their next action without opening Help.
 2. **Automated probes** — `npm run test:audit` (see below). Probes assert the *desired*
-   behaviour and are **expected red**; the red set is the findings. Guards pass today and must
-   keep passing.
+   behaviour and were **expected red** when written; the red set was the findings. All of them pass
+   now — see `register.md`'s "Where these stand" for what fixed each, because a probe that starts
+   passing on its own is a warning that it has gone stale. Guards must keep passing.
 
 A finding is confirmed when a probe names it and a manual walk reproduces it; a probe with no
 manual reproduction is recorded as "probe-only, unverified by eye".
