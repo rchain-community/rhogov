@@ -21,6 +21,19 @@ severity for reading.
 | RT-07 | S2 | AS-2 | I3 X4 D2 | Review-before-sign is kept for 2 of ~25 writes | T7 | RP1 | `src/ui/kit.tsx:175-178` | client | [#31](https://github.com/rchain-community/rhogov/issues/31) |
 | RT-12 | S3 | AS-3 | I2 X4 D2 | The welcome screen promises "private inboxes"; bodies are plaintext on chain | T12 | RP8 | `src/ui/setup.tsx:225` | client | [#34](https://github.com/rchain-community/rhogov/issues/34) |
 
+**Regrouped by root cause.** The rows in this register are unchanged and remain the durable evidence;
+what changed is the tracker issue, not the finding. **A closed finding is not a fixed finding** — the
+probe stays red until the code changes. See [`root-causes.md`](root-causes.md).
+
+| Finding | Issue | Now |
+|---|---|---|
+| RT-07, RT-02 | #31, #32 | closed → **RC-02** ([#53](https://github.com/rchain-community/rhogov/issues/53)) |
+| RT-03, RT-14, RT-16 | #21, #25, #28 | closed → **RC-03** ([#54](https://github.com/rchain-community/rhogov/issues/54)) |
+| RT-13, RT-10, RT-04, RT-11 | #20, #27, #37, #40 | closed → **RC-04** ([#55](https://github.com/rchain-community/rhogov/issues/55)) |
+| RT-06 | #33 | closed → **RC-05** ([#56](https://github.com/rchain-community/rhogov/issues/56)) |
+| RT-09, RT-12 | #22, #34 | closed → **RC-06** ([#57](https://github.com/rchain-community/rhogov/issues/57)) |
+| RT-01, RT-05, RT-08, RT-15 | #30, #38, #39, #26 | **kept** — four mechanisms that stand alone |
+
 Each was **measured**, not argued: the probe fails on its intended assertion, and the failure
 message carries the evidence. Verbatim, from the run:
 
