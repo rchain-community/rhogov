@@ -3,7 +3,8 @@ import { signal } from "@preact/signals";
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { filterPeople, resolvePerson, suggestNames } from "../chain/people";
-import { addressBook, forceTick, gov, learnListed, learnNames, myAddr, refresh, refreshTick, reviewBeforeSign } from "../state";
+import { Gov } from "../chain/gov";
+import { addressBook, communities, forceTick, gov, learnListed, learnNames, myAddr, refresh, refreshTick, reviewBeforeSign } from "../state";
 
 // --- routing (hash) ------------------------------------------------------------
 
@@ -271,10 +272,25 @@ export function PersonField({ label, hint, initial = "", onChange }: { label: st
     // Group labels (not a creator's, which is the group's name), and directory names where there is one.
     learnNames(gs.flatMap((g) => g.members.map((m) => ({ addr: m.addr, label: m.label !== g.name ? m.label : "" }))));
     const addrs = new Set([...gs.flatMap((g) => g.members.map((m) => m.addr)), ...Object.keys(listed)]);
-    return [...addrs];
+    // People you know from your other communities on the same network count too:
+    // someone in "colab" can be invited into a group here by the name they use there.
+    const elsewhere: Record<string, { name: string; from: string }> = {};
+    for (const c of communities.value.filter((x) => x.node === G.c.node && x.group !== G.c.group)) {
+      const O = new Gov(c, () => null);
+      const [ogs, olisted] = await Promise.all([O.groups().catch(() => []), O.names().catch(() => ({} as Record<string, string>))]);
+      for (const g of ogs) for (const m of g.members) if (m.label && m.label !== g.name && !elsewhere[m.addr]) elsewhere[m.addr] = { name: m.label, from: c.name };
+      for (const [a, n] of Object.entries(olisted)) elsewhere[a] = { name: n, from: c.name }; // a claim beats a label
+    }
+    return { here: [...addrs], elsewhere };
   }, [G.c.group]);
   // Match on the names as shown, so "Jim" finds whoever claimed it, not an "(unclaimed)" label.
-  const names: Record<string, string> = Object.fromEntries((people.data ?? []).map((a) => [a, addressBook.value[a] ?? ""]).filter(([, n]) => n));
+  const names: Record<string, string> = Object.fromEntries((people.data?.here ?? []).map((a) => [a, addressBook.value[a] ?? ""]).filter(([, n]) => n));
+  // Names from other communities fill in only where they don't clash with a name used here.
+  const used = new Set(Object.values(names));
+  const fromElsewhere: Record<string, string> = {};
+  for (const [a, x] of Object.entries(people.data?.elsewhere ?? {})) {
+    if (!names[a] && !used.has(x.name)) { names[a] = x.name; used.add(x.name); fromElsewhere[a] = x.from; }
+  }
   const r = resolvePerson(text, names);
   useEffect(() => { onChange(r.ok ? r.addr : null); }, [r.ok ? r.addr : null]);
   // Names start with a letter, addresses with a digit: so while it reads as a
@@ -293,12 +309,12 @@ export function PersonField({ label, hint, initial = "", onChange }: { label: st
         </div>
       )}
       {text.trim() && (r.ok
-        ? <span class="small muted">→ <Addr addr={r.addr} avatar={false} />{!r.name && " (not known in this community yet)"}</span>
+        ? <span class="small muted">→ {fromElsewhere[r.addr] ? <><b>{names[r.addr]}</b> from {fromElsewhere[r.addr]} <Copy text={r.addr} label={`Copy ${names[r.addr]}'s REV address`} /></> : <Addr addr={r.addr} avatar={false} />}{!r.name && " (not known in your communities yet)"}</span>
         : (picking && choices.length) ? null
         : <span class="badge danger">{
             r.why === "bad-address" ? "That doesn't look like a complete REV address."
             : people.loading && !people.data ? "Looking up names…"
-            : `No one in this community is called “${text.trim()}” (capitals count). Pick a name from the list, or paste their REV address.`}</span>)}
+            : `No one in your communities is called “${text.trim()}” (capitals count). Pick a name from the list, or paste their REV address.`}</span>)}
     </div>
   );
 }

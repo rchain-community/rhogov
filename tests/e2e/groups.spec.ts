@@ -129,7 +129,7 @@ test("a community decides with trust and delegation", async ({ browser }) => {
   await alice.getByRole("button", { name: "Invite someone" }).click();
   // By name: a misspelling is refused with a reason, the right name resolves to her address.
   await alice.locator(".modal").getByLabel("Who").fill("Karol");
-  await expect(alice.getByText("No one in this community is called “Karol”")).toBeVisible();
+  await expect(alice.getByText("No one in your communities is called “Karol”")).toBeVisible();
   await expect(alice.getByRole("button", { name: "Invite", exact: true })).toBeDisabled();
   // Typing the start of a name offers the names that start that way; picking one resolves her.
   await alice.locator(".modal").getByLabel("Who").fill("Ca");

@@ -354,7 +354,7 @@ chose; there's no rhogov server, database or account.
 | **"Couldn't finish: …"** | The card stays until you close it, and says what went wrong and what to do. You can drag either card out of the way; double-click puts it back in the middle. |
 | **A balance of 0**, **Start community** greyed out, "Not enough REV", or "The node refused this deploy without giving a reason" | On the playground or testnet, press **Get test REV** on Account (on the testnet, [r-wallet](https://rhowallet.org)'s faucet works too). Elsewhere, ask someone to send you REV. |
 | **"This group is invite-only…"** | Ask one of its admins to invite you, by your name or your address from Account. |
-| **"No one in this community is called …"** | Check the spelling, or ask for their REV address and paste that instead. Someone shows up by name only once they've set it. |
+| **"No one in your communities is called …"** | Check the spelling (capitals count), or ask for their REV address and paste that instead. People are found by name across all the communities you've joined on that network, once they have a name. |
 | **"You're not on this issue's voter roll"** | You joined after the vote opened. Ask whoever opened it to add new members to the roll. |
 | **"No name yet"** | That person hasn't set a name, or hasn't had the REV for the one small deploy it takes; their name appears once they do. Every person's address is one click away with the ⧉ copy button beside their name. |
 | **"Jim (unclaimed)"** or **"Jim (2)"** | Someone else claimed that name in this community. *(unclaimed)* marks a name only typed when joining a group; *(2)* marks a second claim made at the same moment. |
