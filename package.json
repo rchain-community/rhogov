@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node src/chain/rgov-core.js --selftest && tsx tests/unit.ts",
     "test:chain": "tsx tests/chain-check.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:audit": "npm run build && RHOGOV_AUDIT=1 playwright test tests/e2e/audit"
   },
   "dependencies": {
     "@noble/curves": "^2.4.0",
