@@ -213,7 +213,8 @@ and how many votes they carry for others.
 ## 7. Censure
 
 Trust can be withdrawn. If you think someone's trust is undeserved, press
-**Censure** next to them.
+**Dispute their trust** next to them. The chain, and the rest of this section, call that a
+*censure* — the button says what it does instead.
 
 - Only censures from members **at or above that person's trust level** count.
   Lower-trust members can't gang up on higher-trust ones.
@@ -413,7 +414,8 @@ chose; there's no rhogov server, database or account.
 - **Group**: people who vote together.
 - **Delegate**: the person who carries your vote when you don't vote.
 - **Trust level**: 0–5; a vote counts for 1 + the voter's level.
-- **Censure**: a vote of no confidence in someone's trust.
+- **Censure**: a vote of no confidence in someone's trust. The button says **Dispute their trust**; the
+  name the contract uses is censure.
 - **Council**: a body that decides across several stakeholder groups.
 - **Stakeholder group**: one kind of participant in a council, with its own
   members, trust and delegation.

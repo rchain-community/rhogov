@@ -12,6 +12,11 @@ question is:
 > finding, and which half of it remains upstream, is in
 > [`register-redteam.md`](register-redteam.md) → *Where these stand*; the upstream half is collected in
 > [#75](https://github.com/rchain-community/rhogov/issues/75).
+>
+> **Two things changed in the app since these were written**, so a scenario that names a control may
+> name it differently from the one on screen: **Censure** is now **Dispute their trust**, **Delegate my
+> vote** is now **Hand my vote to someone**, and a vote's list of voters is no longer called "the roll"
+> in the interface (RC-07).
 
 This is the second exercise against rhogov. The [cold-start
 audit](cold-start-protocol.md) asked whether a *stranger* could find their way; this one asks
