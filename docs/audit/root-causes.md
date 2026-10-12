@@ -80,7 +80,8 @@ Each issue carries its own root cause, fix plan, design scope and open decisions
 
 ## The six singletons
 
-Each keeps its issue, which now carries its root cause and fix plan. None is closed.
+Each **kept** its issue rather than being folded into a bucket, and its issue carries the root cause and
+the fix plan. All six are fixed now — see "Where these stand" in the two registers for what fixed each.
 
 | Issue | Why it stands alone |
 |---|---|
@@ -123,6 +124,15 @@ Two further seams stay **unfiled and undrafted**, because confirming them needs 
 native source rather than this repo: the censure threshold's ceiling-rounding and cascading slash,
 and trust weighting activating on a single rating (`src/chain/gov.ts:210-213`).
 
+**And one more, which is neither filed nor drafted and does not need that check:** `setRole`
+(`rgov-core.js:489-513`) and `leave` (`:515-525`) have no last-admin guard, so a group can be stranded
+with nobody able to invite or promote. It is contract-only, so it can be written up from the vendored
+file alone — it is the cheapest thing on the upstream list, and the reason it is still open is that the
+audit found it and never wrote it up.
+
+All of it is collected in [#75](https://github.com/rchain-community/rhogov/issues/75), the handoff to
+quantum-os.
+
 ## Status — 2026-10-12
 
 **Every unit here is done, and every probe passes.** Fixed across five waves, one PR each, plus two
@@ -151,6 +161,8 @@ filed in quantum-os (#244, #245, #246).
 **What is not done, and is not this repo's to do:** the contract halves. `setRoll` still permits
 replacing an electorate, `propose` is still ungated, and an invitation still cannot be withdrawn.
 The `setRole`/`leave` last-admin guard remains **undrafted** — written up nowhere, filed nowhere.
+All four are collected in [#75](https://github.com/rchain-community/rhogov/issues/75), the handoff to
+quantum-os.
 
 The findings themselves are unchanged — that is the point of keeping them. What changed is the code
 they were about: every probe that was red when this register was written passes now.

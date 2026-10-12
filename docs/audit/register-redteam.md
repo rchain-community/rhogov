@@ -46,22 +46,31 @@ message carries the evidence. Verbatim, from the run:
 The run was on the playground, and the community in play was ours throughout
 (`Redteam Alice …`) — the hard prohibition held: no third-party community was opened.
 
-## Upstream seams — drafted, awaiting review
+## Upstream seams — filed in quantum-os
 
 These are in the vendored `src/chain/rgov-core.js`, which this repo **must not edit**
-(`CLAUDE.md:44-47`). They are written up as drafts and **not filed**: they name concrete defects
-in someone else's contracts, so the wording should be read before it goes to quantum-os.
+(`CLAUDE.md:44-47`). Each was written up as a draft first and then filed, and the drafts here are what
+was filed.
 
-| Seam | Contract line | Consequence | Draft |
-|---|---|---|---|
-| `setRoll` replaces the electorate with no membership check, and is refused only when the issue is *closed* | `rgov-core.js:690-704` | the opener can add or remove voters after ballots are cast — the contract's own comment claims otherwise | [`upstream/setroll-electorate.md`](upstream/setroll-electorate.md) |
-| `propose` is ungated | `rgov-core.js:771-779` | any member can post a competing "result" on any issue; the app hides the control but the state is public and indistinguishable | [`upstream/propose-ungated.md`](upstream/propose-ungated.md) |
-| No `uninvite` verb exists (only `uncensure` and `undelegate` have mirrors) | `rgov-core.js:477-487`, `:615` | a mistaken or declined invitation leaves the invitee's address publicly listed forever, unless they join | [`upstream/uninvite-missing.md`](upstream/uninvite-missing.md) |
+| Seam | Contract line | Consequence | Filed as | Draft |
+|---|---|---|---|---|
+| `setRoll` replaces the electorate with no membership check, and is refused only when the issue is *closed* | `rgov-core.js:690-704` | the opener can add or remove voters after ballots are cast — the contract's own comment claims otherwise | [quantum-os#244](https://github.com/rchain-community/quantum-os/issues/244) | [`upstream/setroll-electorate.md`](upstream/setroll-electorate.md) |
+| `propose` is ungated | `rgov-core.js:771-779` | any member can post a competing "result" on any issue; the app hides the control but the state is public and indistinguishable | [quantum-os#245](https://github.com/rchain-community/quantum-os/issues/245) | [`upstream/propose-ungated.md`](upstream/propose-ungated.md) |
+| No `uninvite` verb exists (only `uncensure` and `undelegate` have mirrors) | `rgov-core.js:477-487`, `:615` | a mistaken or declined invitation leaves the invitee's address publicly listed forever, unless they join | [quantum-os#246](https://github.com/rchain-community/quantum-os/issues/246) | [`upstream/uninvite-missing.md`](upstream/uninvite-missing.md) |
 
-Two further seams were reported by reading but are **not** yet drafted, because confirming them
-needs the rchain-rust native source rather than this repo: the censure threshold's
-ceiling-rounding and cascading slash (`max(2, ⌈⅔·eligible⌉)`), and trust weighting activating on
-any single rating (`src/chain/gov.ts:210-213`). Draft them only against verified upstream source.
+**A fourth seam has neither draft nor issue.** `setRole` (`:489-513`) and `leave` (`:515-525`) have no
+last-admin guard, so a group can be left with nobody able to invite or promote. Unlike the two seams
+below it needs no native-source check — it is contract-only and can be drafted from the vendored file
+alone — which makes it the cheapest thing on the upstream list. It was found by the audit and then
+never written up; that omission is the whole reason it is still only here.
+
+Two further seams were reported by reading but are **not** drafted, because confirming them needs the
+rchain-rust native source rather than this repo: the censure threshold's ceiling-rounding and cascading
+slash (`max(2, ⌈⅔·eligible⌉)`), and trust weighting activating on any single rating
+(`src/chain/gov.ts:210-213`). Draft them only against verified upstream source.
+
+**All of this is collected in [#75](https://github.com/rchain-community/rhogov/issues/75)**, the handoff
+to quantum-os, naming @jimscarver.
 
 ## Evidence-pending findings (filed from reading)
 
@@ -94,9 +103,10 @@ disclosure half is client-fixable. RT-15's missing `uninvite` verb is likewise u
 
 ### Coverage
 
-All twelve scenarios now have a filed issue, so no documented finding is left without one. The
-two-way property the tracker already had still holds: every `RT-nn` here resolves to an issue,
-and every open issue links back to its row.
+All twelve scenarios have a filed issue, so no documented finding was left without one. The two-way
+property the tracker had held throughout: every `RT-nn` here resolves to an issue, and every issue
+links back to its row. All of those issues are now closed as fixed — see *Where these stand* above for
+what fixed each and which half of it remains upstream.
 
 Filing order within the evidence-pending set reflects how the findings were reached, not their
 severity — read the `Sev` column for that.
@@ -167,3 +177,8 @@ contract change is named rather than quietly counted as done.
 ```sh
 npm run test:redteam    # 5 passed, 0 failed, against a local node
 ```
+
+**The "Remains" column is collected in [#75](https://github.com/rchain-community/rhogov/issues/75)** — the
+handoff to quantum-os, naming @jimscarver. Nothing in it blocks the app: each of those findings has
+either a fix or a disclosure, and what is left is the case where rhogov can warn but the chain still
+permits the write.
