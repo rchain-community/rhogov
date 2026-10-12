@@ -197,7 +197,7 @@ function Members({ g, st }: { g: Group; st: Standing }) {
             </div>
             <div class="row">
               <button onClick={() => setDelegating(true)}>{myDelegate ? "Change" : "Delegate my vote"}</button>
-              {myDelegate && <button class="ghost" onClick={() => act("Taking your vote back", (t) => G.undelegate(g.id, null, t), { done: "You vote for yourself again." })}>Take it back</button>}
+              {myDelegate && <button class="ghost" onClick={() => act("Taking your vote back", (t) => G.undelegate(g.id, null, t), { risk: "routine", key: `undelegate:${g.id}:standing`, done: "You vote for yourself again." })}>Take it back</button>}
             </div>
           </div>
           <div class="small muted" style={{ marginTop: ".5rem" }}>
@@ -238,12 +238,21 @@ function Members({ g, st }: { g: Group; st: Standing }) {
                       title={myLevel < lvl ? "Censures count only from members at or above this member's trust level" : ""}
                       onClick={() => {
                         const on = !censuredByMe(m.addr);
-                        if (on && !confirm(`Censure ${nameOf(m.addr)}? A censure says their trust is undeserved. If two-thirds of members at or above their level agree, their trust drops to 0 and those who vouched for them lose the trust they staked.`)) return;
-                        act(on ? `Censuring ${nameOf(m.addr)}` : "Withdrawing censure", (t) => G.censure(g.id, m.addr, on, t));
+                        act(on ? `Censuring ${nameOf(m.addr)}` : "Withdrawing censure", (t) => G.censure(g.id, m.addr, on, t), {
+                          risk: on ? "consequential" : "routine",
+                          key: `censure:${g.id}:${m.addr}`,
+                          confirm: on ? `Censure ${nameOf(m.addr)}? A censure says their trust is undeserved. If two-thirds of members at or above their level agree, their trust drops to 0 and those who vouched for them lose the trust they staked.` : false,
+                        });
                       }}>{censuredByMe(m.addr) ? "Withdraw censure" : "Censure"}</button>
                     {admin && (
                       <button class="small ghost" onClick={() => act(m.role === "admin" ? "Removing admin" : "Making admin",
-                        (t) => G.setRole(g.id, m.addr, m.role === "admin" ? "member" : "admin", t))}>{m.role === "admin" ? "Remove admin" : "Make admin"}</button>
+                        (t) => G.setRole(g.id, m.addr, m.role === "admin" ? "member" : "admin", t), {
+                          risk: "consequential",
+                          key: `setRole:${g.id}:${m.addr}`,
+                          confirm: m.role === "admin"
+                            ? `Remove admin from ${nameOf(m.addr)}? Admins hold the top trust level, so this lowers their voting weight to 1, and lowers it for anyone they vouch for. If they are the last admin, nobody can invite or promote afterwards.`
+                            : `Make ${nameOf(m.addr)} an admin? Admins hold the top trust level, so this raises their voting weight to 6.`,
+                        })}>{m.role === "admin" ? "Remove admin" : "Make admin"}</button>
                     )}
                   </div>
                 )}
@@ -273,7 +282,7 @@ function RateModal({ g, addr, myLevel, onClose }: { g: Group; addr: string; myLe
   const cap = Math.max(0, myLevel - 1);
   return (
     <Modal title={`How much do you trust ${nameOf(addr)}?`} onClose={onClose}
-      actions={<><button onClick={onClose}>Cancel</button><button class="primary" onClick={() => { onClose(); act(`Rating ${nameOf(addr)} ${v}/5`, (t) => G.rate(g.id, addr, v, t)); }}>Save rating</button></>}>
+      actions={<><button onClick={onClose}>Cancel</button><button class="primary" onClick={() => { onClose(); act(`Rating ${nameOf(addr)} ${v}/5`, (t) => G.rate(g.id, addr, v, t), { risk: "consequential", key: `rate:${g.id}:${addr}`, confirm: `Rate ${nameOf(addr)} ${v}/5? Your rating is how much you vouch for them, and it weighs every vote in this group. The first rating in a group switches it from one vote each to 1 + trust level.` }); }}>Save rating</button></>}>
       <div class="stack">
         {LEVELS.map((l, i) => (
           <label class={`choice ${v === i ? "on" : ""}`}>
@@ -303,7 +312,7 @@ export function DelegateModal({ g, issueId, issueTitle, onClose }: { g: Group; i
   };
   return (
     <Modal title={issueId ? `Delegate your vote on “${issueTitle}”` : "Delegate your vote"} onClose={onClose}
-      actions={<><button onClick={onClose}>Cancel</button><button class="primary" disabled={!to} onClick={() => { onClose(); act(`Delegating to ${nameOf(to)}`, (t) => G.delegate(g.id, to, issueId, t), { done: `${nameOf(to)} now carries your vote${issueId ? " on this issue" : ""}.` }); }}>Delegate</button></>}>
+      actions={<><button onClick={onClose}>Cancel</button><button class="primary" disabled={!to} onClick={() => { onClose(); act(`Delegating to ${nameOf(to)}`, (t) => G.delegate(g.id, to, issueId, t), { risk: "consequential", key: `delegate:${g.id}:${to}:${issueId ?? "standing"}`, done: `${nameOf(to)} now carries your vote${issueId ? " on this issue" : ""}.` }); }}>Delegate</button></>}>
       <p class="muted small">{issueId ? "Only for this vote — it overrides your standing delegate here." : "For every vote in this group where you don't vote yourself."} You can always vote directly instead, and you can take it back any time.</p>
       <div class="stack">
         {g.members.length > 2 && pick.box}
@@ -328,8 +337,13 @@ function InviteModal({ g, onClose }: { g: Group; onClose: () => void }) {
   const send = async () => {
     const a = addr!;
     onClose();
-    if (g.policy === "invite") await act(`Inviting ${nameOf(a)}`, (t) => G.invite(g.id, a, t), { done: "Invitation recorded on chain." });
-    if (notify) await act(`Sending ${nameOf(a)} the invitation`, (t) => G.send(a, "invite", { gid: g.id, group: g.name, body: `You're invited to join ${g.name}.` }, t), { done: "Delivered to their inbox." });
+    if (g.policy === "invite") await act(`Inviting ${nameOf(a)}`, (t) => G.invite(g.id, a, t), {
+      risk: "irreversible",
+      key: `invite:${g.id}:${a}`,
+      confirm: `Invite ${nameOf(a)}? Their address is written into this group's public state, where anyone can read it, and an invitation cannot be withdrawn — it stays there until they join.`,
+      done: "Invitation recorded on chain.",
+    });
+    if (notify) await act(`Sending ${nameOf(a)} the invitation`, (t) => G.send(a, "invite", { gid: g.id, group: g.name, body: `You're invited to join ${g.name}.` }, t), { risk: "routine", key: `send:${a}:invite:${g.id}`, done: "Delivered to their inbox." });
   };
   return (
     <Modal title={`Invite someone to ${g.name}`} onClose={onClose}
@@ -357,7 +371,7 @@ function About({ g }: { g: Group }) {
           <div><b>Stored in:</b> <span class="mono">{G.c.group}</span></div>
         </div>
       </div>
-      {isMember(g, me) && <div><button class="danger" onClick={() => confirm(`Leave ${g.name}? Your standing delegation in this group is dropped too.`) && act(`Leaving ${g.name}`, (t) => G.leave(g.id, t)).then(() => go("/groups"))}>Leave group</button></div>}
+      {isMember(g, me) && <div><button class="danger" onClick={() => act(`Leaving ${g.name}`, (t) => G.leave(g.id, t), { risk: "irreversible", key: `leave:${g.id}`, confirm: `Leave ${g.name}? Your standing delegation in this group is dropped too.` }).then((r) => r !== undefined && go("/groups"))}>Leave group</button></div>}
       <p class="small"><a href={href("g", g.id, "members")}>Members and trust →</a></p>
     </div>
   );

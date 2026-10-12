@@ -106,10 +106,10 @@ function NewCouncilModal({ onClose }: { onClose: () => void }) {
       ["create", [q(cid), q(name.trim()), q("open")]],
       ...chambers.map((ch) => ["create", [q(chamberId(cid, ch.slug)), q(ch.name), q(ch.policy)]] as [string, string[]]),
     ];
-    const made = await act(`Creating ${name.trim()} and ${chambers.length} stakeholder groups`, (t) => G.batch("group", calls, t), { done: "Council and stakeholder groups created." });
+    const made = await act(`Creating ${name.trim()} and ${chambers.length} stakeholder groups`, (t) => G.batch("group", calls, t), { risk: "consequential", key: `createCouncil:${cid}`, done: "Council and stakeholder groups created." });
     if (!made) return;
     // The charter: the council's purpose, as the title of its voting-power estimate.
-    const opened = await act("Opening the voting-power estimate", (t) => G.openIssue(weightsIssueId(cid), cid, purpose.trim(), "estimate", chambers.map((c) => chamberId(cid, c.slug)), [me], t));
+    const opened = await act("Opening the voting-power estimate", (t) => G.openIssue(weightsIssueId(cid), cid, purpose.trim(), "estimate", chambers.map((c) => chamberId(cid, c.slug)), [me], t), { risk: "consequential", key: `openWeights:${cid}` });
     if (opened) go(cHref(cid));
   };
   return (
@@ -197,7 +197,12 @@ function refreshRolls(d: CouncilData) {
   const roll = qSet(d.participants);
   const open = [d.weights, ...d.decisions.flatMap((i) => [i, { id: argsIssueId(i.id), status: i.status } as Issue])]
     .filter((i): i is Issue => !!i && i.status !== "closed");
-  return act("Adding new participants to the rolls", (t) => G.batch("issue", open.map((i) => ["setRoll", [q(i.id), roll]]), t), { done: "Everyone taking part can now estimate and vote." });
+  return act("Adding new participants to the rolls", (t) => G.batch("issue", open.map((i) => ["setRoll", [q(i.id), roll]]), t), {
+    risk: "consequential",
+    key: `setRolls:${open[0]?.id ?? ""}`,
+    confirm: `Add the people who belong to each stakeholder group to ${open.length} open vote${open.length > 1 ? "s" : ""}? This replaces the roll of each one. Ballots already cast are not re-weighed, and the roll can be changed again while a vote is open.`,
+    done: "Everyone taking part can now estimate and vote.",
+  });
 }
 
 function Stakeholders({ d }: { d: CouncilData }) {
@@ -211,7 +216,7 @@ function Stakeholders({ d }: { d: CouncilData }) {
       ...sel.map((id) => ["join", [q(id), q(displayName.value || "member")]] as [string, string[]]),
     ];
     setSel([]);
-    return act(`Joining ${sel.length} stakeholder group${sel.length > 1 ? "s" : ""}`, (t) => G.batch("group", calls, t), { done: "You're in. The facilitator adds you to open votes." });
+    return act(`Joining ${sel.length} stakeholder group${sel.length > 1 ? "s" : ""}`, (t) => G.batch("group", calls, t), { risk: "consequential", key: `joinChambers:${sel.join(",")}`, done: "You're in. The facilitator adds you to open votes." });
   };
   return (
     <div class="stack">
@@ -235,7 +240,7 @@ function Stakeholders({ d }: { d: CouncilData }) {
                     const msg = soleAdmin && ch.policy === "invite"
                       ? `You're the only admin of ${ch.name}, which is invite-only. If you leave, nobody can invite new members. Make someone else an admin first (Members & trust). Leave anyway?`
                       : `Leave ${ch.name}? Your ballots on council decisions will no longer count for this group.`;
-                    if (confirm(msg)) act(`Leaving ${ch.name}`, (t) => G.leave(ch.id, t), { done: `You left ${ch.name}.` });
+                    act(`Leaving ${ch.name}`, (t) => G.leave(ch.id, t), { risk: "irreversible", key: `leaveChamber:${ch.id}`, confirm: msg, done: `You left ${ch.name}.` });
                   }}>Leave</button></>
                   : can ? <label class="row small"><input type="checkbox" style={{ width: "auto" }} checked={on} onChange={() => setSel(on ? sel.filter((x) => x !== ch.id) : [...sel, ch.id])} /> I belong here</label>
                   : <span class="muted small">Ask an admin of this group to invite you</span>}
@@ -262,7 +267,7 @@ function PowerPanel({ d }: { d: CouncilData }) {
   const [est, setEst] = useState<Record<string, number>>(() => Object.fromEntries(ids.map((id) => [id, mine?.[id] ?? Math.round(100 / Math.max(1, ids.length))])));
   const tot = Object.values(est).reduce((s, x) => s + x, 0);
   const onRoll = !!me && !!d.weights && (d.weights.voters.includes(me) || d.weights.guests.includes(me));
-  const submit = () => act("Submitting your estimate", (t) => G.cast(d.weights!.id, estimateBallot(est), t), { done: "Your estimate is on chain." });
+  const submit = () => act("Submitting your estimate", (t) => G.cast(d.weights!.id, estimateBallot(est), t), { risk: "consequential", key: `castEstimate:${d.weights!.id}`, done: "Your estimate is on chain." });
   return (
     <div class="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", alignItems: "start" }}>
       <div class="card">
@@ -337,7 +342,7 @@ function NewDecisionModal({ d, onClose }: { d: CouncilData; onClose: () => void 
       ["open", [q(iid), q(d.group.id), q(title.trim()), q("approval"), qList(clean), qSet(roll)]],
       ["open", [q(argsIssueId(iid)), q(d.group.id), q(context.trim() || title.trim()), q("args"), "[]", qSet(roll)]],
       ["propose", [q(iid), `{"phase": "deliberate"}`]],
-    ], t), { done: "Deliberation is open." });
+    ], t), { risk: "consequential", key: `prepare:${iid}`, done: "Deliberation is open." });
     if (r) go(cHref(d.group.id, "d", iid));
   };
   return (
@@ -400,7 +405,7 @@ function Decision({ d, i, args, results }: { d: CouncilData; i: Issue; args: Iss
   const [recording, setRecording] = useState(false);
   const [delegIn, setDelegIn] = useState<Group | null>(null);
 
-  const setPhase = (phase: PhaseId) => act(`Moving to “${PHASES.find((p) => p.id === phase)!.name}”`, (t) => G.proposeTerm(i.id, `{"phase": ${q(phase)}}`, t));
+  const setPhase = (phase: PhaseId) => act(`Moving to “${PHASES.find((p) => p.id === phase)!.name}”`, (t) => G.proposeTerm(i.id, `{"phase": ${q(phase)}}`, t), { risk: "consequential", key: `phase:${i.id}:${phase}` });
 
   return (
     <div>
@@ -474,7 +479,7 @@ function Deliberation({ i, args, open }: { i: Issue; args: Issue | null; open: b
   const canAct = open && !!me && args.voters.includes(me);
   const toggle = (raw: string) => {
     const next = mine.includes(raw) ? mine.filter((x) => x !== raw) : [...mine, raw];
-    act(mine.includes(raw) ? "Withdrawing endorsement" : "Endorsing", (t) => G.cast(args.id, next, t));
+    act(mine.includes(raw) ? "Withdrawing endorsement" : "Endorsing", (t) => G.cast(args.id, next, t), { risk: "routine", key: `endorse:${args.id}` });
   };
   return (
     <div class="card">
@@ -511,7 +516,7 @@ function Deliberation({ i, args, open }: { i: Issue; args: Issue | null; open: b
           </div>
           <div class="row">
             <input class="grow" value={text} placeholder="One clear point" onInput={(e) => setText((e.target as HTMLInputElement).value)} />
-            <button disabled={!text.trim()} onClick={() => { const t0 = text.trim(); setText(""); act("Adding your point", (t) => G.addOption(args.id, encodeArg(side, opt, t0), t)); }}>Add</button>
+            <button disabled={!text.trim()} onClick={() => { const t0 = text.trim(); setText(""); act("Adding your point", (t) => G.addOption(args.id, encodeArg(side, opt, t0), t), { risk: "routine", key: `point:${args.id}:${t0}` }); }}>Add</button>
           </div>
         </div>
       )}
@@ -573,7 +578,12 @@ function RecordModal({ i, total, onClose }: { i: Issue; total: ReturnType<typeof
       ["propose", [q(i.id), `{"phase": "decided", "winner": ${winner ? q(winner) : "Nil"}, "rationale": ${q(rationale.trim())}, "actions": ${acts}, "scores": ${scores}}`]],
       ["close", [q(i.id)]],
       ["close", [q(argsIssueId(i.id))]],
-    ], t), { done: "Decision of record saved on chain." });
+    ], t), {
+      risk: "irreversible",
+      key: `record:${i.id}`,
+      confirm: `Record this decision and close both issues? It cannot be reopened: the decision of record is what the council is held to, and the deliberation closes with it.`,
+      done: "Decision of record saved on chain.",
+    });
   };
   return (
     <Modal title="Record the decision" onClose={onClose}

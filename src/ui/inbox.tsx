@@ -18,7 +18,7 @@ export function InboxScreen() {
   const n = Object.values(waiting.data ?? {}).reduce((x, y) => x + y, 0);
 
   const collect = async () => {
-    const got = await act("Collecting your messages", (t) => G.receive(t), { done: "Messages collected." });
+    const got = await act("Collecting your messages", (t) => G.receive(t), { risk: "consequential", key: `receive:${c.inbox}:${me}`, done: "Messages collected." });
     if (got && got.length) { archive(me, c, got); setMsgs(archived(me, c)); }
     checkInbox(true);
   };
@@ -76,7 +76,7 @@ export function Compose({ initial, onClose }: { initial: { to?: string; subject?
   const ok = !!to && body.trim();
   return (
     <Modal title="New message" onClose={onClose}
-      actions={<><button onClick={onClose}>Cancel</button><button class="primary" disabled={!ok} onClick={() => { onClose(); act(`Sending to ${nameOf(to!)}`, (t) => G.send(to!, "note", { subject: subject.trim(), body: body.trim() }, t), { done: "Delivered to their inbox." }); }}>Send</button></>}>
+      actions={<><button onClick={onClose}>Cancel</button><button class="primary" disabled={!ok} onClick={() => { onClose(); act(`Sending to ${nameOf(to!)}`, (t) => G.send(to!, "note", { subject: subject.trim(), body: body.trim() }, t), { risk: "routine", key: `sendNote:${to}:${subject.trim()}`, done: "Delivered to their inbox." }); }}>Send</button></>}>
       <div class="stack">
         <PersonField label="To" initial={initial.to} onChange={setTo} />
         <label class="field">Subject<input value={subject} onInput={(e) => setSubject((e.target as HTMLInputElement).value)} /></label>
