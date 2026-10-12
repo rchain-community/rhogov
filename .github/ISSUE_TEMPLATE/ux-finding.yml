@@ -1,0 +1,123 @@
+# A cold-start UX finding from the audit. See docs/audit/cold-start-protocol.md.
+# The labels below must exist on the repository before the form can apply them:
+#   gh label create ux-audit --description "Finding from the cold-start UX audit"
+#   gh label create cold-start --description "On the first-run / onboarding path"
+name: Cold-start UX finding
+description: A finding from the adversarial cold-start audit (docs/audit/cold-start-protocol.md)
+title: "[CS-] "
+labels: ["ux-audit", "cold-start"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        One finding per issue. Severity is assigned in the audit pass and confirmed at
+        triage. Evidence should let a fixer reproduce it without asking you anything.
+        Never paste your private key — the app's own report says only *whether* one is set.
+
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed
+      description: What the user actually saw — verbatim strings, a screenshot, a trace.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+      description: What a first-time user needs instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: See the rubric in the protocol. S1 cannot proceed or is misled.
+      options:
+        - "S1 — Blocker"
+        - "S2 — Major"
+        - "S3 — Minor"
+        - "S4 — Nit"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: persona
+    attributes:
+      label: Persona
+      options:
+        - "P-A The stranded stranger"
+        - "P-B The impatient clicker"
+        - "P-C The skeptic"
+        - "P-D The returning user with a stale key"
+        - "P-E The non-crypto user"
+        - "P-F The invited outsider with no key"
+        - "P-G The small-screen user"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: entry
+    attributes:
+      label: Entry state
+      options:
+        - "S1 Fresh browser"
+        - "S2 Key + empty community"
+        - "S2b Key + community, in no group"
+        - "S3 Key + populated community"
+        - "S4 Stale key"
+        - "S4b Stale community (dead contracts)"
+        - "S4c Unreachable node"
+        - "S5 Bad invite"
+        - "S5b Invite parses, points nowhere"
+        - "S6 Invite, no key"
+        - "S7 Invite, already joined"
+    validations:
+      required: true
+
+  - type: input
+    id: route
+    attributes:
+      label: Route
+      placeholder: "#/welcome"
+    validations:
+      required: true
+
+  - type: input
+    id: probe
+    attributes:
+      label: Probe (if any)
+      description: The automated probe that names this finding, e.g. P7a in tests/e2e/audit/invite.probe.spec.ts
+      placeholder: "P7a — tests/e2e/audit/invite.probe.spec.ts"
+    validations:
+      required: false
+
+  - type: input
+    id: target
+    attributes:
+      label: Target
+      description: The file and line that would change.
+      placeholder: "src/ui/home.tsx:39"
+    validations:
+      required: false
+
+  - type: textarea
+    id: setup
+    attributes:
+      label: My setup
+      description: Paste the "My setup" block from Help → Report a problem. It never contains your key.
+      render: markdown
+    validations:
+      required: false

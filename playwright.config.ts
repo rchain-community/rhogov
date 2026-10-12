@@ -5,6 +5,10 @@ import { defineConfig } from "@playwright/test";
 //   npm run build && RHOGOV_NODE=http://127.0.0.1:40403 npm run test:e2e
 export default defineConfig({
   testDir: "tests/e2e",
+  // The cold-start UX audit (tests/e2e/audit/) is expected to be RED: every probe
+  // asserts behaviour that does not exist yet, so a red there is a finding, not a
+  // broken test. It is kept out of the normal suite and run with `npm run test:audit`.
+  testIgnore: process.env.RHOGOV_AUDIT ? [] : ["**/audit/**"],
   timeout: 15 * 60_000,
   expect: { timeout: 60_000 },
   workers: 1,

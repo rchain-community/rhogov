@@ -1,0 +1,75 @@
+# Cold-start audit — register
+
+The findings from the adversarial cold-start audit, one row per finding, each backed by a
+probe that fails today. The method and the rubric are in
+[`cold-start-protocol.md`](cold-start-protocol.md).
+
+**Probes are red on purpose.** They live in `tests/e2e/audit/`, are excluded from
+`npm run test:e2e`, and run with `npm run test:audit`. A red probe is a finding, not a broken
+test. Behaviour that already works is covered by green tests in `tests/e2e/cold-start.spec.ts`,
+which run in the normal suite.
+
+## Findings
+
+| ID | Sev | Finding | Probe | Target | Issue |
+|---|---|---|---|---|---|
+| CS-002 | **S1** | An empty community is told *"You're all caught up."* | P2 | `src/ui/home.tsx:39` | [#9](https://github.com/rchain-community/rhogov/issues/9) |
+| CS-007 | **S1** | An invite re-asks the network and re-asks to join the community you just joined (a stray click installs a second set of contracts, ~0.02 REV) | P7a, P7b | `src/ui/settings.tsx:137-141`, `src/ui/setup.tsx:14-15,217-219` | [#10](https://github.com/rchain-community/rhogov/issues/10) |
+| CS-001 | S3 | Home never says what rhogov is for | P1 | `src/ui/home.tsx:23-24` | [#11](https://github.com/rchain-community/rhogov/issues/11) |
+| CS-003 | S2 | The empty community's call to action is buried below a false success message | P3 | `src/ui/home.tsx:58` | [#12](https://github.com/rchain-community/rhogov/issues/12) |
+| CS-004 | S3 | Unglossed jargon on the cold-start path (`censure`, `roll`, `phlo`) | P4 | `src/ui/groups.tsx:240`, `src/ui/votes.tsx:168`, `src/ui/kit.tsx:164` | [#13](https://github.com/rchain-community/rhogov/issues/13) |
+| CS-005 | S3 | Delegation is offered only as "Delegate my vote" | P5 | `src/ui/groups.tsx:197`, `src/ui/votes.tsx:146` | [#14](https://github.com/rchain-community/rhogov/issues/14) |
+| CS-006 | S2 | A damaged invite link is a dead end with nothing to click in the page | P6 | `src/ui/settings.tsx:135`, `src/main.tsx:31,48,61` | [#15](https://github.com/rchain-community/rhogov/issues/15) |
+| CS-008 | S2 | A community that cannot be read fails without naming it or offering a way out | P8, P11 | `src/ui/kit.tsx:215-219` | [#16](https://github.com/rchain-community/rhogov/issues/16) |
+
+All eight are **measured**, not argued: the probe fails with evidence in the failure message
+(e.g. CS-002 reports `Expected substring: not "You're all caught up"`).
+
+## Failure modes this audit did not find
+
+Recorded so the coverage is auditable, per the protocol's rule that a cell produces a finding
+*or* an explicit "no finding".
+
+| Cell | Entry state | Result |
+|---|---|---|
+| S4 | Stale key, no community | **No finding** — the wizard correctly opens at the community step |
+| S7 | Invite to a community already joined | **No finding** — "Open {name}" works and adds no duplicate |
+
+Both are protected by green tests in `tests/e2e/cold-start.spec.ts`.
+
+## Probes
+
+| Probe | File | Finding |
+|---|---|---|
+| P1 | `tests/e2e/audit/cold-start.probe.spec.ts` | CS-001 |
+| P2 | " | CS-002 |
+| P3 | " | CS-003 |
+| P4 | " | CS-004 |
+| P5 | " | CS-005 |
+| P6 | `tests/e2e/audit/invite.probe.spec.ts` | CS-006 |
+| P7a, P7b | " | CS-007 |
+| P8 | " | CS-008 |
+| P11 | `tests/e2e/audit/returning.probe.spec.ts` | CS-008 |
+
+The two `setup` tests in `cold-start.probe.spec.ts` arrange the scenario (a group, a vote, and
+a second person); they are not findings.
+
+## Green guards (normal suite)
+
+`tests/e2e/cold-start.spec.ts` — runs under `npm run test:e2e`:
+
+- Help knows the right next step for a brand-new community
+- the wizard's steps advance and "Change" returns you
+- a keyed user with no community resumes at the community step *(the S4 no-finding)*
+- an invite to a community you already have opens it *(the S7 no-finding)*
+
+## Status of the last full run
+
+Playground, 2026-10-12: **10 red (every probe), 6 green (every guard)**. Before filing, re-run
+`npm run test:audit` and confirm the red set is unchanged — a probe that has started passing
+means either a fix landed or the probe has gone stale.
+
+```sh
+npm run test:audit
+RHOGOV_NODE=https://playground.rhobot.net npm run test:audit
+```
