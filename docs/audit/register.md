@@ -22,6 +22,17 @@ which run in the normal suite.
 | CS-006 | S2 | A damaged invite link is a dead end with nothing to click in the page | P6 | `src/ui/settings.tsx:135`, `src/main.tsx:31,48,61` | [#15](https://github.com/rchain-community/rhogov/issues/15) |
 | CS-008 | S2 | A community that cannot be read fails without naming it or offering a way out | P8, P11 | `src/ui/kit.tsx:215-219` | [#16](https://github.com/rchain-community/rhogov/issues/16) |
 
+**Regrouped by root cause.** These rows are unchanged and are the durable evidence; what changed is
+the tracker issue, not the finding. **A closed finding is not a fixed finding** — the probe stays red
+until the code changes. See [`root-causes.md`](root-causes.md).
+
+| Finding | Issue | Now |
+|---|---|---|
+| CS-001, CS-002, CS-003 | #11, #9, #12 | closed → **RC-01** ([#52](https://github.com/rchain-community/rhogov/issues/52)) |
+| CS-004, CS-005 | #13, #14 | closed → **RC-07** ([#58](https://github.com/rchain-community/rhogov/issues/58)) |
+| CS-006, CS-008 | #15, #16 | closed → **RC-05** ([#56](https://github.com/rchain-community/rhogov/issues/56)) |
+| CS-007 | #10 | **kept** — state-propagation bug, its own issue |
+
 All eight are **measured**, not argued: the probe fails with evidence in the failure message
 (e.g. CS-002 reports `Expected substring: not "You're all caught up"`).
 

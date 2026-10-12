@@ -1,0 +1,84 @@
+# A root cause shared by several audit findings. See docs/audit/root-causes.md.
+# The label below must exist on the repository before the form can apply it:
+#   gh label create root-cause --description "Fixes a root cause shared by several findings"
+name: Root cause
+description: One mechanism behind several findings, with a fix plan and a design scope
+title: "[RC-] "
+labels: ["root-cause"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        One issue per **mechanism**, not per symptom. "Both are copy problems" is a symptom class and
+        does not belong here; "control labels are literals while the gloss lives in a collapsed
+        sibling container" does, because it names the one thing that changes.
+
+        Closing a finding as superseded by one of these does **not** fix it. The probes stay red until
+        the code changes. Never paste a private key.
+
+  - type: textarea
+    id: cause
+    attributes:
+      label: Root cause
+      description: The mechanism, in code terms, with the file:line evidence. What is missing or wrong, in which function.
+    validations:
+      required: true
+
+  - type: input
+    id: members
+    attributes:
+      label: Members
+      description: The findings this supersedes, by issue number and audit ID (CS-002, RT-03 …), so every probe and register row still resolves.
+      placeholder: "#9 CS-002, #11 CS-001"
+    validations:
+      required: true
+
+  - type: textarea
+    id: fix
+    attributes:
+      label: Fix plan
+      description: Ordered steps naming the *shared mechanism to introduce*, not one patch per finding.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Design scope
+      description: What is in, what is explicitly out, and the decisions a human still has to make.
+      placeholder: |
+        In:
+        Out:
+        Decisions needed:
+    validations:
+      required: true
+
+  - type: dropdown
+    id: owner
+    attributes:
+      label: Owner
+      options:
+        - "client-fixable (this repo)"
+        - "upstream — quantum-os"
+        - "upstream — rchain-rust"
+        - "client + upstream"
+    validations:
+      required: true
+
+  - type: input
+    id: evidence
+    attributes:
+      label: Evidence
+      description: The probes that go green, or "evidence-pending, by reading" where no probe exists.
+      placeholder: "P1, P2, P3 — tests/e2e/audit/cold-start.probe.spec.ts"
+    validations:
+      required: true
+
+  - type: textarea
+    id: setup
+    attributes:
+      label: My setup
+      description: Paste the "My setup" block from Help → Report a problem. It never contains your key.
+      render: markdown
+    validations:
+      required: false
