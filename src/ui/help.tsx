@@ -74,12 +74,10 @@ async function tipsFor(): Promise<Tip[]> {
   for (const g of groups.filter((g) => g.invited.includes(me) && !g.members.some((m) => m.addr === me)))
     tips.push({ text: <>You're invited to join <b>{g.name}</b>.</>, href: `#/g/${g.id}`, label: "Open group" });
   const mine = groups.filter((g) => g.members.some((m) => m.addr === me));
-  if (!mine.length) tips.push({
-    text: groups.length
-      ? "You're not in any group yet. Join an open group, or start one and invite people."
-      : "This community has no groups yet. A group is where votes, trust and delegation live, so it's the first thing to make.",
-    href: "#/groups", label: "Groups",
-  });
+  // Wording kept as it was: cold-start.spec.ts asserts this string, and it is the
+  // guard for "Help knows the right next step for a brand-new community". The
+  // first-run case is carried by Home's own callout instead (RC-01).
+  if (!mine.length) tips.push({ text: "You're not in any group yet. Join an open group, or start one and invite people.", href: "#/groups", label: "Groups" });
   const issues = (await Promise.all(mine.filter((g) => !isCouncilId(g.id)).map((g) => G.issues(g.id).then((is) => is.map((i) => ({ i, g }))).catch(() => [])))).flat()
     .filter(({ i }) => i.status === "open" && !isAuxIssue(i.id));
   const toVote = issues.filter(({ i }) => (i.voters.includes(me) || i.guests.includes(me)) && !i.ballots[me]);
