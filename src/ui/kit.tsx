@@ -1,13 +1,13 @@
+import { RNode, DeployFailed, NotCarried } from "../chain/node";
+import { MASTERDICT_PUBLISH } from "../chain/profile";
+import { ActionLocks, BusyAction, PendingWrite, Receipts, WriteCancelled, actionKey, normalizeNode, assertSigningContext, type ActionRef, type Receipt, type SigningRequest, type WriteObserver } from "../chain/write-gate";
 // kit.tsx — shared UI pieces: routing, async data, the action runner, small widgets.
 import { signal } from "@preact/signals";
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { blake2b } from "@noble/hashes/blake2.js";
 import { filterPeople, resolvePerson, suggestNames } from "../chain/people";
 import { Gov, type Community } from "../chain/gov";
-import { hex } from "../chain/keys";
-import { RNode } from "../chain/node";
-import { active, addCommunity, addressBook, communities, forceTick, gov, removeCommunity, setActive, nameNotes, learnListed, learnNames, myAddr, refresh, refreshTick, reviewBeforeSign } from "../state";
+import { active, addCommunity, removeCommunity, setActive, addressBook, communities, forceTick, gov, nameNotes, learnListed, learnNames, myAddr, refresh, refreshTick, reviewBeforeSign } from "../state";
 
 // --- routing (hash) ------------------------------------------------------------
 
@@ -99,7 +99,7 @@ function ToastCard({ t }: { t: Toast }) {
         <div class="t">{t.kind === "error" ? `Couldn't finish: ${t.title}` : t.title}</div>
         {t.detail && <div class="d">{t.detail}</div>}
         {t.action && <a class="toast-action" href={t.action.href} onClick={() => dismiss(t.id)}>{t.action.label} →</a>}
-        {t.kind === "busy" && t.since && <div class="d">Waiting <Elapsed since={t.since} /> · you can keep using the app; this card stays until it's done.</div>}
+        {t.kind === "busy" && t.since && <div class="d">Waiting <Elapsed since={t.since} /> · this action is pending; do not repeat it.</div>}
       </div>
       {t.kind !== "busy" && <button class="ghost small" onClick={() => dismiss(t.id)} aria-label="Dismiss">✕</button>}
     </div>
@@ -157,113 +157,169 @@ const TICK: Record<string, string> = {
   unconfirmed: "The node didn't confirm it, but it may have been carried anyway. Checking for it before anything else…",
 };
 
-/**
- * How much a write can cost the person doing it. Declared at the call site so the
- * gate below can decide what to ask, rather than each site remembering.
- */
-export type Risk = "routine" | "consequential" | "irreversible";
+// --- declarative action gate ---------------------------------------------------
+export type ActionKind = "group" | "issue" | "inbox" | "profile" | "install" | "local";
+export function actionRef(kind: ActionKind, verb: string, ...targets: string[]): ActionRef {
+  const c = active.value;
+  const node = kind === "local" ? "local" : kind === "install" ? targets.shift()! : c?.node;
+  const contract = kind === "group" || kind === "issue" || kind === "inbox" ? c?.[kind] : kind === "profile" ? MASTERDICT_PUBLISH : kind;
+  if (!node || !contract) throw new Error("Choose a community before starting this action.");
+  return { node, actor: myAddr.value ?? "no-key", contract, verb, targets };
+}
+/** Bind identity to the Gov instance whose callback will execute, not a later active-community value. */
+export function scopedAction(G: Gov, kind: "group" | "issue" | "inbox" | "profile", verb: string, ...targets: string[]): ActionRef {
+  return { node: G.c.node, actor: myAddr.value ?? "no-key", contract: kind === "profile" ? MASTERDICT_PUBLISH : G.c[kind], verb, targets };
+}
 
-/**
- * A write's identity: its deploy term, hashed. The term carries the contract, the
- * verb and the arguments — and never a name shown to a person — so two clicks on
- * the same action give one id, and two different targets give two. Keying this on
- * the visible title instead would collide across targets and be defeated by a
- * title that varies (§ the in-flight lock, docs/audit/remediation.md).
- */
-const writeId = (term: string) => hex(blake2b(new TextEncoder().encode(term), { dkLen: 16 }));
-
-/**
- * Writes in flight *now*, by their identity. In memory only.
- *
- * A durable version of this was tried and retracted: it kept a reload from
- * offering a second close or a second install, but it also refused the *resume*
- * that Gov.install already does properly — `deploys.spec.ts` installs, is
- * interrupted, reloads, and asks the app to look for the install it started. A
- * lock that cannot tell "pressing again" from "finishing what I started" breaks
- * the better mechanism rather than protecting it.
- */
-const inFlight = new Set<string>();
-
-const locked = (id: string) => inFlight.has(id);
-const acquire = (id: string) => { inFlight.add(id); };
-const release = (id: string) => { inFlight.delete(id); };
-
-// --- review-before-sign ---------------------------------------------------------
-
-const review = signal<{ title: string; term: string; resolve: (ok: boolean) => void } | null>(null);
+type ActionOptions = { action: ActionRef; done?: string; background?: boolean; resume?: string } &
+  ({ risk: "routine"; confirm?: string } | { risk: "consequential" | "irreversible"; confirm: string });
+const browserStorage = {
+  get length() { return localStorage.length; },
+  key: (i: number) => localStorage.key(i),
+  getItem: (k: string) => localStorage.getItem(k),
+  setItem: (k: string, v: string) => localStorage.setItem(k, v),
+  removeItem: (k: string) => localStorage.removeItem(k),
+};
+const receipts = new Receipts(browserStorage);
+const actionLocks = new ActionLocks(receipts);
+window.addEventListener("storage", (event) => { if (event.key?.startsWith("rhogov:pending-write:")) actionVersion.value++; });
+export const actionVersion = signal(0);
+const backgroundNotice = new Set<string>();
+export const actionBusy = (ref: ActionRef) => { actionVersion.value; return actionLocks.has(ref); };
+export const pendingWrites = () => {
+  actionVersion.value;
+  try { return receipts.list().filter((r) => r.action.actor === myAddr.value); } catch { return []; }
+};
+export function forgetPendingInstall(node: string, signature: string) {
+  const ref = actionRef("install", "install", node);
+  if (receipts.get(ref)?.signature === signature) { receipts.forget(ref); actionVersion.value++; }
+}
+interface Review { title: string; request: SigningRequest; resolve: (ok: boolean) => void }
+const review = signal<Review | null>(null);
+const reviewQueue: Review[] = [];
+const askReview = (title: string, request: SigningRequest) => new Promise<boolean>((resolve) => {
+  const item = { title, request, resolve };
+  if (review.value) reviewQueue.push(item); else review.value = item;
+});
 export function ReviewModal() {
   const r = review.value;
   if (!r) return null;
-  const done = (ok: boolean) => { review.value = null; r.resolve(ok); };
+  const done = (ok: boolean) => { review.value = reviewQueue.shift() ?? null; r.resolve(ok); };
   return (
-    <Modal title={`Sign: ${r.title}`} onClose={() => done(false)}
+    <Modal title={"Sign: " + r.title} onClose={() => done(false)}
       actions={<><button onClick={() => done(false)}>Cancel</button><button class="primary" onClick={() => done(true)}>Sign and send</button></>}>
-      <p class="muted small">This is the exact rholang your key will sign. It's sent to the node, executed in a block, and costs a little phlo (gas).</p>
-      <pre class="code">{r.term}</pre>
+      <p class="muted small">This is the exact rholang your key will sign. Sending it costs phlo (gas).</p>
+      <div class="small"><b>Node:</b> <span class="mono">{r.request.node}</span></div>
+      <div class="small"><b>Signing address:</b> <span class="mono">{r.request.actor}</span></div>
+      <div class="small"><b>Phlo limit:</b> {r.request.phloLimit.toLocaleString()}</div>
+      <pre class="code">{r.request.term}</pre>
     </Modal>
   );
 }
-
-/**
-/**
- * Run a chain write with visible progress.
- *
- * `key` is the write's identity: the same action cannot be started twice at once,
- * and the id is derived from the target rather than a heading, so two different
- * targets never collide and a label containing a name never defeats it.
- *
- * `risk` is a declaration of intent at every call site — it is deliberately *not*
- * used to decide anything here. Deriving behaviour from it was tried and retracted
- * twice: a question for every irreversible write is confirm fatigue, and a durable
- * lock for them refuses the resume that Gov.install already does properly. What a
- * site wants asked, it asks in `confirm`, where the trade-off can be stated in
- * words; and what it wants explained, it explains in the screen or modal the
- * person is looking at, which is where a dialog cannot be dismissed unread.
- */
-export async function act<T>(
-  title: string,
-  run: (onTick: (s: string) => void) => Promise<T>,
-  opts: { risk: Risk; key: string; term?: string; done?: string; confirm?: string | false },
-): Promise<T | undefined> {
-  const id = writeId(opts.key);
-  if (locked(id)) {
-    notify(`Already in progress: ${title}`, "It's still waiting for a block (see the card). Pressing again would do it twice.", "info");
+function stillCurrent(ref: ActionRef) {
+  if (ref.actor !== (myAddr.value ?? "no-key")) throw new WriteCancelled();
+  const c = active.value;
+  if (ref.contract.startsWith("rho:id:") && (!c || normalizeNode(c.node) !== normalizeNode(ref.node) ||
+      (ref.contract !== MASTERDICT_PUBLISH && ![c.group, c.issue, c.inbox].includes(ref.contract)))) throw new WriteCancelled();
+}
+/** Every action declares risk and a stable target. Review uses the actual term at the deploy boundary. */
+export async function act<T>(title: string, run: (onTick: WriteObserver) => Promise<T> | T, opts: ActionOptions): Promise<T | undefined> {
+  const id = actionKey(opts.action);
+  if (opts.background && (reviewBeforeSign.value || opts.risk !== "routine")) {
+    if (!backgroundNotice.has(id)) {
+      backgroundNotice.add(id);
+      notify("Your name is waiting for review", "Open Account and choose Publish name when you're ready.", "info", { label: "Account", href: "#/account" });
+    }
     return undefined;
   }
-  acquire(id);
+  let release: (() => void) | undefined;
+  const trigger = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null;
+  const wasDisabled = trigger?.disabled ?? false;
   try {
-    // Only a question the call site actually states gets asked. Deriving one from
-    // `risk` was the first thing tried here and it was wrong twice over: a modal on
-    // every irreversible write is confirm fatigue, and because a dismissed dialog
-    // silently cancels the action, a synthesised question on the install path broke
-    // every test that starts a community. `confirm: false` silences a question a
-    // site would otherwise inherit from its own flow.
-    if (opts.confirm && !confirm(opts.confirm)) return undefined;
-    // Review shows the rholang, so it only opens when there is one to show. `key`
-    // identifies the write for the lock and is usually a composite, not a term —
-    // showing that as "the exact rholang your key will sign" would be a lie.
-    // Coverage grows as call sites can hand over a real term; today two can.
-    if (reviewBeforeSign.value && opts.term) {
-      const ok = await new Promise<boolean>((resolve) => { review.value = { title, term: opts.term!, resolve }; });
-      if (!ok) return undefined;
-    }
-    const t = pushToast({ title, detail: "Signing…", kind: "busy", since: Date.now() });
-    try {
-      const out = await run((s) => t.update({ detail: TICK[s] ?? s }));
-      t.update({ kind: "done", detail: opts.done ?? "Recorded on chain." });
-      t.close(3500);
-      refresh(true);
-      return out;
-    } catch (e) {
-      logError(title, (e as Error).message);
-      t.update({ kind: "error", detail: (e as Error).message });
-      refresh(true);
-      return undefined;
-    }
+    release = actionLocks.acquire(opts.action, opts.resume); // BEFORE any confirmation or review
+    actionVersion.value++;
+    if (trigger) { trigger.disabled = true; trigger.setAttribute("aria-busy", "true"); }
+    const execute = async () => {
+      stillCurrent(opts.action);
+      if (opts.risk !== "routine" && (!opts.confirm || !confirm(opts.confirm))) return undefined;
+      const t = pushToast({ title, detail: opts.resume ? "Checking the earlier deploy…" : "Preparing…", kind: "busy", since: Date.now() });
+      const observer: WriteObserver = Object.assign((s: string) => t.update({ detail: TICK[s] ?? s }), {
+        beforeSign: async (request: SigningRequest) => {
+          if (opts.resume) throw new Error("A receipt check must not submit another deploy.");
+          assertSigningContext(opts.action, request);
+          stillCurrent(opts.action);
+          if (reviewBeforeSign.value || opts.risk === "irreversible") {
+            t.update({ detail: "Waiting for your review…" });
+            if (!await askReview(title, request)) throw new WriteCancelled();
+          }
+          stillCurrent(opts.action);
+          assertSigningContext(opts.action, request);
+          t.update({ detail: "Signing…" });
+        },
+        onSigned: (signature: string) => { receipts.remember(opts.action, signature, title); actionVersion.value++; },
+        onSettled: () => { receipts.forget(opts.action); actionVersion.value++; },
+      });
+      try {
+        const out = await run(observer);
+        if (opts.resume) { receipts.forget(opts.action); actionVersion.value++; }
+        t.update({ kind: "done", detail: opts.done ?? "Recorded on chain." });
+        t.close(3500);
+        refresh(true);
+        return out;
+      } catch (e) {
+        if (e instanceof WriteCancelled) { t.update({ kind: "info", detail: "Cancelled before signing." }); t.close(2000); return undefined; }
+        if (opts.resume && e instanceof DeployFailed) { receipts.forget(opts.action); actionVersion.value++; }
+        const pending = receipts.get(opts.action);
+        const message = pending && e instanceof NotCarried ? "The short status check found no terminal receipt. That is not proof the deploy cannot land later." : (e as Error).message;
+        const detail = message + (pending ? " Its signature is saved on Account. Check it there before repeating this action." : "");
+        logError(title, detail);
+        t.update({ kind: "error", detail, ...(pending ? { action: { label: "Check pending actions", href: "#/account" } } : {}) });
+        refresh(true);
+        return undefined;
+      }
+    };
+    if (navigator.locks && opts.action.node !== "local")
+      return await navigator.locks.request("rhogov:write:" + id, { ifAvailable: true }, async (lock) => {
+        if (!lock) throw new BusyAction();
+        return execute();
+      });
+    return await execute();
+  } catch (e) {
+    if (e instanceof WriteCancelled) return undefined;
+    if (e instanceof PendingWrite)
+      notify("This action was already submitted", "Its signature is saved on Account. Check the earlier deploy rather than send another.", "info", { label: "Check pending actions", href: "#/account" });
+    else if (e instanceof BusyAction)
+      notify("This action is already in progress", "Finish its review or wait for its result before repeating it.", "info");
+    else notify(title, (e as Error).message, "error");
+    return undefined;
   } finally {
-    release(id);
+    release?.(); actionVersion.value++;
+    if (trigger?.isConnected && !wasDisabled) { trigger.disabled = false; trigger.removeAttribute("aria-busy"); }
   }
 }
+export function PendingActions() {
+  const pending = pendingWrites();
+  if (!pending.length) return null;
+  const check = async (receipt: Receipt) => {
+    let terminal = false;
+    const result = await act("Checking the earlier action", async (t) => {
+      try { return await new RNode(receipt.action.node).outcome(receipt.signature, { onTick: t, timeoutMs: 12_000 }); }
+      catch (e) { if (e instanceof DeployFailed) terminal = true; throw e; }
+    }, { risk: "routine", action: actionRef("local", "check-receipt", receipt.signature), done: "The earlier action was carried. The page has been refreshed." });
+    if (result !== undefined || terminal) { receipts.forget(receipt.action); actionVersion.value++; refresh(true); }
+  };
+  return <div class="card stack">
+    <h2>Pending actions</h2>
+    <p class="muted small">These deploys may still be carried. Checking reads their existing signatures; it does not repeat them or spend another fee.</p>
+    {pending.map((receipt) => <div class="stack small">
+      <b>{receipt.title}</b><span class="mono">{receipt.action.node}</span>
+      <div class="row"><span class="mono grow">{short(receipt.signature)}</span><Copy text={receipt.signature} label="Copy deploy signature" />
+        <button disabled={actionBusy(actionRef("local", "check-receipt", receipt.signature))} onClick={() => check(receipt)}>Check status</button></div>
+    </div>)}
+  </div>;
+}
+
+
 
 // --- widgets ---------------------------------------------------------------------
 
@@ -272,7 +328,7 @@ export function Modal({ title, children, actions, onClose }: { title: string; ch
     const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
-  }, []);
+  }, [onClose]);
   return (
     <div class="scrim" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div class="modal" role="dialog" aria-modal="true" aria-label={title}>
@@ -319,7 +375,7 @@ export function ChainError({ error, retry, retrying = false }: { error: string; 
         <button class="small" onClick={() => setMoving(true)}>Change network address</button>
         {others.map((x) => <button class="small" onClick={() => { setActive(x.group); go("/"); }}>Switch community: {x.name}</button>)}
         <button class="small" onClick={() => go("/welcome")}>Join or start another community</button>
-        <button class="small danger" onClick={() => { if (confirm(`Forget ${c.name} in this browser? Nothing on chain changes; you can rejoin with its invite link.`)) { removeCommunity(c); go(communities.value.length ? "/" : "/welcome"); } }}>Forget {c.name}</button>
+        <button class="small danger" onClick={() => { act("Forgetting this community", () => { removeCommunity(c); go(communities.value.length ? "/" : "/welcome"); }, { risk: "consequential", action: actionRef("local", "forget-community", c.group), confirm: `Forget ${c.name} in this browser? Nothing on chain changes; you can rejoin with its invite link.`, done: "Community forgotten in this browser." }); }}>Forget {c.name}</button>
       </div>
       <span class="small muted">Still stuck? <b>Help → Report a problem</b> (in the menu) sends us what rhogov knows, including this error.</span>
       {moving && <MoveNode c={c} onClose={() => setMoving(false)} onMoved={retry} />}

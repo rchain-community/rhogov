@@ -6,7 +6,7 @@ import { useEffect, useState } from "preact/hooks";
 import { isAuxIssue, isCouncilId } from "../chain/council";
 import { RNode } from "../chain/node";
 import { active, communities, displayName, gov, listedName, myAddr, publishedName, reviewBeforeSign, secretKey } from "../state";
-import { Modal, nameOf, recentErrors, route } from "./kit";
+import { Modal, nameOf, pendingWrites, recentErrors, route } from "./kit";
 import { nameProblem } from "./name-sync";
 import { newVersion } from "./update";
 
@@ -34,7 +34,7 @@ function screenHelp(): { title: string; text: string; link: string } {
     case "councils": case "c": return { title: "Councils", text: "Decisions across stakeholder groups: estimate each group's voting power, deliberate with pros and cons, then vote.", link: section("9-councils-decisions-across-stakeholder-groups") };
     case "inbox": return { title: "Inbox", text: "Messages and invitations sent to you. Collect them to read them; they then live in this browser.", link: section("8-inbox") };
     case "community": return { title: "Community", text: "The invite link to share, where the community lives on chain, and switching communities.", link: section("2-communities-and-invitations") };
-    case "account": return { title: "Account", text: "Your name, your address, your balance, and backing up your key.", link: section("10-your-account-and-your-key") };
+    case "account": return { title: "Account", text: "Your name, your address, your balance, backing up your key, and checking pending deploys before repeating an action.", link: section("10-your-account-and-your-key") };
     default: return { title: "rhogov", text: "", link: GUIDE };
   }
 }
@@ -46,6 +46,7 @@ const NEEDS = 2_000_000; // about what a community install costs; enough for any
 /** Next steps for you, from your actual state: key, funds, name, groups, votes, messages. */
 async function tipsFor(): Promise<Tip[]> {
   const tips: Tip[] = [];
+  if (pendingWrites().length) tips.push({ text: "An earlier action may still be carried. Check its saved signature before repeating it.", href: "#/account", label: "Pending actions" });
   const c = active.value, me = myAddr.value, G = gov.value;
   if (newVersion.value) tips.push({ text: "A newer version of rhogov is available.", href: "javascript:location.reload()", label: "Reload" });
   if (!me) return [...tips, { text: "Create or bring your key: it's your identity here, and it signs everything you do.", href: "#/welcome", label: "Set up" }];
@@ -65,7 +66,7 @@ async function tipsFor(): Promise<Tip[]> {
   });
   else if (!publishedName(me) && !listedName(me)) tips.push({
     text: displayName.value
-      ? <>Your name “{displayName.value}” isn't claimed in this community yet, so others may see “No name yet” for you. It goes on the community's list by itself once you have a little REV.</>
+      ? <>Your name “{displayName.value}” isn't claimed in this community yet, so others may see “No name yet” for you. With review enabled, use Publish name on Account; otherwise it goes on the list once you have a little REV.</>
       : "Others see “No name yet” for you, because you haven't chosen a name.",
     href: "#/account", label: "Your name",
   });

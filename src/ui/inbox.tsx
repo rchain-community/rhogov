@@ -1,10 +1,10 @@
 // inbox.tsx — on-chain messages. Sending is public-write; receiving consumes.
 import { useState } from "preact/hooks";
-import type { InboxMessage } from "../chain/gov";
+import { makeId, type InboxMessage } from "../chain/gov";
 import { active, archive, archived, gov, learnNames, myAddr, setArchive } from "../state";
 import { learnFrom } from "./groups";
 import { checkInbox } from "./inbox-watch";
-import { Addr, Info, Loading, Modal, PersonField, act, go, nameOf, useAsync } from "./kit";
+import { Addr, Info, Loading, Modal, PersonField, act, scopedAction, go, nameOf, useAsync } from "./kit";
 
 export function InboxScreen() {
   const G = gov.value!;
@@ -18,7 +18,7 @@ export function InboxScreen() {
   const n = Object.values(waiting.data ?? {}).reduce((x, y) => x + y, 0);
 
   const collect = async () => {
-    const got = await act("Collecting your messages", (t) => G.receive(t), { risk: "consequential", key: `receive:${c.inbox}:${me}`, done: "Messages collected." });
+    const got = await act("Collecting your messages", (t) => G.receive(t), { risk: "irreversible", action: scopedAction(G, "inbox", "receive", "inbox"), confirm: "Collect these messages? They will be removed from the live inbox and kept in this browser. Keep an archive if you need them on another device.", done: "Messages collected." });
     if (got && got.length) { archive(me, c, got); setMsgs(archived(me, c)); }
     checkInbox(true);
   };
@@ -72,11 +72,12 @@ export function Compose({ initial, onClose }: { initial: { to?: string; subject?
   const G = gov.value!;
   const [to, setTo] = useState<string | null>(initial.to ?? null);
   const [subject, setSubject] = useState(initial.subject ?? "");
+  const [actionId] = useState(() => makeId("message"));
   const [body, setBody] = useState("");
   const ok = !!to && body.trim();
   return (
     <Modal title="New message" onClose={onClose}
-      actions={<><button onClick={onClose}>Cancel</button><button class="primary" disabled={!ok} onClick={() => { onClose(); act(`Sending to ${nameOf(to!)}`, (t) => G.send(to!, "note", { subject: subject.trim(), body: body.trim() }, t), { risk: "routine", key: `sendNote:${to}:${subject.trim()}`, done: "Delivered to their inbox." }); }}>Send</button></>}>
+      actions={<><button onClick={onClose}>Cancel</button><button class="primary" disabled={!ok} onClick={() => { onClose(); act(`Sending to ${nameOf(to!)}`, (t) => G.send(to!, "note", { subject: subject.trim(), body: body.trim() }, t), { risk: "routine", action: scopedAction(G, "inbox", "send", actionId), done: "Delivered to their inbox." }); }}>Send</button></>}>
       <div class="stack">
         <PersonField label="To" initial={initial.to} onChange={setTo} />
         <label class="field">Subject<input value={subject} onInput={(e) => setSubject((e.target as HTMLInputElement).value)} /></label>

@@ -67,7 +67,8 @@ no backend, no relay, no database and no account:
   next steps from your state (setup, funds, name, groups, votes, inbox). **Report a problem**
   opens a GitHub issue pre-filled with your version, network, community, balance, those
   suggestions and recent errors, never your key.
-- **Review before signing.** An Account setting shows the exact rholang before each signature.
+- **Review before signing.** The action gate reviews the actual term before submission. Every write declares its risk and logical target; irreversible writes always review, and consequential writes confirm.
+- **Pending actions.** Signatures are retained before submission and survive reloads. Account can check an earlier deploy without repeating it. An unknown outcome keeps the action reserved; this is client protection, not on-chain idempotency.
 
 ### Multi-stakeholder councils
 

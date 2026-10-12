@@ -5,7 +5,7 @@ import {
   NETWORKS, active, addCommunity, communities, communityKey, displayName, inviteLink, myAddr, parseInvite, removeCommunity,
   reviewBeforeSign, secretKey, setActive, setDisplayName, setKey, setReview,
 } from "../state";
-import { Copy, Modal, go, short } from "./kit";
+import { Copy, Modal, PendingActions, act, actionRef, go, short } from "./kit";
 import { Balance, setSetupNode, setupNode } from "./setup";
 import { sameName } from "../chain/gov";
 import { nameError } from "../chain/people";
@@ -53,15 +53,17 @@ export function AccountScreen() {
         <div class="row">
           <button onClick={backup}>Download backup</button>
           <button onClick={() => setReveal(!reveal)}>{reveal ? "Hide key" : "Show key"}</button>
-          <button class="danger" onClick={() => { if (confirm("Remove this key from this browser? Without a backup you lose this identity.")) { setKey(null); go("/welcome"); } }}>Remove from this browser</button>
+          <button class="danger" onClick={() => { act("Removing this key", () => { setKey(null); go("/welcome"); }, { risk: "irreversible", action: actionRef("local", "remove-key", addr), confirm: "Remove this key from this browser? Without a backup you lose this identity.", done: "Key removed from this browser." }); }}>Remove from this browser</button>
         </div>
         {reveal && <div class="callout warn small"><b>Anyone with this key can act as you.</b><div class="row"><span class="mono">{secretKey.value}</span><Copy text={secretKey.value!} /></div></div>}
       </div>
+      <PendingActions />
       <div class="card stack">
         <h2>Signing</h2>
         <label class="row"><input type="checkbox" style={{ width: "auto" }} checked={reviewBeforeSign.value} onChange={(e) => setReview((e.target as HTMLInputElement).checked)} />
-          Show me the exact rholang before I sign, where rhogov can show it</label>
-        <p class="small muted">It can show it for creating and joining a group today. For the others it signs the action you just confirmed, without the rholang — the exact source is on chain either way, and anyone can read it there.</p>
+          Show me the exact rholang before I sign each action</label>
+        <p class="muted small">Irreversible chain actions always show their term. Automatic name publication waits here when review is enabled.</p>
+        {c && <button onClick={() => syncMyName(true)}>Publish name</button>}
       </div>
     </div>
   );
@@ -96,7 +98,7 @@ export function CommunityScreen() {
               <span><b>{x.name}</b> <span class="muted small mono">{short(x.group)}</span></span>
               <div class="row">
                 {communityKey(x) === communityKey(c) ? <span class="badge accent">current</span> : <button class="small" onClick={() => { setActive(communityKey(x)); go("/"); }}>Switch</button>}
-                <button class="small ghost danger" onClick={() => confirm(`Forget ${x.name} in this browser? Nothing on chain changes.`) && removeCommunity(x)}>Forget</button>
+                <button class="small ghost danger" onClick={() => act("Forgetting this community", () => removeCommunity(x), { risk: "consequential", action: actionRef("local", "forget-community", communityKey(x)), confirm: `Forget ${x.name} in this browser? Nothing on chain changes.`, done: "Community forgotten in this browser." })}>Forget</button>
               </div>
             </div>
           ))}

@@ -327,10 +327,17 @@ On **Account** you can:
 - check your **balance** and, on the playground or testnet, **Get test REV**;
 - **Download backup** of your key, or show it so you can paste it into another
   browser or device;
-- turn on **Show me the exact rholang before I sign, where rhogov can show it**, to
-  see precisely what you're signing. It can show the rholang for some actions today
-  and not others; the exact source is on chain either way, and anyone can read it
-  there. The setting says which is which.
+- turn on **Show me the exact rholang before I sign**, to see precisely what you're
+  signing each time. Irreversible actions (closing a vote, recording and closing a council decision, or collecting messages) always show the actual term even when this preference is off.
+
+Actions that change trust, membership, delegation or the electorate ask for confirmation first. A voter-roll refresh replaces the roll, so it can remove people as well as add them; this client confirmation does not fix the contract's missing membership checks.
+
+A pending action is identified by its network, signing address, contract, operation and target, rather than its displayed title. Do not start it again while it is being reviewed or waiting for a block. After submission, its signature is saved before the network request leaves the browser. No private key, message body or deploy term is saved in that receipt.
+
+After a reload or an ambiguous response, open **Account → Pending actions → Check status**. This looks up the existing signature without submitting another deploy. An observed success or execution failure releases the pending action. A timeout, transport failure or a short poll finding nothing does not prove it cannot land later, so it remains pending. Keeping the receipt is not on-chain idempotency; clearing browser data or using another device bypasses this local protection. Web Locks coordinate matching actions across tabs when supported by the browser.
+
+With review enabled, automatic name publication waits instead of opening a dialog unexpectedly. Use **Account → Publish name** to review it. The existing setup-screen option to look for a remembered install still checks that signature rather than installing again.
+
 
 Your key **is** you. Anyone who has it can act as you, so keep backups private
 and offline. If it's lost, that identity can't be recovered.

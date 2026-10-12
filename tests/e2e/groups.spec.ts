@@ -1,6 +1,6 @@
 // Groups end to end: invite link, names, trust, delegation, a weighted vote, inbox, invitations.
 import { expect, test } from "@playwright/test";
-import { onboard, open, person, settle, startCommunity } from "./helpers";
+import { onboard, open, person, settle, signReview, startCommunity } from "./helpers";
 
 test("a community decides with trust and delegation", async ({ browser }) => {
   const alice = await person(browser, "Alice");
@@ -40,6 +40,7 @@ test("a community decides with trust and delegation", async ({ browser }) => {
   await open(alice, groupHash + "/members");
   await alice.locator(".list .item", { hasText: "Bob" }).getByRole("button", { name: /^Rate/ }).click();
   await alice.locator("label.choice", { hasText: "4 — Strong" }).click();
+  alice.once("dialog", async (d) => { expect(d.message()).toContain("trust rating"); await d.accept(); });
   await alice.getByRole("button", { name: "Save rating" }).click();
   await settle(alice);
 
@@ -50,6 +51,7 @@ test("a community decides with trust and delegation", async ({ browser }) => {
   await carol.locator(".modal").getByLabel("Find a person by name").fill("B");
   await expect(carol.locator(".modal label.choice")).toHaveCount(1);
   await carol.locator(".modal label.choice", { hasText: "Bob" }).click();
+  carol.once("dialog", async (d) => { expect(d.message()).toContain("Delegate your vote"); await d.accept(); });
   await carol.getByRole("button", { name: "Delegate", exact: true }).click();
   await settle(carol);
   await open(carol, groupHash + "/members");
@@ -90,6 +92,7 @@ test("a community decides with trust and delegation", async ({ browser }) => {
   await open(alice, issueHash);
   alice.once("dialog", (d) => d.accept());
   await alice.getByRole("button", { name: "Close voting and record result" }).click();
+  await signReview(alice, "Closing the vote", "close");
   await settle(alice);
   await open(alice, issueHash);
   await expect(alice.getByText("matches the node's tally")).toBeVisible();
@@ -111,7 +114,9 @@ test("a community decides with trust and delegation", async ({ browser }) => {
   await expect(alice.locator(".nav a", { hasText: "Inbox" }).locator(".count")).toHaveText("1");
   await expect(alice).toHaveTitle(/^\(1\) rhogov/);
   await alice.getByRole("link", { name: "Open Inbox →" }).click();
+  alice.once("dialog", async (d) => { expect(d.message()).toContain("removed from the live inbox"); await d.accept(); });
   await alice.getByRole("button", { name: "Collect" }).click();
+  await signReview(alice, "Collecting your messages", "receive");
   await settle(alice);
   await expect(alice.locator(".card", { hasText: "They arrive Tuesday." }).getByText("Bob")).toBeVisible();
   await open(alice, "#/inbox");
@@ -136,6 +141,7 @@ test("a community decides with trust and delegation", async ({ browser }) => {
   await alice.locator(".modal").getByRole("option", { name: "Carol" }).click();
   await expect(alice.locator(".modal").getByLabel("Who")).toHaveValue("Carol");
   await expect(alice.locator(".modal").getByText("→")).toContainText("Carol");
+  alice.once("dialog", async (d) => { expect(d.message()).toContain("invited address will be public"); await d.accept(); });
   await alice.getByRole("button", { name: "Invite", exact: true }).click();
   await settle(alice);
   await open(carol, "#/");
