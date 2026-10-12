@@ -94,6 +94,11 @@ recognise this network…" before going on. Only do so if you trust whoever sent
 You can belong to several communities; switch between them on the **Community**
 page.
 
+The same page has a closed section, **Where it lives, and entering contracts by
+hand**, holding the network address and the three contract addresses. You only
+need those to wire rhogov to a quantum-os room (`/gov chain inbox|group|issue`),
+or to add a community by pasting addresses instead of opening an invite.
+
 ## 3. Groups
 
 A **group** is a set of people who vote together. Open **Groups** to see the

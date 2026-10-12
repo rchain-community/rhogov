@@ -23,12 +23,19 @@ export const href = (...parts: string[]) => "#/" + parts.map(encodeURIComponent)
 
 // --- async data ------------------------------------------------------------------
 
-export interface Async<T> { data: T | undefined; error: string | null; loading: boolean; reload: () => void }
+export interface Async<T> {
+  data: T | undefined;
+  error: string | null;
+  loading: boolean;
+  /** When the data on screen was read from the chain. Null if nothing has been read yet. */
+  at: number | null;
+  reload: () => void;
+}
 
 /** Load something from the chain; re-runs on deps and after every write (refreshTick). */
 export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]): Async<T> {
   const [n, setN] = useState(0);
-  const [s, setS] = useState<{ data: T | undefined; error: string | null; loading: boolean }>({ data: undefined, error: null, loading: true });
+  const [s, setS] = useState<{ data: T | undefined; error: string | null; loading: boolean; at: number | null }>({ data: undefined, error: null, loading: true, at: null });
   const tick = refreshTick.value;
   // One read at a time per screen. A background refresh that lands while the
   // previous read is still running is skipped, not stacked — stacking is how a
@@ -44,8 +51,10 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]): Async<T> {
     inFlight.current = true;
     setS((p) => ({ ...p, loading: true }));
     fn().then(
-      (data) => id === runId.current && setS({ data, error: null, loading: false }),
-      (e) => id === runId.current && setS((p) => ({ data: p.data, error: (e as Error).message ?? String(e), loading: false })),
+      (data) => id === runId.current && setS({ data, error: null, loading: false, at: Date.now() }),
+      // A failed refresh keeps the data it has and remembers when that data was read,
+      // so the screen can say how old it is instead of looking live (RT-06).
+      (e) => id === runId.current && setS((p) => ({ ...p, error: (e as Error).message ?? String(e), loading: false })),
     ).finally(() => { if (id === runId.current) inFlight.current = false; });
   }, [...deps, n, tick]);
   useEffect(() => () => { runId.current++; }, []); // unmounted: ignore late answers
@@ -308,8 +317,22 @@ export function Loading({ a, children }: { a: Async<unknown>; children: () => Co
   // a spinner each time would close anything opened from it, mid-typing.
   if (a.data === undefined && a.error) return <ChainError error={a.error} retry={a.reload} retrying={a.loading} />;
   if (a.data === undefined && a.loading) return <div class="empty"><Spinner /> Reading the chain…</div>;
-  return <>{children()}</>;
+  return (
+    <>
+      {/* Screen has data but the last read failed: say so, and how old it is. Without
+          this the page renders as if it were current (RT-06). */}
+      {a.error && (
+        <div class="callout warn small stack" role="status">
+          <span><b>Couldn't refresh — this may be out of date.</b> Showing what the chain said as of {clock(a.at)}. {a.error}</span>
+          <span><button class="ghost small" onClick={a.reload}>Try again</button></span>
+        </div>
+      )}
+      {children()}
+    </>
+  );
 }
+
+const clock = (at: number | null) => (at == null ? "an earlier read" : new Date(at).toLocaleTimeString());
 
 /**
  * A community that can't be read: say which one and where, what probably went
