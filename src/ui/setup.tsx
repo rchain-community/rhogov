@@ -36,7 +36,7 @@ export const rev = (dust: number | null | undefined) => (dust == null ? "—" : 
  * there is stated to nobody after the first minute (CS-001). One source, so the
  * wording is fixed in one place.
  */
-export const PURPOSE = "Decide things together on RChain: groups, delegated voting, trust, and private inboxes — all on chain, with no administrator in the middle.";
+export const PURPOSE = "Decide things together on RChain: groups, delegated voting and trust — all on chain, with no administrator in the middle. Your key never leaves this browser, and it signs everything you do.";
 
 // --- network --------------------------------------------------------------------
 
@@ -162,7 +162,7 @@ export function Balance({ node, addr, onBalance }: { node: string; addr: string;
       {st.status && !st.status.devMode && (
         <span class="small">This node has no faucet. On the RChain testnet, <a href={R_WALLET} target="_blank" rel="noopener">r-wallet</a>'s faucet can fund <button class="ghost small" onClick={() => navigator.clipboard?.writeText(addr)}>your address ⧉</button>; elsewhere, ask someone to send you REV.</span>
       )}
-      {bal === 0 && <span class="muted small">Every action costs a little phlo (gas), paid in REV.</span>}
+      {bal === 0 && <span class="muted small">Every action costs a small fee, paid in REV.</span>}
     </span>
   );
 }
