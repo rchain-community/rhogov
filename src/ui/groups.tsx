@@ -180,6 +180,9 @@ function Members({ g, st }: { g: Group; st: Standing }) {
   const admin = !!me && g.admins.includes(me);
   const myLevel = me ? st.levels[me] ?? 0 : 0;
   const myDelegate = me ? g.deleg[me] : undefined;
+  // Delegations made for one particular vote, which the group view never showed: they
+  // were only visible on the vote's own page, so a member could not tell they had any.
+  const perIssue = me ? Object.values(g.topic ?? {}).filter((byAddr) => byAddr[me]).length : 0;
   const [rating, setRating] = useState<string | null>(null);
   const [delegating, setDelegating] = useState(false);
   const [inviting, setInviting] = useState(false);
@@ -204,6 +207,11 @@ function Members({ g, st }: { g: Group; st: Standing }) {
               {myDelegate && <button class="ghost" onClick={() => act("Taking your vote back", (t) => G.undelegate(g.id, null, t), { risk: "routine", key: `undelegate:${g.id}:standing`, done: "You vote for yourself again." })}>Take it back</button>}
             </div>
           </div>
+          {perIssue > 0 && (
+            <div class="small muted" style={{ marginTop: ".4rem" }}>
+              You've also handed your vote on {perIssue} particular vote{perIssue > 1 ? "s" : ""}. Each one is shown on that vote's page, where you can change it or take it back.
+            </div>
+          )}
           <div class="small muted" style={{ marginTop: ".5rem" }}>
             Your trust level: <Trust level={myLevel} /> {myLevel}/5{!st.trustActive && " · trust weighting starts once anyone rates a member"}
           </div>

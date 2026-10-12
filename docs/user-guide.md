@@ -149,21 +149,29 @@ what weight** to see each ballot and how much it counts for.
 ![A vote in progress](images/vote.png)
 
 **Closing.** Whoever opened the vote can **Close voting and record result**. The
-result is saved on chain under their name, with a badge showing whether it
-**matches the node's tally**. If it doesn't, everyone can see that.
+result is saved on chain under their name together with the weights the node
+tallied it over, and a badge showing whether it **matches the node's tally**.
 
-**Joined late?** If you joined a group after a vote opened, you're not on that
-vote's list of voters yet. The person who opened it sees an **Add N new members
-to the roll** button.
+Only the ballots freeze when a vote closes. Trust, disputes and delegations keep
+moving, so the node's tally can read differently later with nothing having been
+tampered with — the record is the node's answer at the moment it closed, over the
+weights kept with it, and that is what decided. A "reads differently now" badge is
+not evidence of tampering.
+
+**Joined late?** If you joined a group after a vote opened, you're not among the
+people it's open to yet. The person who opened it sees an **Add N new members to
+the vote** button. Who a vote is open to can be changed while it's open; ballots
+already cast are not re-weighed.
 
 ## 5. Delegating your vote
 
 Can't follow every decision? **Delegate** your vote to someone you trust:
 
-- On a group's **Members** tab, press **Delegate my vote** to choose a delegate
-  for *every* vote in that group.
-- On a single vote, press **Delegate this vote** to choose someone for *just that
-  vote*. It overrides your usual delegate there.
+- On a group's **Members** tab, press **Hand my vote to someone** to choose a
+  delegate for *every* vote in that group. The same card tells you how many
+  individual votes you've handed over separately, and where to change them.
+- On a single vote, press **Hand this vote to someone** to choose someone for
+  *just that vote*. It overrides your usual delegate there.
 
 How it works:
 
@@ -381,7 +389,7 @@ chose; there's no rhogov server, database or account.
 | **A balance of 0**, **Start community** greyed out, or "Not enough REV" | On the playground or testnet, press **Get test REV** on Account (on the testnet, [r-wallet](https://rhowallet.org)'s faucet works too). Elsewhere, ask someone to send you REV. |
 | **"This group is invite-only…"** | Ask one of its admins to invite you, by your name or your address from Account. |
 | **"No one in your communities is called …"** | Check the spelling (capitals count), or ask for their REV address and paste that instead. People are found by name across all the communities you've joined on that network, once they have a name. |
-| **"You're not on this issue's voter roll"** | You joined after the vote opened. Ask whoever opened it to add new members to the roll. |
+| **"This vote isn't open to you"** | You joined after the vote opened. Ask whoever opened it to add you. |
 | **"No name yet"** | That person hasn't set a name, or hasn't had the REV for the one small deploy it takes; their name appears once they do. Every person's address is one click away with the ⧉ copy button beside their name. |
 | **"Jim (unclaimed)"** or **"Jim (2)"** | Someone else claimed that name in this community. *(unclaimed)* marks a name only typed when joining a group; *(2)* marks a second claim made at the same moment. |
 | **"“Name” is taken"** | Someone else in this community already uses that name. Choose another on **Account**. |

@@ -19,6 +19,28 @@ import { RNode, type RhoValue } from "./node";
 export const q = (s: string) => JSON.stringify(String(s));
 
 /**
+ * A recorded result, read back from an Issue's `results`.
+ *
+ * Closing a vote records the node's answer *and* the weights it was taken over, so the
+ * record can be checked against the weights on chain rather than against whatever the
+ * live tally says — only the ballots freeze at close, and trust, disputes and
+ * delegations keep moving afterwards. Records made before that are a bare winner
+ * string; both shapes are understood, and neither is guessed at.
+ */
+export function readRecord(r: RhoValue): { winner: string | null; weight?: number; ballots?: number; frozen: boolean } {
+  if (r && typeof r === "object" && !Array.isArray(r) && "winner" in (r as Record<string, RhoValue>)) {
+    const m = r as Record<string, RhoValue>;
+    return {
+      winner: m.winner == null ? null : String(m.winner),
+      weight: typeof m.weight === "number" ? m.weight : undefined,
+      ballots: typeof m.ballots === "number" ? m.ballots : undefined,
+      frozen: true,
+    };
+  }
+  return { winner: typeof r === "string" ? r : null, frozen: false };
+}
+
+/**
  * rgov-core's write and install programs answer on `return` as well as on
  * `rho:rchain:deployId`, expecting a deploy wrapper to bind `return` (quantum-os's
  * /rholang does). We read the deployId answer from deploy-status, so `return`
@@ -105,7 +127,7 @@ function humanError(parts: string[]): string {
     "no such group": "That group doesn't exist (yet) on this community's contract.",
     "no such issue": "That issue doesn't exist.",
     "not the opener": "Only the person who opened this issue can do that.",
-    "not on the roll": "You're not on this issue's voter roll. Ask the opener to refresh the roll.",
+    "not on the roll": "This vote isn't open to you. Ask whoever opened it to add you.",
     "not open": "Voting on this issue is closed.",
     closed: "This issue is closed.",
     "invite-only locker": "That inbox only accepts messages from people its owner has invited.",

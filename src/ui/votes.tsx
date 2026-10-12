@@ -1,6 +1,6 @@
 // votes.tsx — issues: create, cast (approval or ranked), and see the node's weighted result.
 import { useState } from "preact/hooks";
-import { type Group, type Issue, type Outcome, makeId } from "../chain/gov";
+import { type Group, type Issue, type Outcome, makeId, q, readRecord } from "../chain/gov";
 import { gov, myAddr } from "../state";
 import { DelegateModal, learnFrom } from "./groups";
 import { isCouncilId } from "../chain/council";
@@ -116,12 +116,20 @@ function IssueView({ i, g, out }: { i: Issue; g: Group; out: Outcome }) {
       confirm: "Close voting? No more ballots can be cast. The node's tally will be recorded as the result under your name.",
       done: "Voting closed.",
     });
-    if (closed) await act("Recording the result", (t) => G.propose(i.id, out.winner, t), {
-      risk: "irreversible",
-      key: `propose:${i.id}`,
-      confirm: false, // the close above already asked, and it names both consequences
-      done: out.winner ? `Recorded: ${out.winner}` : "Recorded: no winner.",
-    });
+    if (closed) {
+      // Record what the node said, and the weights it said it over, rather than the
+      // winner alone. Trust, disputes and delegations keep moving after a vote closes
+      // (only the ballots freeze), so a record that gets compared against the live
+      // tally later starts reading as wrong with nobody having touched it (RT-13).
+      const weights = Object.entries(out.weights);
+      const term = `{"winner": ${out.winner ? q(out.winner) : "Nil"}, "weight": ${weights.reduce((x, [, w]) => x + w, 0)}, "ballots": ${Object.keys(out.ballots).length}, "weights": {${weights.map(([a, w]) => `${q(a)}: ${w}`).join(", ")}}}`;
+      await act("Recording the result", (t) => G.proposeTerm(i.id, term, t), {
+        risk: "irreversible",
+        key: `propose:${i.id}`,
+        confirm: false, // the close above already asked, and it names both consequences
+        done: out.winner ? `Recorded: ${out.winner}` : "Recorded: no winner.",
+      });
+    }
   };
 
   return (
@@ -140,6 +148,14 @@ function IssueView({ i, g, out }: { i: Issue; g: Group; out: Outcome }) {
       <div class="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", alignItems: "start" }}>
         <div class="card">
           <h2>{i.status === "open" ? (me && i.ballots[me] ? "Your vote (you can change it)" : "Cast your vote") : "Ballot"}</h2>
+          {i.status === "open" && onRoll && (
+            <p class="small muted">
+              Your ballot weighs <b>{out.weights[me] ?? 0}</b>
+              {out.trustActive
+                ? " — one for you, plus the trust this group gives you, plus anyone who handed you their vote."
+                : " — one each, for now. The first time anyone rates another member, the group switches to weighing each vote by its trust."}
+            </p>
+          )}
           {i.status !== "open" ? <p class="muted">Voting is {i.status === "closed" ? "closed" : "paused"}.</p>
             : !me ? <p class="muted">Set up your identity to vote.</p>
             : !onRoll ? (
@@ -268,7 +284,7 @@ function Results({ i, out }: { i: Issue; out: Outcome }) {
               <span class="small muted">{score[o]}</span>
             </div>
           ))}
-          <p class="small muted">{out.mode === "ranked" ? "Bars show weighted first preferences; the winner is found by instant runoff." : "Bars show weighted approvals."} Total weight cast: {total}.</p>
+          <p class="small muted">{out.mode === "ranked" ? "For orientation: the bars show weighted first preferences, and the winner and the Leading/Winner line above come from the node's instant runoff — so the longest bar need not be the winner." : "For orientation: the bars show weighted approvals."} Total weight cast: {total}.</p>
         </>
       )}
       <details>
@@ -283,13 +299,28 @@ function Results({ i, out }: { i: Issue; out: Outcome }) {
       {recorded.length > 0 && (
         <div class="small" style={{ marginTop: ".8rem" }}>
           {recorded.map(([by, r]) => {
-            const agrees = r === out.winner;
-            return <div>Recorded by {nameOf(by)}: <b>{String(r ?? "no winner")}</b> {agrees ? <span class="badge accent">matches the node's tally</span> : <span class="badge danger">differs from the node's tally</span>}</div>;
+            const rec = readRecord(r);
+            return (
+              <div>
+                Recorded by {nameOf(by)}: <b>{rec.winner ?? "no winner"}</b>{" "}
+                {rec.frozen
+                  ? <span class="muted">— the node's tally at the moment it closed{rec.ballots !== undefined ? `, over ${rec.ballots} ballot${rec.ballots === 1 ? "" : "s"} weighing ${rec.weight ?? 0}` : ""}</span>
+                  : <span class="muted">— recorded before rhogov kept the weights it was taken over</span>}
+                {rec.winner === out.winner
+                  ? <span class="badge accent">matches the node's tally</span>
+                  : <span class="badge warn">the node's tally reads differently now</span>}
+              </div>
+            );
           })}
+          {recorded.some(([, r]) => readRecord(r).winner !== out.winner) && (
+            <p class="muted" style={{ marginTop: ".4rem" }}>
+              A difference here is not evidence of tampering. Only the ballots freeze when a vote closes; trust, disputes and delegations keep moving, so the node's tally can read differently later with nobody having touched the record. The record is the node's answer at the moment it closed, over the weights kept with it, and that is what decided.
+            </p>
+          )}
         </div>
       )}
       <Info title="How the node counts these votes">
-        Nobody counts these votes by hand — not the opener, not this app. The ballots, delegations and trust ratings are public facts in the Group and Issue contracts, and this page asks the node to run its built-in functions over them (<span class="mono">trustLevels → censure → resolveWeights → tally</span>). Anyone can repeat the same query and must get the same answer. A recorded result is a claim by whoever recorded it; the badge shows whether it matches.
+        Nobody counts these votes by hand — not the opener, not this app. The ballots, delegations and trust ratings are public facts in the Group and Issue contracts, and this page asks the node to run its built-in functions over them (<span class="mono">trustLevels → censure → resolveWeights → tally</span>). Anyone can repeat the same query and must get the same answer. A recorded result is a claim by whoever recorded it: closing a vote records the node's answer and the weights it was taken over, so the record can be checked against the weights on chain rather than against whatever the tally says today.
       </Info>
     </div>
   );

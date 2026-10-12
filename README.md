@@ -173,7 +173,7 @@ tests/       chain-check.ts (live API)   unit.ts   e2e/ (Playwright)
 ## Known limits
 
 - **Rolls are snapshots.** An issue's voter roll is fixed when it opens, and the opener
-  adds newcomers with one click ("Add N new members to the roll"). That's the contract's
+  adds newcomers with one click ("Add N new members to the vote"). That's the contract's
   deliberate design: an issue isn't bound to a live group instance.
 - **A group's creator is labelled with the group's name** by the Group contract. rhogov
   shows dictionary names instead, which is why your name is published once on first use.
