@@ -2,11 +2,11 @@
 import { useEffect, useState } from "preact/hooks";
 import { generateKey } from "../chain/keys";
 import {
-  active, addCommunity, communities, communityKey, displayName, inviteLink, myAddr, parseInvite, removeCommunity,
+  NETWORKS, active, addCommunity, communities, communityKey, displayName, inviteLink, myAddr, parseInvite, removeCommunity,
   reviewBeforeSign, secretKey, setActive, setDisplayName, setKey, setReview,
 } from "../state";
 import { Copy, Modal, go, short } from "./kit";
-import { Balance } from "./setup";
+import { Balance, setSetupNode, setupNode } from "./setup";
 import { sameName } from "../chain/gov";
 import { nameError } from "../chain/people";
 import { nameProblem, syncMyName } from "./name-sync";
@@ -130,13 +130,29 @@ function ManualCommunity({ onClose }: { onClose: () => void }) {
   );
 }
 
+/**
+ * Networks this browser has chosen for itself: the built-in ones, the one picked
+ * in setup, and those of communities already joined. An invite is just a link,
+ * and it can name any host; everything you do in its community is signed and
+ * sent there, so a host you never chose is called out before you go on (#30).
+ */
+function familiarNode(node: string): boolean {
+  const norm = (u: string) => u.trim().replace(/\/+$/, "").toLowerCase();
+  const known = [...NETWORKS.map((n) => n.url), setupNode.value, ...communities.value.map((c) => c.node)].map(norm);
+  return known.includes(norm(node));
+}
+
 export function JoinScreen({ query }: { query: URLSearchParams }) {
   const c = parseInvite(`?c=${query.get("c") ?? ""}`);
+  const [trusted, setTrusted] = useState(false);
   if (!c) return <div class="empty">This invite link is incomplete or damaged. Ask for a fresh one.</div>;
   const known = communities.value.some((x) => communityKey(x) === communityKey(c));
+  const foreign = !known && !familiarNode(c.node);
   const accept = () => {
     addCommunity(c);
-    if (!myAddr.value) { localStorage.setItem("rhogov:setupNode", c.node); setKey(null); go("/welcome"); }
+    // The invite answers the network (and the community): setup asks only for a name and key.
+    setSetupNode(c.node);
+    if (!myAddr.value) { setKey(null); go("/welcome"); }
     else go("/groups");
   };
   return (
@@ -144,9 +160,15 @@ export function JoinScreen({ query }: { query: URLSearchParams }) {
       <h1>You're invited to {c.name}</h1>
       <div class="card stack">
         <p>{c.name} makes decisions together on RChain with rhogov: groups, votes, delegation and trust — all recorded on chain.</p>
-        <div class="small muted">Network: <span class="mono">{c.node}</span></div>
+        {foreign ? (
+          <div class="callout warn stack">
+            <b>This invite points to a network you didn't choose: <span class="mono">{c.node}</span></b>
+            <span class="small">It isn't one of rhogov's networks, and you haven't used it before. Everything you do in {c.name} would be signed by your key and sent to that address. Whoever runs it sees your actions and decides what you're shown. Only join a network you recognise, from someone you trust.</span>
+            <label class="row small"><input type="checkbox" style={{ width: "auto" }} checked={trusted} onChange={(e) => setTrusted((e.target as HTMLInputElement).checked)} /> I recognise this network and trust whoever sent the invite</label>
+          </div>
+        ) : <div class="small muted">Network: <span class="mono">{c.node}</span></div>}
         <div>{known ? <button class="primary" onClick={() => { setActive(communityKey(c)); go("/"); }}>Open {c.name}</button>
-          : <button class="primary" onClick={accept}>{myAddr.value ? `Join ${c.name}` : "Get started"}</button>}</div>
+          : <button class="primary" disabled={foreign && !trusted} onClick={accept}>{myAddr.value ? `Join ${c.name}` : "Get started"}</button>}</div>
         {!myAddr.value && <p class="muted small">Next you'll pick a name and get a key — it takes a few seconds and stays in this browser.</p>}
       </div>
     </div>

@@ -45,9 +45,10 @@ export async function onboard(page: Page, name: string, invite?: string, key = K
     await page.getByRole("radio", { name: /Another node/ }).check();
     await page.getByPlaceholder("https://your-node:40403").fill(NODE);
     await page.getByRole("button", { name: "Use" }).click();
+    await expect(page.getByText("Connected")).toBeVisible();
+    await page.getByRole("button", { name: "Continue" }).click();
   }
-  await expect(page.getByText("Connected")).toBeVisible();
-  await page.getByRole("button", { name: "Continue" }).click();
+  // An invite answers the network step (#10): straight to the name and key.
   await page.getByPlaceholder("e.g. Ada").fill(name);
   await page.getByRole("button", { name: "I have a key" }).click();
   await page.getByPlaceholder("0b60b3ff…").fill(key);

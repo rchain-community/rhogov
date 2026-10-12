@@ -12,7 +12,7 @@ import {
 import { Copy, Info, Spinner, act, go, notify, short } from "./kit";
 
 export const setupNode = signal<string>(localStorage.getItem("rhogov:setupNode") ?? NETWORKS[0].url);
-const setSetupNode = (u: string) => { setupNode.value = u; localStorage.setItem("rhogov:setupNode", u); };
+export const setSetupNode = (u: string) => { setupNode.value = u; try { localStorage.setItem("rhogov:setupNode", u); } catch { /* storage refused */ } };
 
 export function useNodeStatus(url: string) {
   const [s, setS] = useState<{ status?: NodeStatus; error?: string; loading: boolean }>({ loading: true });
@@ -241,7 +241,13 @@ export function CommunityForm({ node }: { node: string }) {
 
 export function Welcome() {
   const hasKey = !!myAddr.value;
-  const [netDone, setNetDone] = useState(hasKey);
+  // Arriving with a community already chosen but no key (from an invite, or after
+  // switching keys inside a community): the community answers the network and
+  // the community steps. Only your name and key are asked, then you're in (#10).
+  const [joining] = useState(() => (active.value && !myAddr.value ? active.value : null));
+  useEffect(() => { if (joining && setupNode.value !== joining.node) setSetupNode(joining.node); }, []);
+  useEffect(() => { if (joining && hasKey) go("/"); }, [hasKey]);
+  const [netDone, setNetDone] = useState(hasKey || !!joining);
   const step = !netDone ? 1 : !hasKey ? 2 : 3;
   const cls = (n: number) => (step > n ? "step done" : step === n ? "step current" : "step");
   return (
@@ -257,6 +263,7 @@ export function Welcome() {
           <div class="card">
             <h3>Choose a network</h3>
             {step === 1 ? (<><NetworkPicker value={setupNode.value} onChange={setSetupNode} /><div style={{ marginTop: ".8rem" }}><button class="primary" onClick={() => setNetDone(true)}>Continue</button></div></>)
+              : joining ? <div class="small"><span class="mono">{joining.node}</span> <span class="muted">· from your invite to {joining.name}</span></div>
               : <div class="row between"><span class="mono small">{setupNode.value}</span><button class="ghost small" onClick={() => setNetDone(false)}>Change</button></div>}
           </div>
         </div>
@@ -277,8 +284,9 @@ export function Welcome() {
         <div class={cls(3)}>
           <div class="n">3</div>
           <div class="card">
-            <h3>Join or start a community</h3>
-            {step === 3 ? <CommunityForm node={setupNode.value} /> : <p class="muted small">A community is one set of governance contracts that its groups share.</p>}
+            <h3>{joining ? `Join ${joining.name}` : "Join or start a community"}</h3>
+            {joining ? <p class="muted small">You're joining <b>{joining.name}</b>; it opens as soon as you have a key.</p>
+              : step === 3 ? <CommunityForm node={setupNode.value} /> : <p class="muted small">A community is one set of governance contracts that its groups share.</p>}
           </div>
         </div>
       </div>

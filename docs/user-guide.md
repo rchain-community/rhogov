@@ -74,7 +74,14 @@ like everyone else.
 
 **Inviting people.** Go to **Community** and copy the invite link. Send it any
 way you like. It holds only the network address and the contract addresses,
-nothing secret. Whoever opens it is guided through creating their own key.
+nothing secret. Whoever opens it is asked only for a name and a key (the invite
+already says which network and community), then lands straight in the community.
+
+**An invite to a network you didn't choose.** An invite can name any network
+address. If it isn't one of rhogov's networks, one you picked yourself, or one a
+community of yours already uses, the invite page says so prominently: everything
+you do in that community would be signed and sent there. You have to tick "I
+recognise this network…" before going on. Only do so if you trust whoever sent it.
 
 ![The invite link](images/invite.png)
 

@@ -38,15 +38,13 @@ test("switching to an existing key brings its name; a stray label doesn't block 
   const phone = await person(browser, "Jim's phone");
   await phone.goto(APP + invite.slice(invite.indexOf("#")));
   await phone.getByRole("button", { name: "Get started" }).click();
-  await phone.getByRole("button", { name: "Continue" }).click();
   await phone.getByPlaceholder("e.g. Ada").fill(name[0].toUpperCase() + name.slice(1));
   await phone.getByRole("button", { name: "Continue" }).click();
   // …then switches to his original key.
   await open(phone, "#/account");
   phone.once("dialog", (d) => d.accept());
   await phone.getByRole("button", { name: "Remove from this browser" }).click();
-  await expect(phone.getByText("Connected")).toBeVisible();
-  await phone.getByRole("button", { name: "Continue" }).click(); // the network step
+  // Inside a community, switching keys asks only for the key (#10): no network step.
   await phone.getByRole("button", { name: "I have a key" }).click();
   await phone.getByPlaceholder("0b60b3ff…").fill(jim);
   // The key's own name comes with it, not what the phone had typed.
