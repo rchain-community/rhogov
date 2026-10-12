@@ -247,11 +247,13 @@ export async function act<T>(
   }
   acquire(id, title, risk);
   try {
-    // What to ask before signing. A site may state the trade-off itself; otherwise
-    // an irreversible write asks a plain question rather than none at all.
-    const question = opts.confirm === false ? null
-      : opts.confirm ?? (risk === "irreversible" ? `${title} — this can't be undone by another action. Do it?` : null);
-    if (question && !confirm(question)) return undefined;
+    // Only a question the call site actually states gets asked. Deriving one from
+    // `risk` was the first thing tried here and it was wrong twice over: a modal on
+    // every irreversible write is confirm fatigue, and because a dismissed dialog
+    // silently cancels the action, a synthesised question on the install path broke
+    // every test that starts a community. `confirm: false` silences a question a
+    // site would otherwise inherit from its own flow.
+    if (opts.confirm && !confirm(opts.confirm)) return undefined;
     // Review shows the rholang, so it only opens when there is one to show. `key`
     // identifies the write for the lock and is usually a composite, not a term —
     // showing that as "the exact rholang your key will sign" would be a lie.

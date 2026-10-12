@@ -106,6 +106,8 @@ test("a council reaches a decision of record across stakeholder groups", async (
   await alice.getByRole("button", { name: "Record the decision" }).click();
   await alice.locator(".modal textarea").first().fill("Sustainable for validators; revisit after a hardware survey.");
   await alice.locator(".modal textarea").nth(1).fill("Carol: hardware survey\nBob: benchmark 3s");
+  // Recording the decision closes both issues for good, so the app asks first.
+  alice.once("dialog", (d) => d.accept());
   await alice.getByRole("button", { name: "Record and close" }).click();
   await settle(alice);
   await open(carol, decision);

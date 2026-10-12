@@ -286,8 +286,9 @@ function RateModal({ g, addr, myLevel, onClose }: { g: Group; addr: string; myLe
   const cap = Math.max(0, myLevel - 1);
   return (
     <Modal title={`How much do you trust ${nameOf(addr)}?`} onClose={onClose}
-      actions={<><button onClick={onClose}>Cancel</button><button class="primary" onClick={() => { onClose(); act(`Rating ${nameOf(addr)} ${v}/5`, (t) => G.rate(g.id, addr, v, t), { risk: "consequential", key: `rate:${g.id}:${addr}`, confirm: `Rate ${nameOf(addr)} ${v}/5? Your rating is how much you vouch for them, and it weighs every vote in this group. The first rating in a group switches it from one vote each to 1 + trust level.` }); }}>Save rating</button></>}>
+      actions={<><button onClick={onClose}>Cancel</button><button class="primary" onClick={() => { onClose(); act(`Rating ${nameOf(addr)} ${v}/5`, (t) => G.rate(g.id, addr, v, t), { risk: "consequential", key: `rate:${g.id}:${addr}` }); }}>Save rating</button></>}>
       <div class="stack">
+        <p class="small muted">This is how much you vouch for {nameOf(addr)} — it weighs <b>every</b> vote in this group, not only this member's. The first rating anyone gives switches the group from one vote each to 1 + trust level.</p>
         {LEVELS.map((l, i) => (
           <label class={`choice ${v === i ? "on" : ""}`}>
             <input type="radio" checked={v === i} onChange={() => setV(i)} />
