@@ -178,6 +178,15 @@ contract change is named rather than quietly counted as done.
 npm run test:redteam    # 5 passed, 0 failed, against a local node
 ```
 
+**What the run needs:** a node at `RHOGOV_NODE`, `CHROMIUM_PATH` if Playwright's Chromium is absent, and
+**funded test keys** — the live probes install communities, about 0.02 REV each.
+
+**Known flake, not diagnosed.** RP1 has twice failed on a `TimeoutError` clicking a **disabled**
+"Start community" button, then passed when run alone and on re-run with no code change. Ruled out:
+funds (the key had 0.32 REV against a 0.02 fee). The other three causes of that disabled state were
+invisible in the failure — which is why the setup screen now says which one holds. If it recurs, the
+page text will name the cause.
+
 **The "Remains" column is collected in [#75](https://github.com/rchain-community/rhogov/issues/75)** — the
 handoff to quantum-os, naming @jimscarver. Nothing in it blocks the app: each of those findings has
 either a fix or a disclosure, and what is left is the case where rhogov can warn but the chain still

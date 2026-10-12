@@ -205,6 +205,15 @@ export function CommunityForm({ node }: { node: string }) {
     if (uris) { remember(null); addCommunity({ name: cname, node, ...uris }); go("/groups"); }
     else if (!unknown) remember(null);
   };
+  // The button below is disabled for four different reasons and used to say none of them: a
+  // person who typed a name with REV in hand saw a dead button and had to guess. Name the
+  // reason, so it is answerable from the screen — which is also what makes a failing test's
+  // snapshot say what went wrong instead of only that nothing could be clicked.
+  const blocked = !(pending?.name ?? name).trim() ? "Type a name for the community first."
+    : busy ? "An install is already running — the card on screen follows it."
+    : !secretKey.value ? "This browser has no key yet. Go back a step and create or bring one."
+    : (!pending && bal != null && bal < INSTALL_NEEDS) ? "Not enough REV for the install's fee yet — see the note above."
+    : null;
   return (
     <div class="stack">
       <div class="seg">
@@ -238,7 +247,8 @@ export function CommunityForm({ node }: { node: string }) {
           </Info>
           {myAddr.value && <div class="small">Your balance: <Balance node={node} addr={myAddr.value} onBalance={setBal} /></div>}
           {bal !== undefined && bal !== null && bal < INSTALL_NEEDS && <div class="callout warn small">Starting a community needs about {(INSTALL_NEEDS / 1e8).toFixed(2)} REV to cover the install's fee. Get test REV first, and wait a few seconds for it to arrive.</div>}
-          <div><button class="primary" disabled={!(pending?.name ?? name).trim() || busy || !secretKey.value || (!pending && bal != null && bal < INSTALL_NEEDS)} onClick={start}>{busy ? <><Spinner /> {pending ? "Looking…" : "Installing…"}</> : pending ? `Look for “${pending.name}”` : "Start community"}</button></div>
+          {blocked && <p class="small muted">{blocked}</p>}
+          <div><button class="primary" disabled={!!blocked} onClick={start}>{busy ? <><Spinner /> {pending ? "Looking…" : "Installing…"}</> : pending ? `Look for “${pending.name}”` : "Start community"}</button></div>
         </>
       )}
     </div>
