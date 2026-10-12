@@ -173,9 +173,13 @@ tests/       chain-check.ts (live API)   unit.ts   e2e/ (Playwright)
 
 ## Known limits
 
-- **Rolls are snapshots.** An issue's voter roll is fixed when it opens, and the opener
-  adds newcomers with one click ("Add N new members to the vote"). That's the contract's
-  deliberate design: an issue isn't bound to a live group instance.
+- **Rolls are snapshots, and the opener can change them while a vote is open.** An issue isn't
+  bound to a live group instance: it carries its own list of who may vote, fixed at the moment it
+  opened. The opener adds newcomers with one click ("Add N new members to the vote"). **That write
+  replaces the list**, and the contract permits it right up until the vote is closed — rhogov asks
+  first and says what changes, but nothing on chain prevents an opener from adding or removing voters
+  after ballots exist. Those who already voted keep their ballot; a newcomer's weight is counted from
+  the moment they are added. See `docs/audit/register-redteam.md` RT-02 and quantum-os#244.
 - **A group's creator is labelled with the group's name** by the Group contract. rhogov
   shows dictionary names instead, which is why your name is published once on first use.
 - **Ballots are public.** That's on purpose: it's what makes the tally verifiable.
