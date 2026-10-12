@@ -57,6 +57,12 @@ paid in REV (see [section 11](#11-what-is-public-and-what-it-costs)).
 paste it and press **Join community**. Otherwise choose **Start a new community**
 (next section).
 
+Then you land on **Home**. It opens with what rhogov is for, and says what needs you
+now: votes waiting for your ballot, invitations, new messages. A community with
+nothing in it yet says so, and offers the first thing to do — a group — rather than
+telling you that you're all caught up. Everything in rhogov happens inside a group:
+who belongs, what they decide, and how much each vote weighs.
+
 > **Back up your key** (Account → Download backup) once you've set up. If you
 > clear your browser's data without a backup, that identity is gone.
 
