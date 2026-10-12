@@ -1,7 +1,7 @@
 // unit.ts — offline checks (no node): decoding, keys, council arithmetic.
 import { approvalShare, approvals, chamberPower, combine, decodeArg, encodeArg, estimateBallot, parseEstimate } from "../src/chain/council";
 import { toGroup } from "../src/chain/gov";
-import { resolvePerson } from "../src/chain/people";
+import { nameError, resolvePerson, suggestNames } from "../src/chain/people";
 import { revAddressOf } from "../src/chain/keys";
 import { decode } from "../src/chain/node";
 
@@ -58,18 +58,19 @@ ok("vote counts: one per person per option, unknown options ignored",
   const A = "1111bn92xHbttqWHEXqD8PiykFxgeUjizzquT6JRePj2pAoHFAuiK", B = "1111pJu4TJaJDNJDTinnftr2fcHvMfnDeTRXRzwgPfwuKmGMa5juj";
   const C = "1111gW5kkGxHg7xDg6dRkZx2f7qxTizJzaCH9VEM1oJKWRvSX9Sk5";
   const people = { [A]: "Aria", [B]: "Jim", [C]: "jim" };
-  const r1 = resolvePerson(" aria ", people);
-  ok("a name resolves, ignoring case and space", r1.ok && r1.addr === A);
+  const r1 = resolvePerson(" Aria ", people);
+  ok("a name resolves, ignoring surrounding space", r1.ok && r1.addr === A);
+  ok("capitals count: Jim and jim are two people", (() => { const x = resolvePerson("Jim", people), y = resolvePerson("jim", people); return x.ok && y.ok && x.addr === B && y.addr === C; })());
+  ok("a name in the wrong case is not someone else's", !resolvePerson("aria", people).ok);
   const r2 = resolvePerson(B, people);
   ok("an address is taken as typed", r2.ok && r2.addr === B && r2.name === "Jim");
-  const r3 = resolvePerson("Jim", people);
-  ok("a shared name is ambiguous", !r3.ok && r3.why === "ambiguous" && r3.matches!.length === 2);
-  const r4 = resolvePerson(`jim (…${C.slice(-4)})`, people);
-  ok("the disambiguated form picks one", r4.ok && r4.addr === C);
   const r5 = resolvePerson("Zed", people);
   ok("an unknown name is refused", !r5.ok && r5.why === "unknown");
   const r6 = resolvePerson("1111bn92xHbttqWHEX", people);
-  ok("a truncated address is called out", !r6.ok && (r6.why === "bad-address" || r6.why === "unknown"));
+  ok("text starting with a digit is an address, and a cut-short one is called out", !r6.ok && r6.why === "bad-address");
+  ok("names that start with what's typed are offered", eq(suggestNames("J", ["Jim", "jim", "Jo", "Aria"]), ["Jim", "Jo", "jim"]));
+  ok("…none once it reads as an address", eq(suggestNames("11", ["11 is not a name"]), []));
+  ok("a name can't start with a digit", nameError("1st") !== "" && nameError("Ada") === "" && nameError("  ") !== "");
 }
 
 // Arguments.

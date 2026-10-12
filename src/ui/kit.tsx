@@ -2,8 +2,8 @@
 import { signal } from "@preact/signals";
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { resolvePerson } from "../chain/people";
-import { addressBook, forceTick, gov, learnListed, learnNames, myAddr, rawNames, refresh, refreshTick, reviewBeforeSign } from "../state";
+import { resolvePerson, suggestNames } from "../chain/people";
+import { addressBook, forceTick, gov, learnListed, learnNames, myAddr, refresh, refreshTick, reviewBeforeSign } from "../state";
 
 // --- routing (hash) ------------------------------------------------------------
 
@@ -220,7 +220,8 @@ export function Loading({ a, children }: { a: Async<unknown>; children: () => Co
 
 const hue = (s: string) => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
 export const short = (a: string) => (a.length > 16 ? `${a.slice(0, 8)}…${a.slice(-5)}` : a);
-export const nameOf = (a: string) => (a === myAddr.value ? "You" : addressBook.value[a] ?? short(a));
+/** What to call someone: always a name. No name yet says so (their address is on the ⧉ button). */
+export const nameOf = (a: string) => (a === myAddr.value ? "You" : addressBook.value[a] ?? "No name yet");
 
 export function Avatar({ addr, size = 34 }: { addr: string; size?: number }) {
   const n = addressBook.value[addr] ?? addr.slice(4);
@@ -259,18 +260,10 @@ export function Info({ children }: { children: ComponentChildren }) {
 
 // --- choosing a person -------------------------------------------------------------
 
-let fieldIds = 0;
-
-/**
- * A person by name or by REV address. Suggests the community's names as you
- * type; a name must match exactly one person here, and an address is taken as
- * typed (someone not in the community yet can still be invited or messaged).
- * Reports the chosen address, or null while it doesn't name anyone.
- */
 export function PersonField({ label, hint, initial = "", onChange }: { label: string; hint?: string; initial?: string; onChange: (addr: string | null) => void }) {
   const G = gov.value!;
   const [text, setText] = useState(initial ? (addressBook.value[initial] ?? initial) : "");
-  const [id] = useState(() => `people-${++fieldIds}`);
+  const [picking, setPicking] = useState(false);
   // Everyone this community knows: members of any group, and its name list.
   const people = useAsync(async () => {
     const [gs, listed] = await Promise.all([G.groups().catch(() => []), G.names().catch(() => ({}))]);
@@ -280,22 +273,32 @@ export function PersonField({ label, hint, initial = "", onChange }: { label: st
     const addrs = new Set([...gs.flatMap((g) => g.members.map((m) => m.addr)), ...Object.keys(listed)]);
     return [...addrs];
   }, [G.c.group]);
-  const names = Object.fromEntries((people.data ?? []).map((a) => [a, rawNames()[a] ?? ""]).filter(([, n]) => n));
+  // Match on the names as shown, so "Jim" finds whoever claimed it, not an "(unclaimed)" label.
+  const names: Record<string, string> = Object.fromEntries((people.data ?? []).map((a) => [a, addressBook.value[a] ?? ""]).filter(([, n]) => n));
   const r = resolvePerson(text, names);
   useEffect(() => { onChange(r.ok ? r.addr : null); }, [r.ok ? r.addr : null]);
-  const suggestions = (people.data ?? []).filter((a) => a !== myAddr.value && addressBook.value[a]).map((a) => addressBook.value[a]).sort();
+  // Names start with a letter, addresses with a digit: so while it reads as a
+  // name, offer the names that start with what's typed so far.
+  const choices = suggestNames(text, Object.entries(names).filter(([a]) => a !== myAddr.value).map(([, n]) => n));
+  const choose = (n: string) => { setText(n); setPicking(false); };
   return (
-    <label class="field">{label}
-      <span class="hint">{hint ?? "Type their name, or paste their REV address (from their Account page)."}</span>
-      <input value={text} list={id} placeholder="A name, or 1111…" autocomplete="off" onInput={(e) => setText((e.target as HTMLInputElement).value)} />
-      <datalist id={id}>{suggestions.map((n) => <option value={n} />)}</datalist>
+    <div class="field person-field">{label}
+      <span class="hint">{hint ?? "Start typing their name and pick it, or paste their REV address (from their Account page)."}</span>
+      <input value={text} placeholder="A name, or 1111…" autocomplete="off" autocapitalize="off" spellcheck={false} aria-label={label}
+        onInput={(e) => { setText((e.target as HTMLInputElement).value); setPicking(true); }}
+        onKeyDown={(e) => { if (e.key === "Enter" && picking && choices.length) { e.preventDefault(); choose(choices[0]); } if (e.key === "Escape") setPicking(false); }} />
+      {picking && choices.length > 0 && !r.ok && (
+        <div class="choices" role="listbox" aria-label="Matching names">
+          {choices.map((n) => <button type="button" role="option" class="choice-name" onClick={() => choose(n)}>{n}</button>)}
+        </div>
+      )}
       {text.trim() && (r.ok
         ? <span class="small muted">→ <Addr addr={r.addr} avatar={false} />{!r.name && " (not known in this community yet)"}</span>
+        : (picking && choices.length) ? null
         : <span class="badge danger">{
-            r.why === "ambiguous" ? `${r.matches!.length} people here are called “${text.trim()}”; pick one from the list.`
-            : r.why === "bad-address" ? "That doesn't look like a complete REV address."
+            r.why === "bad-address" ? "That doesn't look like a complete REV address."
             : people.loading && !people.data ? "Looking up names…"
-            : `No one in this community is called “${text.trim()}”. Check the spelling, or paste their REV address.`}</span>)}
-    </label>
+            : `No one in this community is called “${text.trim()}” (capitals count). Pick a name from the list, or paste their REV address.`}</span>)}
+    </div>
   );
 }

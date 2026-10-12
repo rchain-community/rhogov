@@ -38,7 +38,7 @@ export async function open(page: Page, hash: string) {
   await page.reload();
 }
 
-export async function onboard(page: Page, name: string, invite?: string) {
+export async function onboard(page: Page, name: string, invite?: string, key = KEYS[name]) {
   await page.goto(invite ? APP + invite.slice(invite.indexOf("#")) : APP);
   if (invite) await page.getByRole("button", { name: "Get started" }).click();
   if (!invite) {
@@ -50,7 +50,7 @@ export async function onboard(page: Page, name: string, invite?: string) {
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByPlaceholder("e.g. Ada").fill(name);
   await page.getByRole("button", { name: "I have a key" }).click();
-  await page.getByPlaceholder("0b60b3ff…").fill(KEYS[name]);
+  await page.getByPlaceholder("0b60b3ff…").fill(key);
   await page.getByRole("button", { name: "Continue" }).click();
 }
 
@@ -62,5 +62,3 @@ export async function startCommunity(page: Page, name: string): Promise<string> 
   await page.goto(APP + "#/community");
   return page.locator("input[readonly]").inputValue();
 }
-
-/** Does this chain have the genesis name directory? (The playground's genesis predates it.) */

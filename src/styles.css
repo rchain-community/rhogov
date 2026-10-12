@@ -198,3 +198,5 @@ details summary { cursor: pointer; color: var(--muted); }
 .build { font-size: .72rem; padding: 0 .7rem; }
 .tips { margin: .3rem 0 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: .45rem; }
 .tips a { white-space: nowrap; font-weight: 600; }
+.person-field .choices { display: flex; flex-wrap: wrap; gap: .35rem; }
+.person-field .choice-name { padding: .3rem .7rem; border-radius: 999px; font-size: .9rem; }

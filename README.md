@@ -118,7 +118,9 @@ chosen instead.
 The playground's genesis predates the master dictionary, so display names can't be
 published there. rhogov detects that and keeps a **name list per community** instead:
 an open group (`~names`, hidden from the group lists) whose members' labels are their
-names. Each label is set by its own key (`join` is a self verb), and names are unique
+names. Each label is set by its own key (`join` is a self verb); a name belongs to its key,
+so signing in with a key elsewhere brings its name back. Names are case-sensitive, never
+start with a digit (addresses do), and are unique
 within a community (checked by the app before it signs).
 
 ## Run it

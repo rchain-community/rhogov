@@ -41,9 +41,30 @@ export const secretKey = signal<string | null>(load<string | null>(LS.key, null)
 export const displayName = signal<string>(load(LS.name, ""));
 export const myAddr = computed(() => (secretKey.value && isValidKey(secretKey.value) ? revAddressOf(secretKey.value) : null));
 
-export function setKey(k: string | null) {
+/**
+ * A name belongs to a key. Switching keys (or removing one) drops the old key's
+ * name rather than carrying it over to a key it was never given to; the new
+ * key's own name is looked up (keyName) and adopted.
+ */
+export function setKey(k: string | null, name?: string) {
+  const changed = k !== secretKey.value;
   secretKey.value = k;
   if (k) save(LS.key, k); else localStorage.removeItem(LS.key);
+  if (changed) setDisplayName(name?.trim() ?? "");
+}
+
+/**
+ * The name a key already has: in the chain's name directory, else on the name
+ * list of any community joined in this browser. Null when it has none yet.
+ */
+export async function keyName(node: string, addr: string): Promise<string | null> {
+  const dir = await resolveNames(new RNode(node), [addr]).catch(() => null);
+  if (dir?.[addr]) return dir[addr];
+  for (const c of [active.value, ...communities.value].filter((x): x is Community => !!x)) {
+    const n = (await new Gov(c, () => null).names().catch(() => ({} as Record<string, string>)))[addr];
+    if (n) return n;
+  }
+  return null;
 }
 export function setDisplayName(n: string) { displayName.value = n; save(LS.name, n); }
 
@@ -123,12 +144,23 @@ function rebuild(labels: Record<string, string>) {
   const next = { ...raw, ...labels };
   for (const [a, n] of listed) next[a] = n;
   for (const [a, n] of published) if (n) next[a] = n;
+  // Names are always shown, never an address. A name someone CLAIMED (the
+  // community's name list, or the directory) shows as itself; the same name
+  // merely typed as a group label by someone else is marked "(unclaimed)", so
+  // a stray label (an old key, say) can't pass for the real owner.
+  const isClaim = (a: string) => listed.has(a) || !!published.get(a);
   raw = { ...next };
-  // Two people with one name (a race, or from before names were unique) are told
-  // apart by the end of their address rather than silently confused.
   const byName = new Map<string, string[]>();
-  for (const [a, n] of Object.entries(next)) { const k = n.trim().toLowerCase(); byName.set(k, [...(byName.get(k) ?? []), a]); }
-  for (const addrs of byName.values()) if (addrs.length > 1) for (const a of addrs) next[a] = `${next[a]} (…${a.slice(-4)})`;
+  for (const [a, n] of Object.entries(next)) { const k = n.trim(); byName.set(k, [...(byName.get(k) ?? []), a]); }
+  for (const addrs of byName.values()) {
+    if (addrs.length < 2) continue;
+    const claims = addrs.filter(isClaim).sort();
+    for (const a of addrs) if (!isClaim(a) && claims.length) next[a] = `${next[a]} (unclaimed)`;
+    // Two claims on one name (a race): numbered in a fixed order, so everyone sees the same.
+    claims.forEach((a, i) => { if (i > 0) next[a] = `${next[a]} (${i + 1})`; });
+    // Labels only, no claim: also numbered.
+    if (!claims.length) addrs.sort().forEach((a, i) => { if (i > 0) next[a] = `${next[a]} (${i + 1})`; });
+  }
   if (JSON.stringify(next) !== JSON.stringify(addressBook.value)) addressBook.value = next;
 }
 

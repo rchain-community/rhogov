@@ -4,9 +4,10 @@ import { signal } from "@preact/signals";
 import { useEffect, useState } from "preact/hooks";
 import { Gov } from "../chain/gov";
 import { generateKey, isValidKey, revAddressOf } from "../chain/keys";
+import { nameError } from "../chain/people";
 import { RNode, type NodeStatus } from "../chain/node";
 import {
-  NETWORKS, R_WALLET, active, addCommunity, displayName, myAddr, parseInvite, secretKey, setDisplayName, setKey,
+  NETWORKS, R_WALLET, active, addCommunity, displayName, keyName, myAddr, parseInvite, secretKey, setKey,
 } from "../state";
 import { Copy, Info, Spinner, act, go, notify, short } from "./kit";
 
@@ -70,19 +71,36 @@ export function IdentityForm({ onDone }: { onDone?: () => void }) {
   const [name, setName] = useState(displayName.value);
   const [imp, setImp] = useState("");
   const [fresh] = useState(generateKey);
-  const valid = mode === "new" || isValidKey(imp);
+  // An existing key brings its own name: look it up as soon as the key is valid.
+  const [found, setFound] = useState<{ key: string; name: string | null } | null>(null);
+  const impKey = imp.trim().replace(/^0x/, "");
+  useEffect(() => {
+    if (mode !== "import" || !isValidKey(impKey)) { setFound(null); return; }
+    let live = true;
+    keyName(setupNode.value, revAddressOf(impKey)).then((n) => { if (live) setFound({ key: impKey, name: n }); });
+    return () => { live = false; };
+  }, [mode, impKey]);
+  const keysName = mode === "import" && found?.key === impKey ? found.name : null;
+  const looking = mode === "import" && isValidKey(impKey) && found?.key !== impKey;
+  const chosen = keysName ?? name.trim();
+  const valid = mode === "new" || isValidKey(impKey);
+  const bad = keysName ? "" : nameError(name);
   const save = () => {
-    if (!name.trim() || !valid) return;
-    setDisplayName(name.trim());
-    setKey(mode === "new" ? fresh : imp.trim().replace(/^0x/, ""));
+    if (!valid || looking || bad) return;
+    setKey(mode === "new" ? fresh : impKey, chosen);
     onDone?.();
   };
   return (
     <div class="stack">
-      <label class="field">Your name
-        <span class="hint">What others see instead of your address. It must be unique in each community you use; if it's taken, you'll be asked to pick another.</span>
-        <input value={name} placeholder="e.g. Ada" onInput={(e) => setName((e.target as HTMLInputElement).value)} />
-      </label>
+      {keysName ? (
+        <div class="callout small">This key is <b>{keysName}</b>. That name comes with it; you can change it later on <b>Account</b>.</div>
+      ) : (
+        <label class="field">Your name
+          <span class="hint">{mode === "import" ? "If this key already has a name, it keeps that name." : "What others call you."} Unique in each community; capitals count; it can't start with a number.</span>
+          <input value={name} placeholder="e.g. Ada" onInput={(e) => setName((e.target as HTMLInputElement).value)} />
+          {name.trim() && bad && <span class="badge danger">{bad}</span>}
+        </label>
+      )}
       <div class="seg" role="tablist">
         <button class={mode === "new" ? "on" : ""} onClick={() => setMode("new")}>Create a new key</button>
         <button class={mode === "import" ? "on" : ""} onClick={() => setMode("import")}>I have a key</button>
@@ -96,11 +114,11 @@ export function IdentityForm({ onDone }: { onDone?: () => void }) {
         <label class="field">Private key (64 hex characters)
           <span class="hint">From r-wallet, quantum-os <span class="mono">/rholang key show</span>, or another rhogov browser.</span>
           <input class="mono" value={imp} onInput={(e) => setImp((e.target as HTMLInputElement).value)} placeholder="0b60b3ff…" autocomplete="off" />
-          {imp && !isValidKey(imp) && <span class="badge danger">That isn't a valid secp256k1 key</span>}
-          {isValidKey(imp) && <span class="muted small">Address: <span class="mono">{revAddressOf(imp)}</span></span>}
+          {imp && !isValidKey(impKey) && <span class="badge danger">That isn't a valid secp256k1 key</span>}
+          {isValidKey(impKey) && <span class="muted small">Address: <span class="mono">{revAddressOf(impKey)}</span></span>}
         </label>
       )}
-      <div><button class="primary" disabled={!name.trim() || !valid} onClick={save}>Continue</button></div>
+      <div><button class="primary" disabled={!valid || looking || !!bad} onClick={save}>{looking ? "Looking up this key…" : "Continue"}</button></div>
     </div>
   );
 }

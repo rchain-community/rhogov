@@ -7,6 +7,7 @@ import { isAuxIssue, isCouncilId } from "../chain/council";
 import { RNode } from "../chain/node";
 import { active, communities, displayName, gov, listedName, myAddr, publishedName, reviewBeforeSign, secretKey } from "../state";
 import { Modal, nameOf, recentErrors, route } from "./kit";
+import { nameProblem } from "./name-sync";
 import { newVersion } from "./update";
 
 const REPO = "https://github.com/rchain-community/rhogov";
@@ -58,10 +59,14 @@ async function tipsFor(): Promise<Tip[]> {
     text: <>Your balance is {bal / 1e8} REV, too little to act (each action needs about 0.02 REV for its fee). {st?.devMode ? "This network has a faucet." : "Ask someone to send REV to your address."}</>,
     href: "#/account", label: st?.devMode ? "Get test REV" : "Your address",
   });
-  if (!publishedName(me) && !listedName(me)) tips.push({
+  if (nameProblem.value) tips.push({
+    text: <>“{nameProblem.value.name}” is claimed by someone else here, so others see you as “{nameProblem.value.name} (unclaimed)”. Choose another name, or if that address is an old key you still have, sign in with it and rename it.</>,
+    href: "#/account", label: "Your name",
+  });
+  else if (!publishedName(me) && !listedName(me)) tips.push({
     text: displayName.value
-      ? <>Others still see your address, not “{displayName.value}”. Your name goes on the community's list by itself once you have a little REV.</>
-      : "Others see your address because you haven't chosen a name.",
+      ? <>Your name “{displayName.value}” isn't claimed in this community yet, so others may see “No name yet” for you. It goes on the community's list by itself once you have a little REV.</>
+      : "Others see “No name yet” for you, because you haven't chosen a name.",
     href: "#/account", label: "Your name",
   });
   const unread = Object.values(inbox).reduce((a, b) => a + b, 0);

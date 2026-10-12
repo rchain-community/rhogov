@@ -13,6 +13,7 @@
 
 import * as core from "./rgov-core.js";
 import { revAddressOf } from "./keys";
+import { nameError } from "./people";
 import { RNode, type RhoValue } from "./node";
 
 export const q = (s: string) => JSON.stringify(String(s));
@@ -268,8 +269,8 @@ export function batchProgram(uri: string, calls: [string, string[]][]): string {
 }`);
 }
 
-/** Names compare without case or surrounding space: "Aria" and "aria " are one name. */
-export const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+/** Names compare without surrounding space; capitals count ("Jim" and "jim" are two names). */
+export const sameName = (a: string, b: string) => a.trim() === b.trim();
 
 /** The hidden group holding a community's names (see Gov.names). */
 export const NAMES_GID = "~names";
@@ -331,6 +332,8 @@ export class Gov {
    */
   async setName(name: string, t?: (s: string) => void) {
     const me = this.key() ? revAddressOf(this.key()!) : "";
+    const bad = nameError(name);
+    if (bad) throw new GovError(bad);
     const taken = Object.entries(await this.names()).find(([a, n]) => a !== me && sameName(n, name));
     if (taken) throw new GovError(`“${name}” is already someone else's name in this community. Names are unique here: choose another on Account.`);
     return this.batch("group", [["create", [q(NAMES_GID), q(NAMES_GID), q("open")]], ["leave", [q(NAMES_GID)]], ["join", [q(NAMES_GID), q(name)]]], t);

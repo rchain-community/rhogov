@@ -1,7 +1,9 @@
 import { revAddressOf } from "../chain/keys";
 import { RNode } from "../chain/node";
 import { publishName, resolveNames } from "../chain/profile";
-import { active, displayName, gov, rawNames, learnListed, listedName, myAddr, notePublished, secretKey } from "../state";
+import { signal } from "@preact/signals";
+import { nameError } from "../chain/people";
+import { active, displayName, gov, setDisplayName, rawNames, learnListed, listedName, myAddr, notePublished, publishedName, secretKey } from "../state";
 import { sameName } from "../chain/gov";
 import { act, notify } from "./kit";
 
@@ -9,37 +11,60 @@ import { act, notify } from "./kit";
 // isn't greeted by a failure: the name waits until they have REV.
 const NAME_NEEDS = 3_000_000;
 
+/** Why your name isn't showing, if it's because someone else holds it (shown on Account). */
+export const nameProblem = signal<{ name: string; holder: string } | null>(null);
+
 let running = false;
 let failedFor = "";
+let lastKey: string | null = null;
 
 /**
- * Make sure others see your display name, not your address: in the chain's name
+ * Make sure others see your display name: in the chain's name
  * directory where it has one, otherwise on the community's own name list. One
  * small deploy the first time, and again only if you change it. Cheap to call
  * often: it reads first and writes only when the name is missing or stale.
  */
 export async function syncMyName(force = false) {
   const c = active.value, key = secretKey.value, me = myAddr.value, name = displayName.value.trim(), G = gov.value;
-  if (!c || !key || !me || !name || !G || running) return;
+  if (!c || !key || !me || !G || running) return;
+  // A different key is a different person: forget what was decided for the last one.
+  if (me !== lastKey) { lastKey = me; failedFor = ""; nameProblem.value = null; }
   running = true;
   try {
     const node = new RNode(c.node);
     learnListed(await G.names().catch(() => ({})));
     const have = await resolveNames(node, [me]).catch(() => null);
-    if (have !== null) {
-      if (have[me] === name && !force) { notePublished(me, name); return; }
-    } else if (listedName(me) === name && !force) return;
+    // A key that already has a name keeps it: signing in with an existing key
+    // brings its name back (here, or on another device), whatever was typed.
+    // Only an explicit Save on Account (force) renames.
+    const mine = have !== null ? have[me] : listedName(me);
+    if (mine && (!force || mine === name)) {
+      if (have !== null) notePublished(me, mine);
+      if (mine !== displayName.value) setDisplayName(mine);
+      nameProblem.value = null;
+      return;
+    }
+    if (nameError(name)) return; // e.g. starts with a digit: Account says why
     // Don't retry a name that just failed every 15 s; a change of name or community retries.
     const attempt = `${c.group}|${me}|${name}`;
     if (failedFor === attempt && !force) return;
-    // Unique within the community: refuse a name another known member already has.
-    const people = new Set([...(await G.groups().catch(() => [])).flatMap((g) => g.members.map((m) => m.addr)), ...Object.keys(await G.names().catch(() => ({})))]);
-    const clash = [...people].map((a) => [a, rawNames()[a] ?? ""] as const).find(([a, n]) => a !== me && n && sameName(n, name));
-    if (clash) {
+    // Unique within the community, among names people have CLAIMED: the
+    // community's name list, or the directory where there is one. A label
+    // someone typed when joining a group is not a claim and doesn't block.
+    const listed = await G.names().catch(() => ({} as Record<string, string>));
+    const holder = Object.entries(listed).find(([a, n]) => a !== me && sameName(n, name))
+      ?? (have !== null ? Object.entries(rawNames()).find(([a, n]) => a !== me && publishedName(a) && sameName(n, name)) : undefined);
+    if (holder) {
       failedFor = attempt;
-      notify(`“${name}” is taken`, `Someone else in this community already goes by “${clash[1]}”. Names are unique here, so others still see your address: choose another name on Account.`, "error");
+      nameProblem.value = { name, holder: holder[0] };
+      // Say it once per name and holder, not on every load; Account keeps showing it.
+      const said = `rhogov:name-taken:${c.group}:${me}:${name.toLowerCase()}:${holder[0]}`;
+      let told = false;
+      try { told = !!localStorage.getItem(said); localStorage.setItem(said, "1"); } catch { /* storage refused */ }
+      if (!told || force) notify(`“${name}” is taken`, `In this community someone else has claimed it, so others see you as “${name} (unclaimed)” until you choose another name on Account. If that address is an old key of yours and you still have it, sign in with it, rename it, then sign back in with this key. Account explains how.`, "error");
       return;
     }
+    nameProblem.value = null;
     const bal = await node.balance(revAddressOf(key));
     if (bal !== null && bal < NAME_NEEDS) return;
     const ok = have !== null

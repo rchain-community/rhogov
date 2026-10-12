@@ -51,7 +51,12 @@ rchain-rust's `rho:gov:*` natives.
   - Pick a person with `PersonField`, which takes a name or an address.
   - Names come from the chain's name directory where one exists. Otherwise they come from
     the community's hidden `~names` group (`Gov.names` / `setName`).
-  - Names are unique **within a community**.
+  - Names are unique **within a community**, case-sensitive, and never start with a digit
+    (`nameError` in `people.ts`). Typed text starting with a digit is an address.
+  - **A name belongs to its key.** Switching keys (`setKey`) drops the old name; the new
+    key's own name is looked up (`keyName`) and adopted, and `syncMyName` only renames
+    on an explicit Save. Only claims (the name list or the directory) count; a group
+    label that collides with a claim shows as "Name (unclaimed)".
 
 ## Layout
 

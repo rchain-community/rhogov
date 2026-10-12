@@ -95,7 +95,7 @@ test("a community decides with trust and delegation", async ({ browser }) => {
   // Inbox: Bob writes to Alice; Alice collects it, stamped from Bob.
   await open(bob, "#/inbox");
   await bob.getByRole("button", { name: "✎ New message" }).click();
-  await bob.locator(".modal").getByLabel("To").fill("alice"); // a name, any case
+  await bob.locator(".modal").getByLabel("To").fill("Alice");
   await expect(bob.locator(".modal").getByText("→")).toContainText("Alice");
   await bob.locator(".modal label", { hasText: "Subject" }).locator("input").fill("Seeds");
   await bob.locator(".modal textarea").fill("They arrive Tuesday.");
@@ -128,7 +128,10 @@ test("a community decides with trust and delegation", async ({ browser }) => {
   await alice.locator(".modal").getByLabel("Who").fill("Karol");
   await expect(alice.getByText("No one in this community is called “Karol”")).toBeVisible();
   await expect(alice.getByRole("button", { name: "Invite", exact: true })).toBeDisabled();
-  await alice.locator(".modal").getByLabel("Who").fill("Carol");
+  // Typing the start of a name offers the names that start that way; picking one resolves her.
+  await alice.locator(".modal").getByLabel("Who").fill("Ca");
+  await alice.locator(".modal").getByRole("option", { name: "Carol" }).click();
+  await expect(alice.locator(".modal").getByLabel("Who")).toHaveValue("Carol");
   await expect(alice.locator(".modal").getByText("→")).toContainText("Carol");
   await alice.getByRole("button", { name: "Invite", exact: true }).click();
   await settle(alice);

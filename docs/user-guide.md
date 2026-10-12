@@ -95,7 +95,7 @@ groups you're in and the others in the community.
 
 Whoever creates a group is its first **admin**. Admins can invite people (with
 an optional message to their inbox) and make other members admins. To invite
-someone, type their **name** (names in the community are suggested as you type)
+someone, start typing their **name** and pick it from the names offered
 or paste their **REV address**. An address works even for someone who isn't in
 the community yet; a name must belong to exactly one person here. Admins have
 no extra say in votes, apart from the trust they start with
@@ -292,10 +292,14 @@ must be added to the open decisions. The facilitator sees an **Add them** button
 
 On **Account** you can:
 
-- change your display name. Everyone sees your name instead of your address, and
+- change your display name. Everyone sees you by your name (never your address), and
   only your key can set it: in the chain's name directory where the network has
   one, otherwise on the community's own name list. A name must be **unique in
-  the community**: if someone already has it, you're asked to pick another;
+  the community**: if someone already has it, you're asked to pick another.
+  Capitals count ("Jim" and "jim" are different names), and a name can't start
+  with a number (that's how addresses start). **Your name belongs to your key**:
+  sign in with the same key on another device and its name comes with it,
+  whatever you typed there;
 - copy your **address**: give it to people who want to invite or message you;
 - check your **balance** and, on the playground or testnet, **Get test REV**;
 - **Download backup** of your key, or show it so you can paste it into another
@@ -330,7 +334,7 @@ chose; there's no rhogov server, database or account.
 
 - **Help for you** explains the screen you're on and lists your next steps, worked
   out from where you are. For example: finish setup; your balance is too low to act;
-  others still see your address, not your name; a vote needs your ballot; you joined
+  your name isn't claimed in the community yet; a vote needs your ballot; you joined
   after a vote opened; messages are waiting; or you're in no group yet. Each step has a
   link that takes you there.
 - **User guide** is this page, and **About rhogov** is the project's README.
@@ -348,7 +352,8 @@ chose; there's no rhogov server, database or account.
 | **"This group is invite-only…"** | Ask one of its admins to invite you, by your name or your address from Account. |
 | **"No one in this community is called …"** | Check the spelling, or ask for their REV address and paste that instead. Someone shows up by name only once they've set it. |
 | **"You're not on this issue's voter roll"** | You joined after the vote opened. Ask whoever opened it to add new members to the roll. |
-| **People show as an address, not a name** | They haven't set a name yet, or haven't had the REV for the one small deploy it takes; it appears once they do. Every person's address is one click away with the ⧉ copy button beside their name. |
+| **"No name yet"** | That person hasn't set a name, or hasn't had the REV for the one small deploy it takes; their name appears once they do. Every person's address is one click away with the ⧉ copy button beside their name. |
+| **"Jim (unclaimed)"** or **"Jim (2)"** | Someone else claimed that name in this community. *(unclaimed)* marks a name only typed when joining a group; *(2)* marks a second claim made at the same moment. |
 | **"“Name” is taken"** | Someone else in this community already uses that name. Choose another on **Account**. |
 | **"A new version of rhogov is available"** | A newer rhogov was published while your page was open. Press **Reload** (nothing you've done is lost), or **Later**. The version you're running is shown at the bottom of the menu. |
 | **Something looks out of date** | rhogov re-reads every 15 seconds; your own actions show up straight away. Reloading the page also works. |

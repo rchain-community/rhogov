@@ -1,5 +1,5 @@
 // settings.tsx — account (key, name, balance) and community (invite link, contracts, switching).
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { generateKey } from "../chain/keys";
 import {
   active, addCommunity, communities, communityKey, displayName, inviteLink, myAddr, parseInvite, removeCommunity,
@@ -7,11 +7,16 @@ import {
 } from "../state";
 import { Copy, Modal, go, short } from "./kit";
 import { Balance } from "./setup";
-import { syncMyName } from "./name-sync";
+import { sameName } from "../chain/gov";
+import { nameError } from "../chain/people";
+import { nameProblem, syncMyName } from "./name-sync";
 
 export function AccountScreen() {
   const [reveal, setReveal] = useState(false);
   const [name, setName] = useState(displayName.value);
+  // The key's own name can arrive after the screen opens (it's looked up on chain).
+  useEffect(() => { setName(displayName.value); }, [displayName.value]);
+  const bad = name.trim() ? nameError(name) : "";
   const addr = myAddr.value;
   const c = active.value;
   const backup = () => {
@@ -27,10 +32,16 @@ export function AccountScreen() {
       <h1>Account</h1>
       <div class="card stack">
         <label class="field">Your name
-          <span class="hint">What everyone sees instead of your address, set by your key alone: in the chain's name directory where it has one, otherwise on this community's name list. Unique within the community.</span>
+          <span class="hint">What everyone calls you, set by your key alone (it comes with your key to any device; capitals count; it can't start with a number): in the chain's name directory where it has one, otherwise on this community's name list. Unique within the community.</span>
           <div class="row"><input class="grow" value={name} onInput={(e) => setName((e.target as HTMLInputElement).value)} />
-            <button disabled={name.trim() === displayName.value || !name.trim()} onClick={() => { setDisplayName(name.trim()); syncMyName(true); }}>Save</button></div>
+            <button disabled={name.trim() === displayName.value || !name.trim() || !!bad} onClick={() => { setDisplayName(name.trim()); syncMyName(true); }}>Save</button></div>
+          {bad && <span class="badge danger">{bad}</span>}
         </label>
+        {nameProblem.value && sameName(nameProblem.value.name, displayName.value) && (
+          <div class="callout warn small">
+            <b>Someone else in this community has claimed “{nameProblem.value.name}”</b>, so others see you as “{nameProblem.value.name} (unclaimed)”. Choose another name above. If that's another key of yours (one you used before on some device), sign in with that key to rename it, then come back to this one.
+          </div>
+        )}
         <div><b>Your address</b> <span class="muted small">— share it so people can invite you or message you</span>
           <div class="row"><span class="mono">{addr}</span><Copy text={addr} /></div></div>
         {c && <div><b>Balance</b> on {c.name}'s network<div><Balance node={c.node} addr={addr} /></div></div>}
