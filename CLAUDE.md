@@ -85,8 +85,16 @@ tests/        unit.ts   chain-check.ts (live API)   e2e/*.spec.ts (Playwright, f
 
 ## Conventions
 
-- **Every chain write goes through `act(title, run, {done})`** (in `kit.tsx`). The same
-  title can't run twice at once. Never advise repeating a write that may still land:
+- **Every chain write goes through `act(title, run, {risk, key})`** (in `kit.tsx`). Both
+  fields are required, so a new call site cannot be written without saying how much the
+  write can cost the person (`risk`: `routine`, `consequential`, `irreversible`) and what
+  it is (`key`, which identifies the write — the same one can't run twice at once, and a
+  different target never collides with it).
+  - **Ask a question only where the call site states one**, in `confirm`. Deriving a
+    question from `risk` was tried and removed: it is confirm fatigue, and a dialog is
+    more often dismissed unread than read. An explanation belongs in the screen or modal
+    the person is already looking at.
+  - Never advise repeating a write that may still land:
   `RNode.deploy` throws `StillUnknown` (keep the signature, don't retry), `NotCarried` (safe
   to retry) or `DeployFailed` (ran and failed, fee charged). A reasonless refusal is
   checked for 2 minutes before either verdict.
@@ -105,6 +113,15 @@ tests/        unit.ts   chain-check.ts (live API)   e2e/*.spec.ts (Playwright, f
   - the README if it changes what rhogov does.
 - **Keep the copy plain and direct.** Explain trade-offs to the person rather than hiding
   them; the existing toasts and Help tips show the tone.
+  - **A mechanism's name belongs in the explanation; the control says what it does.** A
+    button labelled "Censure" or "…to the roll" asks the reader to know the mechanism
+    before they can act. Use the plain words in `PLAIN` (`kit.tsx`) for the control, and
+    keep the precise term in the `Info` beside it for anyone who wants it.
+  - **A claim in the copy names what enforces it.** A string that promises something —
+    "private", "can't be undone", "matches the node's tally" — has to be true of the code
+    or the `rho:gov:*` native behind it. Copy that asserts what the chain does not do cost
+    two findings, in both directions: over-claiming (an inbox described as private over
+    bodies stored in plaintext) and under-disclosing (a threshold never stated at all).
 - Commit straight to `main` (it deploys). Write commit messages as the existing history
   does.
 

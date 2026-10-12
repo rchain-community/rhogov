@@ -4,7 +4,7 @@ import { type Group, type Issue, type Outcome, makeId } from "../chain/gov";
 import { gov, myAddr } from "../state";
 import { DelegateModal, learnFrom } from "./groups";
 import { isCouncilId } from "../chain/council";
-import { Addr, Info, Loading, Modal, act, go, nameOf, useAsync } from "./kit";
+import { Addr, Info, Loading, Modal, PLAIN, act, go, nameOf, useAsync } from "./kit";
 
 const STATUS: Record<Issue["status"], [string, string]> = {
   open: ["Voting open", "accent"],
@@ -144,7 +144,7 @@ function IssueView({ i, g, out }: { i: Issue; g: Group; out: Outcome }) {
             : !me ? <p class="muted">Set up your identity to vote.</p>
             : !onRoll ? (
               <div class="callout warn small">
-                {member ? <>You joined {g.name} after this vote opened, so you're not on its roll yet. {nameOf(i.by)} can refresh the roll to include you.</>
+                {member ? <>You joined {g.name} after this vote opened, so it isn't open to you yet. {nameOf(i.by)} can add you to it.</>
                   : <>Only members of {g.name} can vote. <a href={`#/g/${encodeURIComponent(g.id)}`}>Join the group</a> first.</>}
               </div>
             ) : <Ballot i={i} />}
@@ -154,7 +154,7 @@ function IssueView({ i, g, out }: { i: Issue; g: Group; out: Outcome }) {
                 : topicDelegate ? <>Until you vote, {nameOf(topicDelegate)} carries your vote here.</>
                 : standingDelegate ? <>Until you vote, {nameOf(standingDelegate)} (your delegate) carries your vote.</>
                 : "If you don't vote and haven't delegated, your weight goes unused."}
-              {" "}<button class="ghost small" onClick={() => setDelegating(true)}>{topicDelegate ? "Change delegate for this vote" : "Delegate this vote"}</button>
+              {" "}<button class="ghost small" onClick={() => setDelegating(true)}>{topicDelegate ? "Hand it to someone else" : PLAIN.delegateThisVote}</button>
               {topicDelegate && <button class="ghost small" onClick={() => act("Removing delegation for this vote", (t) => G.undelegate(g.id, i.id, t), { risk: "routine", key: `undelegate:${g.id}:${i.id}` })}>Remove</button>}
             </div>
           )}
@@ -176,12 +176,12 @@ function IssueView({ i, g, out }: { i: Issue; g: Group; out: Outcome }) {
         <div class="section card">
           <h3>You opened this vote</h3>
           <div class="row">
-            {missing.length > 0 && <button onClick={() => act("Refreshing the voter roll", (t) => G.setRoll(i.id, g.members.map((m) => m.addr), t), {
+            {missing.length > 0 && <button onClick={() => act("Adding members to the vote", (t) => G.setRoll(i.id, g.members.map((m) => m.addr), t), {
               risk: "consequential",
               key: `setRoll:${i.id}`,
-              confirm: `Add ${missing.length} member${missing.length > 1 ? "s" : ""} to the roll? This replaces who may vote on this issue. Ballots already cast are not re-weighed, and the roll can be changed again while the vote is open.`,
+              confirm: `Add ${missing.length} member${missing.length > 1 ? "s" : ""} to this vote? This replaces who may vote on it. Ballots already cast are not re-weighed, and who may vote can be changed again while the vote is open.`,
               done: `${missing.length} new member${missing.length > 1 ? "s" : ""} can now vote.`,
-            })}>Add {missing.length} new member{missing.length > 1 ? "s" : ""} to the roll</button>}
+            })}>Add {missing.length} new member{missing.length > 1 ? "s" : ""} to the vote</button>}
             <button class="primary" onClick={closeAndRecord}>Close voting and record result</button>
           </div>
         </div>
