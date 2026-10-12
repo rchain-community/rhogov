@@ -2,7 +2,7 @@
 import { useState } from "preact/hooks";
 import { type Group, type Issue, type Standing, makeId } from "../chain/gov";
 import { displayName, gov, learnNames, myAddr } from "../state";
-import { Addr, Info, Loading, Modal, PersonField, Trust, act, go, href, nameOf, useAsync, usePeopleFilter } from "./kit";
+import { Addr, Info, Loading, Modal, PLAIN, PersonField, Trust, act, go, href, nameOf, useAsync, usePeopleFilter } from "./kit";
 import { IssueCard, NewIssueModal } from "./votes";
 import { COUNCIL_PREFIX } from "../chain/council";
 
@@ -158,7 +158,7 @@ function Votes({ g, issues, member }: { g: Group; issues: Issue[]; member: boole
   return (
     <div class="stack">
       <div class="row between">
-        <span class="muted">Members propose questions; everyone on the roll votes; the node counts.</span>
+        <span class="muted">Members propose questions; everyone the vote is open to can vote; the node counts.</span>
         {member && <button class="primary" onClick={() => setCreating(true)}>＋ New vote</button>}
       </div>
       {!issues.length && <div class="card soft empty">No votes yet.{member ? " Start one with “New vote”." : ""}</div>}
@@ -200,7 +200,7 @@ function Members({ g, st }: { g: Group; st: Standing }) {
               </div>
             </div>
             <div class="row">
-              <button onClick={() => setDelegating(true)}>{myDelegate ? "Change" : "Delegate my vote"}</button>
+              <button onClick={() => setDelegating(true)}>{myDelegate ? "Hand it to someone else" : PLAIN.delegate}</button>
               {myDelegate && <button class="ghost" onClick={() => act("Taking your vote back", (t) => G.undelegate(g.id, null, t), { risk: "routine", key: `undelegate:${g.id}:standing`, done: "You vote for yourself again." })}>Take it back</button>}
             </div>
           </div>
@@ -247,7 +247,7 @@ function Members({ g, st }: { g: Group; st: Standing }) {
                           key: `censure:${g.id}:${m.addr}`,
                           confirm: on ? `Censure ${nameOf(m.addr)}? A censure says their trust is undeserved. If two-thirds of members at or above their level agree, their trust drops to 0 and those who vouched for them lose the trust they staked.` : false,
                         });
-                      }}>{censuredByMe(m.addr) ? "Withdraw censure" : "Censure"}</button>
+                      }}>{censuredByMe(m.addr) ? PLAIN.uncensure : PLAIN.censure}</button>
                     {admin && (
                       <button class="small ghost" onClick={() => act(m.role === "admin" ? "Removing admin" : "Making admin",
                         (t) => G.setRole(g.id, m.addr, m.role === "admin" ? "member" : "admin", t), {

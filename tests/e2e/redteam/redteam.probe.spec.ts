@@ -60,7 +60,7 @@ test.describe("red team, live", () => {
     const onDialog = async (d: Dialog) => { fired = true; await d.dismiss(); };
     page.on("dialog", onDialog);
     try {
-      const roll = page.getByRole("button", { name: /new member.*to the roll/i }).first();
+      const roll = page.getByRole("button", { name: /new member.*to the vote/i }).first();
       await expect(roll, "the opener's roll control is present").toBeVisible();
       await roll.click();
       // Closing the vote confirms (src/ui/votes.tsx:111). Changing who may vote does not

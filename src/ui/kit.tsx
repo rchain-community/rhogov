@@ -197,7 +197,7 @@ export function ReviewModal() {
   return (
     <Modal title={`Sign: ${r.title}`} onClose={() => done(false)}
       actions={<><button onClick={() => done(false)}>Cancel</button><button class="primary" onClick={() => done(true)}>Sign and send</button></>}>
-      <p class="muted small">This is the exact rholang your key will sign. It's sent to the node, executed in a block, and costs a little phlo (gas).</p>
+      <p class="muted small">This is the exact rholang your key will sign. It's sent to the node, executed in a block, and costs a small fee.</p>
       <pre class="code">{r.term}</pre>
     </Modal>
   );
@@ -265,6 +265,23 @@ export async function act<T>(
 }
 
 // --- widgets ---------------------------------------------------------------------
+
+/**
+ * Plain words for the mechanisms, in one place.
+ *
+ * A control labelled "Censure" or "…to the roll" asks the reader to already know
+ * the mechanism before they can act. The plain word belongs on the control; the
+ * mechanism's own name belongs in the explanation beside it, where someone who
+ * wants the precise term can find it (CS-004, CS-005). One map, so a word is
+ * changed once rather than in every place it is written.
+ */
+export const PLAIN = {
+  censure: "Dispute their trust",
+  uncensure: "Withdraw the dispute",
+  delegate: "Hand my vote to someone",
+  delegateThisVote: "Hand this vote to someone",
+  voters: "who may vote",
+} as const;
 
 export function Modal({ title, children, actions, onClose }: { title: string; children: ComponentChildren; actions?: ComponentChildren; onClose: () => void }) {
   useEffect(() => {

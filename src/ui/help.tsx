@@ -28,7 +28,7 @@ function screenHelp(): { title: string; text: string; link: string } {
     case undefined: return { title: "Home", text: "What needs you now: votes waiting for your ballot, invitations, and new messages. A community with no groups yet offers the first thing to do instead, since there is nothing to catch up on.", link: section("4-voting") };
     case "groups": return { title: "Groups", text: "The groups in this community. Join an open one, or start your own and invite people.", link: section("3-groups") };
     case "g":
-      if (tab === "members") return { title: "Members", text: "Who is in the group, how much they're trusted, and who votes for whom. Rate trust, delegate your vote, or censure from here.", link: section("6-trust") };
+      if (tab === "members") return { title: "Members", text: "Who is in the group, how much they're trusted, and who votes for whom. Rate trust, hand your vote to someone, or dispute someone's trust from here.", link: section("6-trust") };
       return { title: "A group", text: "Its votes, members and settings. Open a vote, or vote on one that's open.", link: section("3-groups") };
     case "v": return { title: "A vote", text: "Choose one or more options (or rank them) and press Vote. You can change your vote while it's open. The node counts it, with trust and delegation.", link: section("4-voting") };
     case "councils": case "c": return { title: "Councils", text: "Decisions across stakeholder groups: estimate each group's voting power, deliberate with pros and cons, then vote.", link: section("9-councils-decisions-across-stakeholder-groups") };
@@ -83,7 +83,7 @@ async function tipsFor(): Promise<Tip[]> {
   const toVote = issues.filter(({ i }) => (i.voters.includes(me) || i.guests.includes(me)) && !i.ballots[me]);
   if (toVote.length) tips.push({ text: `${toVote.length} open vote${toVote.length > 1 ? "s need" : " needs"} your ballot.`, href: `#/v/${toVote[0].g.id}/${toVote[0].i.id}`, label: "Vote" });
   for (const { i, g } of issues.filter(({ i }) => !i.voters.includes(me) && !i.guests.includes(me)).slice(0, 2))
-    tips.push({ text: <>You joined {g.name} after “{i.title}” opened, so you can't vote on it yet. Ask {nameOf(i.by)} to add new members to its roll.</>, href: `#/v/${g.id}/${i.id}`, label: "Open vote" });
+    tips.push({ text: <>You joined {g.name} after “{i.title}” opened, so it isn't open to you yet. Ask {nameOf(i.by)} to add you to it.</>, href: `#/v/${g.id}/${i.id}`, label: "Open vote" });
   const big = mine.find((g) => g.members.length >= 3 && !g.deleg[me] && !isCouncilId(g.id));
   if (big && !toVote.length) tips.push({ text: <>Can't follow every vote in {big.name}? You can hand your vote to someone you trust; voting yourself always overrides it.</>, href: `#/g/${big.id}/members`, label: "Delegate" });
   if (recentErrors.length) tips.push({ text: <>Something went wrong earlier: “{recentErrors[recentErrors.length - 1].title}”. If it keeps happening, report it; the report includes what rhogov knows.</> });
