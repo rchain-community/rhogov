@@ -44,6 +44,9 @@ no backend, no relay, no database and no account:
   or join one with an invite link. Every community is independent.
 - **Groups.** Open or invite-only. Admins invite by address (with an inbox notification)
   and promote admins; anyone can join an open group.
+- **A first run that says what to do.** Home opens with what rhogov is for, and a
+  community with nothing in it yet offers the first group to make rather than an
+  empty "all caught up". Everything happens inside a group, so that is the first step.
 - **Votes.** Approval or ranked choice (instant runoff). Re-vote any time while it's open.
   The opener closes it and records the result, and the page shows whether the recorded
   result **matches the node's tally**.

@@ -3,7 +3,7 @@ import { type Group, type Issue } from "../chain/gov";
 import { resolveNames } from "../chain/profile";
 import { active, displayName, gov, learnListed, listedName, myAddr, notePublished } from "../state";
 import { NAME_NEEDS, nameProblem } from "./name-sync";
-import { Balance } from "./setup";
+import { Balance, PURPOSE } from "./setup";
 import { JoinButton, learnFrom } from "./groups";
 import { Loading, go, useAsync } from "./kit";
 import { IssueCard } from "./votes";
@@ -38,8 +38,18 @@ export function HomeScreen() {
         const openOthers = issues.filter(([i]) => i.status === "open" && !needs.some(([x]) => x.id === i.id));
         const invites = groups.filter((g) => g.invited.includes(me) && !g.members.some((m) => m.addr === me));
         const unread = Object.values(inbox).reduce((x, y) => x + y, 0);
+        // Nothing has ever happened here: no group has been made, so there is
+        // nothing to be caught up on and the first action is the only one (CS-002, CS-003).
+        const empty = groups.length === 0;
         return (
           <div class="stack">
+            <p class="muted small">{PURPOSE}</p>
+            {empty && (
+              <div class="callout stack">
+                <span><b>Nothing has happened in {active.value!.name} yet.</b> Groups are where everything lives: who belongs, what they decide, and how much each vote weighs.</span>
+                <a href="#/groups">Start the first one</a>
+              </div>
+            )}
             {!listedName(me) && !nameProblem.value && bal !== null && bal < NAME_NEEDS && (
               // Until a name is on chain, nobody can find you by it (to invite you,
               // message you, delegate to you): say so where it's seen first.
@@ -56,7 +66,7 @@ export function HomeScreen() {
             <div class="section">
               <h2>Needs your vote</h2>
               {needs.length ? <div class="stack">{needs.map(([i, g]) => <IssueCard i={i} g={g} />)}</div>
-                : <div class="card soft empty">You're all caught up.</div>}
+                : <div class="card soft empty">{empty ? "No votes yet — a vote belongs to a group, and this community has none." : "You're all caught up."}</div>}
             </div>
             {openOthers.length > 0 && (
               <div class="section">

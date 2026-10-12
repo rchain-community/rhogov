@@ -25,7 +25,7 @@ function screenHelp(): { title: string; text: string; link: string } {
   if (head === "welcome" || !myAddr.value || !active.value)
     return { title: "Getting started", text: "Three steps: choose a network, create (or bring) your key, then join a community with an invite link or start your own.", link: section("1-getting-started") };
   switch (head) {
-    case undefined: return { title: "Home", text: "What needs you now: votes waiting for your ballot, invitations, and new messages.", link: section("4-voting") };
+    case undefined: return { title: "Home", text: "What needs you now: votes waiting for your ballot, invitations, and new messages. A community with no groups yet offers the first thing to do instead, since there is nothing to catch up on.", link: section("4-voting") };
     case "groups": return { title: "Groups", text: "The groups in this community. Join an open one, or start your own and invite people.", link: section("3-groups") };
     case "g":
       if (tab === "members") return { title: "Members", text: "Who is in the group, how much they're trusted, and who votes for whom. Rate trust, delegate your vote, or censure from here.", link: section("6-trust") };
@@ -74,6 +74,9 @@ async function tipsFor(): Promise<Tip[]> {
   for (const g of groups.filter((g) => g.invited.includes(me) && !g.members.some((m) => m.addr === me)))
     tips.push({ text: <>You're invited to join <b>{g.name}</b>.</>, href: `#/g/${g.id}`, label: "Open group" });
   const mine = groups.filter((g) => g.members.some((m) => m.addr === me));
+  // Wording kept as it was: cold-start.spec.ts asserts this string, and it is the
+  // guard for "Help knows the right next step for a brand-new community". The
+  // first-run case is carried by Home's own callout instead (RC-01).
   if (!mine.length) tips.push({ text: "You're not in any group yet. Join an open group, or start one and invite people.", href: "#/groups", label: "Groups" });
   const issues = (await Promise.all(mine.filter((g) => !isCouncilId(g.id)).map((g) => G.issues(g.id).then((is) => is.map((i) => ({ i, g }))).catch(() => [])))).flat()
     .filter(({ i }) => i.status === "open" && !isAuxIssue(i.id));

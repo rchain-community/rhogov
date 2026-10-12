@@ -30,6 +30,14 @@ const INSTALL_NEEDS = 2_000_000;
 
 export const rev = (dust: number | null | undefined) => (dust == null ? "—" : `${(dust / 1e8).toLocaleString(undefined, { maximumFractionDigits: 4 })} REV`);
 
+/**
+ * What rhogov is for, in one sentence. Home and the welcome screen both open with
+ * it: the welcome screen is mounted once and never again, so a purpose stated only
+ * there is stated to nobody after the first minute (CS-001). One source, so the
+ * wording is fixed in one place.
+ */
+export const PURPOSE = "Decide things together on RChain: groups, delegated voting, trust, and private inboxes — all on chain, with no administrator in the middle.";
+
 // --- network --------------------------------------------------------------------
 
 export function NetworkPicker({ value, onChange }: { value: string; onChange: (u: string) => void }) {
@@ -254,7 +262,7 @@ export function Welcome() {
     <div class="stack" style={{ maxWidth: 680 }}>
       <div>
         <h1>Welcome to rhogov</h1>
-        <p class="muted">Decide things together on RChain: groups, delegated voting, trust, and private inboxes — all on chain, with no administrator in the middle.</p>
+        <p class="muted">{PURPOSE}</p>
         <p class="small">New here? <a href={GUIDE} target="_blank" rel="noopener">Read the user guide</a> — five minutes.</p>
       </div>
       <div class="steps">
