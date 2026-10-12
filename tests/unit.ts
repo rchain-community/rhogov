@@ -1,10 +1,10 @@
 // unit.ts — offline checks (no node): decoding, keys, council arithmetic.
 import { approvalShare, approvals, chamberPower, combine, decodeArg, encodeArg, estimateBallot, parseEstimate } from "../src/chain/council";
 import { readRecord, toGroup } from "../src/chain/gov";
-import { addCommunity, addressBook, learnNames, nameNotes, setActive } from "../src/state";
+import { addCommunity, addressBook, learnListed, learnNames, nameNotes, setActive } from "../src/state";
 import { filterPeople, looksLike, nameError, resolvePerson, suggestNames } from "../src/chain/people";
 import { revAddressOf } from "../src/chain/keys";
-import { decode } from "../src/chain/node";
+import { decode, NotCarried, RNode } from "../src/chain/node";
 
 let pass = 0, fail = 0;
 const ok = (label: string, cond: boolean, got?: unknown) => {
@@ -93,7 +93,39 @@ ok("vote counts: one per person per option, unknown options ignored",
   setActive(B.group);
   learnNames([]);
   ok("…and not in another community", addressBook.value["1111T"] === undefined);
+
+  const C = { name: "C", node: "http://n", inbox: "rho:id:c1", group: "rho:id:c2", issue: "rho:id:c3" };
+  addCommunity(C);
+  learnListed({ "1111A": "Ada", "1111B": "Adα" });
+  ok("two claimed look-alikes are both numbered",
+    addressBook.value["1111A"] === "Ada (1)" && addressBook.value["1111B"] === "Adα (2)", addressBook.value);
   setActive(null);
+}
+
+// A reasonless refusal that was not carried is safe to retry (#63).
+{
+  let caught: unknown;
+  try { await new RNode("http://offline").outcome("sig", { timeoutMs: 0, unconfirmed: true }); }
+  catch (e) { caught = e; }
+  ok("not-carried outcome says retry is safe",
+    caught instanceof NotCarried && /safe to try again/i.test(caught.message) && /nothing was charged/i.test(caught.message),
+    caught instanceof Error ? caught.message : caught);
+}
+
+// The same write cannot be started twice while the first is still in flight (#63).
+{
+  const g = globalThis as any;
+  g.location ??= { hash: "", origin: "http://unit", pathname: "/" };
+  g.window ??= { addEventListener() {}, removeEventListener() {}, scrollTo() {}, innerWidth: 1024, innerHeight: 768 };
+  const { act } = await import("../src/ui/kit");
+  let finish!: (value: number) => void;
+  let secondRan = false;
+  const first = act("First title", () => new Promise<number>((resolve) => { finish = resolve; }), { risk: "routine", key: "same-write" });
+  await Promise.resolve();
+  const second = await act("Changed title", async () => { secondRan = true; return 2; }, { risk: "routine", key: "same-write" });
+  ok("an in-flight write rejects a duplicate identity even if its title changes", second === undefined && !secondRan, { second, secondRan });
+  finish(1);
+  await first;
 }
 
 // Arguments.
