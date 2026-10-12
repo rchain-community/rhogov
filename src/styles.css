@@ -200,3 +200,4 @@ details summary { cursor: pointer; color: var(--muted); }
 .tips a { white-space: nowrap; font-weight: 600; }
 .person-field .choices { display: flex; flex-wrap: wrap; gap: .35rem; }
 .person-field .choice-name { padding: .3rem .7rem; border-radius: 999px; font-size: .9rem; }
+.people-filter { margin-bottom: .2rem; }

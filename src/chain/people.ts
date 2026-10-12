@@ -41,3 +41,17 @@ export function suggestNames(text: string, names: string[], max = 8): string[] {
   const by = (a: string, b: string) => a.localeCompare(b);
   return [...new Set([...starts.sort(by), ...loose.sort(by)])].filter((n) => n !== t).slice(0, max);
 }
+
+/**
+ * People whose name starts with what's typed (exact capitals first, then any
+ * capitals), or, once the text starts with a digit, whose address does.
+ * Empty text keeps everyone, in the order given.
+ */
+export function filterPeople(text: string, addrs: string[], nameOf: (a: string) => string): string[] {
+  const t = text.trim();
+  if (!t) return addrs;
+  if (isAddressish(t)) return addrs.filter((a) => a.startsWith(t));
+  const exact = addrs.filter((a) => nameOf(a).startsWith(t));
+  const lower = t.toLowerCase();
+  return [...exact, ...addrs.filter((a) => !exact.includes(a) && nameOf(a).toLowerCase().startsWith(lower))];
+}

@@ -2,7 +2,7 @@
 import { useState } from "preact/hooks";
 import { type Group, type Issue, type Standing, makeId } from "../chain/gov";
 import { displayName, gov, learnNames, myAddr } from "../state";
-import { Addr, Info, Loading, Modal, PersonField, Trust, act, go, href, nameOf, useAsync } from "./kit";
+import { Addr, Info, Loading, Modal, PersonField, Trust, act, go, href, nameOf, useAsync, usePeopleFilter } from "./kit";
 import { IssueCard, NewIssueModal } from "./votes";
 import { COUNCIL_PREFIX } from "../chain/council";
 
@@ -181,7 +181,9 @@ function Members({ g, st }: { g: Group; st: Standing }) {
   const [inviting, setInviting] = useState(false);
   const censuredByMe = (addr: string) => !!me && (g.censures[me] ?? []).includes(addr);
   const censureCount = (addr: string) => Object.values(g.censures).filter((ts) => ts.includes(addr)).length;
-  const sorted = [...g.members].sort((x, y) => (st.levels[y.addr] ?? 0) - (st.levels[x.addr] ?? 0) || x.addr.localeCompare(y.addr));
+  const ranked = [...g.members].sort((x, y) => (st.levels[y.addr] ?? 0) - (st.levels[x.addr] ?? 0) || x.addr.localeCompare(y.addr));
+  const find = usePeopleFilter(ranked.map((m) => m.addr), "Find a member by name…");
+  const sorted = find.matches.map((a) => ranked.find((m) => m.addr === a)!);
   return (
     <div class="stack">
       {member && (
@@ -207,6 +209,7 @@ function Members({ g, st }: { g: Group; st: Standing }) {
         <h2 style={{ margin: 0 }}>{g.members.length} member{g.members.length === 1 ? "" : "s"}</h2>
         {admin && <button onClick={() => setInviting(true)}>Invite someone</button>}
       </div>
+      {g.members.length > 5 && find.box}
       <div class="card" style={{ padding: ".3rem 1rem" }}>
         <div class="list">
           {sorted.map((m) => {
@@ -292,6 +295,7 @@ export function DelegateModal({ g, issueId, issueTitle, onClose }: { g: Group; i
   const me = myAddr.value!;
   const current = issueId ? g.topic[issueId]?.[me] : g.deleg[me];
   const [to, setTo] = useState<string>(current ?? "");
+  const pick = usePeopleFilter(g.members.filter((m) => m.addr !== me).map((m) => m.addr));
   const loops = (target: string) => {
     let cur = target; const seen = new Set([me]);
     while (cur) { if (seen.has(cur)) return true; seen.add(cur); cur = (issueId ? g.topic[issueId]?.[cur] : undefined) ?? g.deleg[cur]; }
@@ -302,12 +306,14 @@ export function DelegateModal({ g, issueId, issueTitle, onClose }: { g: Group; i
       actions={<><button onClick={onClose}>Cancel</button><button class="primary" disabled={!to} onClick={() => { onClose(); act(`Delegating to ${nameOf(to)}`, (t) => G.delegate(g.id, to, issueId, t), { done: `${nameOf(to)} now carries your vote${issueId ? " on this issue" : ""}.` }); }}>Delegate</button></>}>
       <p class="muted small">{issueId ? "Only for this vote — it overrides your standing delegate here." : "For every vote in this group where you don't vote yourself."} You can always vote directly instead, and you can take it back any time.</p>
       <div class="stack">
-        {g.members.filter((m) => m.addr !== me).map((m) => (
-          <label class={`choice ${to === m.addr ? "on" : ""}`}>
-            <input type="radio" checked={to === m.addr} onChange={() => setTo(m.addr)} />
-            <div class="row grow between"><Addr addr={m.addr} />{loops(m.addr) && <span class="badge warn">would form a loop</span>}</div>
+        {g.members.length > 2 && pick.box}
+        {pick.matches.map((a) => (
+          <label class={`choice ${to === a ? "on" : ""}`}>
+            <input type="radio" checked={to === a} onChange={() => setTo(a)} />
+            <div class="row grow between"><Addr addr={a} />{loops(a) && <span class="badge warn">would form a loop</span>}</div>
           </label>
         ))}
+        {pick.q && !pick.matches.length && <div class="muted small">No member's name starts with “{pick.q.trim()}” (capitals count first).</div>}
         {g.members.length < 2 && <div class="empty">Nobody else is in this group yet.</div>}
       </div>
     </Modal>

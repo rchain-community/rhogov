@@ -2,7 +2,7 @@
 import { signal } from "@preact/signals";
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { resolvePerson, suggestNames } from "../chain/people";
+import { filterPeople, resolvePerson, suggestNames } from "../chain/people";
 import { addressBook, forceTick, gov, learnListed, learnNames, myAddr, refresh, refreshTick, reviewBeforeSign } from "../state";
 
 // --- routing (hash) ------------------------------------------------------------
@@ -301,4 +301,19 @@ export function PersonField({ label, hint, initial = "", onChange }: { label: st
             : `No one in this community is called “${text.trim()}” (capitals count). Pick a name from the list, or paste their REV address.`}</span>)}
     </div>
   );
+}
+
+/**
+ * Choose among people by typing: a box that narrows a list to the names that
+ * start with what's typed (or addresses, once it starts with a digit). The same
+ * as-you-type choice as PersonField, for lists of people already on screen.
+ */
+export function usePeopleFilter(addrs: string[], placeholder = "Start typing a name…") {
+  const [q, setQ] = useState("");
+  const matches = filterPeople(q, addrs, (a) => addressBook.value[a] ?? "");
+  const box = (
+    <input class="people-filter" type="search" value={q} placeholder={placeholder} aria-label="Find a person by name"
+      autocomplete="off" autocapitalize="off" spellcheck={false} onInput={(e) => setQ((e.target as HTMLInputElement).value)} />
+  );
+  return { q, box, matches };
 }

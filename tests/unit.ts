@@ -1,7 +1,7 @@
 // unit.ts — offline checks (no node): decoding, keys, council arithmetic.
 import { approvalShare, approvals, chamberPower, combine, decodeArg, encodeArg, estimateBallot, parseEstimate } from "../src/chain/council";
 import { toGroup } from "../src/chain/gov";
-import { nameError, resolvePerson, suggestNames } from "../src/chain/people";
+import { filterPeople, nameError, resolvePerson, suggestNames } from "../src/chain/people";
 import { revAddressOf } from "../src/chain/keys";
 import { decode } from "../src/chain/node";
 
@@ -57,7 +57,7 @@ ok("vote counts: one per person per option, unknown options ignored",
 {
   const A = "1111bn92xHbttqWHEXqD8PiykFxgeUjizzquT6JRePj2pAoHFAuiK", B = "1111pJu4TJaJDNJDTinnftr2fcHvMfnDeTRXRzwgPfwuKmGMa5juj";
   const C = "1111gW5kkGxHg7xDg6dRkZx2f7qxTizJzaCH9VEM1oJKWRvSX9Sk5";
-  const people = { [A]: "Aria", [B]: "Jim", [C]: "jim" };
+  const people: Record<string, string> = { [A]: "Aria", [B]: "Jim", [C]: "jim" };
   const r1 = resolvePerson(" Aria ", people);
   ok("a name resolves, ignoring surrounding space", r1.ok && r1.addr === A);
   ok("capitals count: Jim and jim are two people", (() => { const x = resolvePerson("Jim", people), y = resolvePerson("jim", people); return x.ok && y.ok && x.addr === B && y.addr === C; })());
@@ -70,6 +70,9 @@ ok("vote counts: one per person per option, unknown options ignored",
   ok("text starting with a digit is an address, and a cut-short one is called out", !r6.ok && r6.why === "bad-address");
   ok("names that start with what's typed are offered", eq(suggestNames("J", ["Jim", "jim", "Jo", "Aria"]), ["Jim", "Jo", "jim"]));
   ok("…none once it reads as an address", eq(suggestNames("11", ["11 is not a name"]), []));
+  const nm = (a: string) => people[a];
+  ok("filtering people: names starting with what's typed, exact capitals first", eq(filterPeople("j", [A, B, C], nm), [C, B]));
+  ok("…an empty filter keeps everyone; digits filter by address", eq(filterPeople("", [A, B], nm), [A, B]) && eq(filterPeople("1111pJ", [A, B, C], nm), [B]));
   ok("a name can't start with a digit", nameError("1st") !== "" && nameError("Ada") === "" && nameError("  ") !== "");
 }
 

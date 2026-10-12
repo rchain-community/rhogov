@@ -46,6 +46,9 @@ test("a community decides with trust and delegation", async ({ browser }) => {
   // Carol hands her vote to Bob.
   await open(carol, groupHash + "/members");
   await carol.getByRole("button", { name: "Delegate my vote" }).click();
+  // Typing narrows the list to the names that start that way.
+  await carol.locator(".modal").getByLabel("Find a person by name").fill("B");
+  await expect(carol.locator(".modal label.choice")).toHaveCount(1);
   await carol.locator(".modal label.choice", { hasText: "Bob" }).click();
   await carol.getByRole("button", { name: "Delegate", exact: true }).click();
   await settle(carol);

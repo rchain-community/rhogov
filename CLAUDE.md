@@ -48,7 +48,10 @@ rchain-rust's `rho:gov:*` natives.
 - **Names, not addresses.** People are shown by name everywhere, with their REV address
   one click away.
   - Display a person with `Addr` / `nameOf`.
-  - Pick a person with `PersonField`, which takes a name or an address.
+  - Pick a person with `PersonField`, which takes a name or an address. To choose from a
+    list already on screen, use `usePeopleFilter`. Both work as you type: names that start
+    with the typed text are offered or kept, while text starting with a digit is matched as
+    an address. Every new person picker should use one of them.
   - Names come from the chain's name directory where one exists. Otherwise they come from
     the community's hidden `~names` group (`Gov.names` / `setName`).
   - Names are unique **within a community**, case-sensitive, and never start with a digit

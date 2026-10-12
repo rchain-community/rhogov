@@ -93,6 +93,10 @@ groups you're in and the others in the community.
 
 ![Creating a group](images/new-group.png)
 
+Wherever you choose a person (inviting, messaging, delegating, finding a member),
+start typing their name: the names that start with what you've typed are offered.
+Typing a number instead looks for an address.
+
 Whoever creates a group is its first **admin**. Admins can invite people (with
 an optional message to their inbox) and make other members admins. To invite
 someone, start typing their **name** and pick it from the names offered
