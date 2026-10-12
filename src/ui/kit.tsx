@@ -237,10 +237,10 @@ export function ReviewModal() {
 export async function act<T>(
   title: string,
   run: (onTick: (s: string) => void) => Promise<T>,
-  opts: { done?: string; key?: string; risk?: Risk; confirm?: string | false } = {},
+  opts: { risk: Risk; key: string; done?: string; confirm?: string | false },
 ): Promise<T | undefined> {
-  const risk: Risk = opts.risk ?? "consequential";
-  const id = writeId(opts.key ?? title);
+  const risk = opts.risk;
+  const id = writeId(opts.key);
   if (locked(id)) {
     notify(`Already in progress: ${title}`, "It's still waiting for a block (see the card). Pressing again would do it twice.", "info");
     return undefined;
