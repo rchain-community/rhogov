@@ -4,9 +4,9 @@ The findings from the adversarial red-team tabletop. One row per finding, each b
 that fails today. The method, the personas and the scenario pack are in
 [`red-team-tabletop.md`](red-team-tabletop.md).
 
-**Probes are red on purpose.** They live in `tests/e2e/redteam/`, are excluded from
-`npm run test:e2e`, and run with `npm run test:redteam`. A red probe is a finding, not a broken
-test.
+**These probes were red on purpose; all five pass now.** They live in `tests/e2e/redteam/`, are
+excluded from `npm run test:e2e`, and run with `npm run test:redteam`. A red probe was a finding, not a
+broken test.
 
 **Finding IDs are scenario-bound**: `RT-nn` is scenario `Tn`. The table below is sorted by
 severity for reading.
@@ -139,12 +139,31 @@ are worth keeping in mind for the manual passes: reading the DOM mid-load (the s
 (a one-founder group shows no roll control and no Censure button, so a probe keyed to them would
 pass for the wrong reason).
 
-## Status of the last run
+## Where these stand — 2026-10-12
 
-Playground, 2026-10-12: **5 red, 0 green** — every probe a finding. Two need no node at all
-(RP2, RP8); the three live probes need a node and a throwaway community.
+**All sixteen are addressed; all five probes pass.** The finding rows above are unchanged — they are
+the record of what was found. Where a client fix covers only part of a finding, the half that needs a
+contract change is named rather than quietly counted as done.
+
+| Finding | Fixed by | Probe, now | Remains |
+|---|---|---|---|
+| RT-01 an invite naming an unchosen node is signed to | `c6a7182` | RP2 ✓ | |
+| RT-02 changing who may vote after ballots asks nothing | PR #66 | RP3 ✓ | the contract still permits it — quantum-os#244 |
+| RT-03 one rating flips the group to weighted voting | PR #71 | — | disclosure only; the rule is the node's |
+| RT-04 a council's decision of record carries no provenance | PR #71 | — | |
+| RT-05 a name earned in one community is worn unmarked in another | `2cca707` | — | numbering resolved by making it meaningless rather than by claim order |
+| RT-06 a screen that cannot refresh keeps showing old data | PR #72 | RP6 ✓ | |
+| RT-07 review-before-sign covers 2 of ~25 writes | PR #66, PR #73 | RP1 ✓ | |
+| RT-08 retry advice can install a second community | `2cca707` | — | a genuinely idempotent install is upstream |
+| RT-09 the censure threshold and cascade were undisclosed | PR #70 | — | the rule is stated; the *number* is not exposed by the node and is not this repo's to compute |
+| RT-10 council power and scores are browser-computed | PR #71 | — | now labelled as recomputed; combining on the node is upstream |
+| RT-11 ranked bars can show a losing option as the longest | PR #71 | — | |
+| RT-12 the welcome screen promised "private inboxes" | PR #70 | RP8 ✓ | |
+| RT-13 a recorded result is compared to a moving tally | PR #71 | — | |
+| RT-14 admin changes move weight silently; a group can strand itself | PR #71 | — | the last-admin guard is contract-only and still **undrafted** |
+| RT-15 an invitation is public and cannot be withdrawn | PR #66 (disclosure) | — | the real fix is `uninvite` — quantum-os#246 |
+| RT-16 delegation is uncapped, and per-issue delegations were invisible | PR #71 | — | a cap is a policy question, and would be upstream |
 
 ```sh
-npm run test:redteam
-RHOGOV_NODE=https://playground.rhobot.net npm run test:redteam
+npm run test:redteam    # 5 passed, 0 failed, against a local node
 ```

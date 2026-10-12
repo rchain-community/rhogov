@@ -4,10 +4,12 @@ The findings from the adversarial cold-start audit, one row per finding, each ba
 probe that fails today. The method and the rubric are in
 [`cold-start-protocol.md`](cold-start-protocol.md).
 
-**Probes are red on purpose.** They live in `tests/e2e/audit/`, are excluded from
-`npm run test:e2e`, and run with `npm run test:audit`. A red probe is a finding, not a broken
-test. Behaviour that already works is covered by green tests in `tests/e2e/cold-start.spec.ts`,
-which run in the normal suite.
+**These probes were red on purpose; all of them pass now.** They live in `tests/e2e/audit/`, are
+excluded from `npm run test:e2e`, and run with `npm run test:audit`. A red probe was a finding, not a
+broken test — and a probe that starts passing *on its own* is a warning that it has gone stale, which
+is why each finding below names what fixed it rather than only that something did. Behaviour that
+already worked is covered by green tests in `tests/e2e/cold-start.spec.ts`, which run in the normal
+suite.
 
 ## Findings
 
@@ -74,13 +76,22 @@ a second person); they are not findings.
 - a keyed user with no community resumes at the community step *(the S4 no-finding)*
 - an invite to a community you already have opens it *(the S7 no-finding)*
 
-## Status of the last full run
+## Where these stand — 2026-10-12
 
-Playground, 2026-10-12: **10 red (every probe), 6 green (every guard)**. Before filing, re-run
-`npm run test:audit` and confirm the red set is unchanged — a probe that has started passing
-means either a fix landed or the probe has gone stale.
+**All eight are fixed and every probe passes.** The finding rows above are unchanged: they are the
+record of what was found, and none of them was wrong.
+
+| Finding | Fixed by | Probe, now |
+|---|---|---|
+| CS-001 Home never says what rhogov is for | PR #68 | P1 ✓ |
+| CS-002 an empty community is told "You're all caught up" | PR #68 | P2 ✓ |
+| CS-003 the first-run call to action is buried | PR #68 | P3 ✓ |
+| CS-004 unglossed jargon on the cold-start path | PR #70 | P4 ✓ |
+| CS-005 delegation offered only in the mechanism's own word | PR #70 | P5 ✓ |
+| CS-006 a damaged invite is a dead end | `e15c476` | P6 ✓ |
+| CS-007 an invite re-asks the network and the community | `c6a7182` | P7a ✓, P7b ✓ |
+| CS-008 a community that cannot be read fails anonymously | `e15c476` (the way out), PR #72 (the silent half) | P8 ✓, P11 ✓ |
 
 ```sh
-npm run test:audit
-RHOGOV_NODE=https://playground.rhobot.net npm run test:audit
+npm run test:audit    # 12 passed, 0 failed, against a local node at RHOGOV_NODE
 ```

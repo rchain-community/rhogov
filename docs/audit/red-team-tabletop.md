@@ -283,10 +283,11 @@ RHOGOV_REDTEAM=1 npx playwright test tests/e2e/redteam/redteam.probe.spec.ts \
 ## Method
 
 Two passes, reconciled. **Manual role-play** walks T1–T12 with the pre-flight checklist signed.
-**Automated probes** (`npm run test:redteam`) assert the *desired* behaviour and are **expected
-red**; the red set is the findings. A finding is confirmed when a probe names it and a manual
-walk reproduces it; a probe with no manual reproduction is recorded "probe-only, unverified by
-eye".
+**Automated probes** (`npm run test:redteam`) assert the *desired* behaviour and were **expected red**
+when written; the red set was the findings. **All five pass now** — `register-redteam.md` records what
+fixed each, and which findings a client fix only half covers. A finding is confirmed when a probe names
+it and a manual walk reproduces it; a probe with no manual reproduction is recorded "probe-only,
+unverified by eye".
 
 ## Running the probes
 
