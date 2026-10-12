@@ -2,8 +2,10 @@
 import { signal } from "@preact/signals";
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
+import { blake2b } from "@noble/hashes/blake2.js";
 import { filterPeople, resolvePerson, suggestNames } from "../chain/people";
 import { Gov } from "../chain/gov";
+import { hex } from "../chain/keys";
 import { addressBook, communities, forceTick, gov, nameNotes, learnListed, learnNames, myAddr, refresh, refreshTick, reviewBeforeSign } from "../state";
 
 // --- routing (hash) ------------------------------------------------------------
@@ -154,8 +156,36 @@ const TICK: Record<string, string> = {
   unconfirmed: "The node didn't confirm it, but it may have been carried anyway. Checking for it before anything else…",
 };
 
-/** Actions waiting for a block, by title: the same one can't be started twice at once. */
+/**
+ * How much a write can cost the person doing it. Declared at the call site so the
+ * gate below can decide what to ask, rather than each site remembering.
+ */
+export type Risk = "routine" | "consequential" | "irreversible";
+
+/**
+ * A write's identity: its deploy term, hashed. The term carries the contract, the
+ * verb and the arguments — and never a name shown to a person — so two clicks on
+ * the same action give one id, and two different targets give two. Keying this on
+ * the visible title instead would collide across targets and be defeated by a
+ * title that varies (§ the in-flight lock, docs/audit/remediation.md).
+ */
+const writeId = (term: string) => hex(blake2b(new TextEncoder().encode(term), { dkLen: 16 }));
+
+/**
+ * Writes in flight *now*, by their identity. In memory only.
+ *
+ * A durable version of this was tried and retracted: it kept a reload from
+ * offering a second close or a second install, but it also refused the *resume*
+ * that Gov.install already does properly — `deploys.spec.ts` installs, is
+ * interrupted, reloads, and asks the app to look for the install it started. A
+ * lock that cannot tell "pressing again" from "finishing what I started" breaks
+ * the better mechanism rather than protecting it.
+ */
 const inFlight = new Set<string>();
+
+const locked = (id: string) => inFlight.has(id);
+const acquire = (id: string) => { inFlight.add(id); };
+const release = (id: string) => { inFlight.delete(id); };
 
 // --- review-before-sign ---------------------------------------------------------
 
@@ -174,33 +204,63 @@ export function ReviewModal() {
 }
 
 /**
- * Run a chain write with visible progress: optional review, then a toast that
- * follows the deploy into a block and reports what came back.
+/**
+ * Run a chain write with visible progress.
+ *
+ * `key` is the write's identity: the same action cannot be started twice at once,
+ * and the id is derived from the target rather than a heading, so two different
+ * targets never collide and a label containing a name never defeats it.
+ *
+ * `risk` is a declaration of intent at every call site — it is deliberately *not*
+ * used to decide anything here. Deriving behaviour from it was tried and retracted
+ * twice: a question for every irreversible write is confirm fatigue, and a durable
+ * lock for them refuses the resume that Gov.install already does properly. What a
+ * site wants asked, it asks in `confirm`, where the trade-off can be stated in
+ * words; and what it wants explained, it explains in the screen or modal the
+ * person is looking at, which is where a dialog cannot be dismissed unread.
  */
-export async function act<T>(title: string, run: (onTick: (s: string) => void) => Promise<T>, opts: { done?: string; preview?: string } = {}): Promise<T | undefined> {
-  if (reviewBeforeSign.value && opts.preview) {
-    const ok = await new Promise<boolean>((resolve) => { review.value = { title, term: opts.preview!, resolve }; });
-    if (!ok) return undefined;
-  }
-  if (inFlight.has(title)) {
+export async function act<T>(
+  title: string,
+  run: (onTick: (s: string) => void) => Promise<T>,
+  opts: { risk: Risk; key: string; term?: string; done?: string; confirm?: string | false },
+): Promise<T | undefined> {
+  const id = writeId(opts.key);
+  if (locked(id)) {
     notify(`Already in progress: ${title}`, "It's still waiting for a block (see the card). Pressing again would do it twice.", "info");
     return undefined;
   }
-  inFlight.add(title);
-  const t = pushToast({ title, detail: "Signing…", kind: "busy", since: Date.now() });
+  acquire(id);
   try {
-    const out = await run((s) => t.update({ detail: TICK[s] ?? s }));
-    t.update({ kind: "done", detail: opts.done ?? "Recorded on chain." });
-    t.close(3500);
-    refresh(true);
-    return out;
-  } catch (e) {
-    logError(title, (e as Error).message);
-    t.update({ kind: "error", detail: (e as Error).message });
-    refresh(true);
-    return undefined;
+    // Only a question the call site actually states gets asked. Deriving one from
+    // `risk` was the first thing tried here and it was wrong twice over: a modal on
+    // every irreversible write is confirm fatigue, and because a dismissed dialog
+    // silently cancels the action, a synthesised question on the install path broke
+    // every test that starts a community. `confirm: false` silences a question a
+    // site would otherwise inherit from its own flow.
+    if (opts.confirm && !confirm(opts.confirm)) return undefined;
+    // Review shows the rholang, so it only opens when there is one to show. `key`
+    // identifies the write for the lock and is usually a composite, not a term —
+    // showing that as "the exact rholang your key will sign" would be a lie.
+    // Coverage grows as call sites can hand over a real term; today two can.
+    if (reviewBeforeSign.value && opts.term) {
+      const ok = await new Promise<boolean>((resolve) => { review.value = { title, term: opts.term!, resolve }; });
+      if (!ok) return undefined;
+    }
+    const t = pushToast({ title, detail: "Signing…", kind: "busy", since: Date.now() });
+    try {
+      const out = await run((s) => t.update({ detail: TICK[s] ?? s }));
+      t.update({ kind: "done", detail: opts.done ?? "Recorded on chain." });
+      t.close(3500);
+      refresh(true);
+      return out;
+    } catch (e) {
+      logError(title, (e as Error).message);
+      t.update({ kind: "error", detail: (e as Error).message });
+      refresh(true);
+      return undefined;
+    }
   } finally {
-    inFlight.delete(title);
+    release(id);
   }
 }
 
@@ -267,8 +327,14 @@ export function Trust({ level }: { level: number | undefined }) {
   return <span class="trust" title={`Trust level ${l} of 5`} aria-label={`Trust level ${l} of 5`}>{[1, 2, 3, 4, 5].map((i) => <i class={i <= l ? "on" : ""} />)}</span>;
 }
 
-export function Info({ children }: { children: ComponentChildren }) {
-  return <details class="small"><summary>How does this work?</summary><div style={{ marginTop: ".5rem" }}>{children}</div></details>;
+/**
+ * A collapsed explanation. The summary names the question it answers, because a
+ * reader who cannot tell what is behind a closed "How does this work?" has no
+ * reason to open it — which is how four separate findings read as "undisclosed"
+ * when the text was already on the page. Pass `title` at every call site.
+ */
+export function Info({ title = "How does this work?", children }: { title?: string; children: ComponentChildren }) {
+  return <details class="small"><summary>{title}</summary><div style={{ marginTop: ".5rem" }}>{children}</div></details>;
 }
 
 // --- choosing a person -------------------------------------------------------------

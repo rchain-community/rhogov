@@ -44,7 +44,7 @@ export async function syncMyName(force = false) {
       if (Object.entries(await G.names().catch(() => ({} as Record<string, string>))).some(([a, x]) => a !== me && looksLike(x, n))) return;
       const b = await node.balance(revAddressOf(key));
       if (b !== null && b < NAME_NEEDS) return;
-      const ok = await act("Putting your name on this community's list", (t) => G.setName(n, t), { done: `People in ${c.name} can now find you as “${n}”.` });
+      const ok = await act("Putting your name on this community's list", (t) => G.setName(n, t), { risk: "routine", key: `setName:${c.group}:${me}:${n}`, done: `People in ${c.name} can now find you as “${n}”.` });
       if (ok === undefined) failedFor = `${c.group}|${me}|${n}|list`;
       else learnListed({ [me]: n }, true);
     };
@@ -81,8 +81,8 @@ export async function syncMyName(force = false) {
     const bal = await node.balance(revAddressOf(key));
     if (bal !== null && bal < NAME_NEEDS) return;
     const ok = have !== null
-      ? await act("Publishing your name", (t) => publishName(node, key, me, name, t), { done: `Others now see you as “${name}”.` })
-      : await act("Putting your name on this community's list", (t) => G.setName(name, t), { done: `Others now see you as “${name}”.` });
+      ? await act("Publishing your name", (t) => publishName(node, key, me, name, t), { risk: "routine", key: `publishName:${me}:${name}`, done: `Others now see you as “${name}”.` })
+      : await act("Putting your name on this community's list", (t) => G.setName(name, t), { risk: "routine", key: `setName:${me}:${name}`, done: `Others now see you as “${name}”.` });
     if (ok === undefined) { failedFor = attempt; return; }
     failedFor = "";
     if (have !== null) { notePublished(me, name); await ensureListed(name); }

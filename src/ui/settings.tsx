@@ -59,7 +59,8 @@ export function AccountScreen() {
       <div class="card stack">
         <h2>Signing</h2>
         <label class="row"><input type="checkbox" style={{ width: "auto" }} checked={reviewBeforeSign.value} onChange={(e) => setReview((e.target as HTMLInputElement).checked)} />
-          Show me the exact rholang before I sign each action</label>
+          Show me the exact rholang before I sign, where rhogov can show it</label>
+        <p class="small muted">It can show it for creating and joining a group today. For the others it signs the action you just confirmed, without the rholang — the exact source is on chain either way, and anyone can read it there.</p>
       </div>
     </div>
   );

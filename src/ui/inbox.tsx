@@ -18,7 +18,7 @@ export function InboxScreen() {
   const n = Object.values(waiting.data ?? {}).reduce((x, y) => x + y, 0);
 
   const collect = async () => {
-    const got = await act("Collecting your messages", (t) => G.receive(t), { done: "Messages collected." });
+    const got = await act("Collecting your messages", (t) => G.receive(t), { risk: "consequential", key: `receive:${c.inbox}:${me}`, done: "Messages collected." });
     if (got && got.length) { archive(me, c, got); setMsgs(archived(me, c)); }
     checkInbox(true);
   };
@@ -58,7 +58,7 @@ export function InboxScreen() {
         </div>
       )}
       <div class="section">
-        <Info>
+        <Info title="Who can read these messages">
           <p>Your inbox lives in the community's Inbox contract. Anyone can drop a message in; the sender's name is stamped by the contract from their key, so it can't be faked. Anyone can see <i>how many</i> messages you have, but the public read interface never shows their contents.</p>
           <p><b>Collect</b> takes the messages out of the contract and keeps them in this browser — on chain they're gone afterwards, so a second reader can't take them too. Messages are not encrypted: they sit in chain state until collected, so don't send secrets.</p>
         </Info>
@@ -76,7 +76,7 @@ export function Compose({ initial, onClose }: { initial: { to?: string; subject?
   const ok = !!to && body.trim();
   return (
     <Modal title="New message" onClose={onClose}
-      actions={<><button onClick={onClose}>Cancel</button><button class="primary" disabled={!ok} onClick={() => { onClose(); act(`Sending to ${nameOf(to!)}`, (t) => G.send(to!, "note", { subject: subject.trim(), body: body.trim() }, t), { done: "Delivered to their inbox." }); }}>Send</button></>}>
+      actions={<><button onClick={onClose}>Cancel</button><button class="primary" disabled={!ok} onClick={() => { onClose(); act(`Sending to ${nameOf(to!)}`, (t) => G.send(to!, "note", { subject: subject.trim(), body: body.trim() }, t), { risk: "routine", key: `sendNote:${to}:${subject.trim()}`, done: "Delivered to their inbox." }); }}>Send</button></>}>
       <div class="stack">
         <PersonField label="To" initial={initial.to} onChange={setTo} />
         <label class="field">Subject<input value={subject} onInput={(e) => setSubject((e.target as HTMLInputElement).value)} /></label>
