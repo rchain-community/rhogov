@@ -237,7 +237,7 @@ export function ReviewModal() {
 export async function act<T>(
   title: string,
   run: (onTick: (s: string) => void) => Promise<T>,
-  opts: { risk: Risk; key: string; done?: string; confirm?: string | false },
+  opts: { risk: Risk; key: string; term?: string; done?: string; confirm?: string | false },
 ): Promise<T | undefined> {
   const risk = opts.risk;
   const id = writeId(opts.key);
@@ -252,8 +252,12 @@ export async function act<T>(
     const question = opts.confirm === false ? null
       : opts.confirm ?? (risk === "irreversible" ? `${title} — this can't be undone by another action. Do it?` : null);
     if (question && !confirm(question)) return undefined;
-    if (reviewBeforeSign.value && opts.key) {
-      const ok = await new Promise<boolean>((resolve) => { review.value = { title, term: opts.key!, resolve }; });
+    // Review shows the rholang, so it only opens when there is one to show. `key`
+    // identifies the write for the lock and is usually a composite, not a term —
+    // showing that as "the exact rholang your key will sign" would be a lie.
+    // Coverage grows as call sites can hand over a real term; today two can.
+    if (reviewBeforeSign.value && opts.term) {
+      const ok = await new Promise<boolean>((resolve) => { review.value = { title, term: opts.term!, resolve }; });
       if (!ok) return undefined;
     }
     const t = pushToast({ title, detail: "Signing…", kind: "busy", since: Date.now() });
