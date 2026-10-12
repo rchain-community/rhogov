@@ -105,8 +105,9 @@ any rgov-core client can read them:
 ## Interop with quantum-os
 
 The contracts are the ones `/gov chain` uses in a quantum-os room. Point the room at a
-community's contracts (**Community → Where it lives**) with `/gov chain inbox|group|issue
-<uri>`, or add a room's contracts here (**Community → Enter contract addresses by hand**).
+community's contracts (**Community → Where {name} lives, and entering contracts by hand**) with
+`/gov chain inbox|group|issue <uri>`, or add a room's contracts from the same place
+(**Community → Enter contract addresses by hand**).
 Both then read and write the same groups, delegations, ratings and ballots.
 
 ## Networks

@@ -80,14 +80,19 @@ export function CommunityScreen() {
         <p class="muted small">Send this link. It tells their browser which network and which governance contracts {c.name} uses — nothing secret is in it. They create their own key when they open it.</p>
         <div class="row"><input class="mono grow" readOnly value={link} onFocus={(e) => (e.target as HTMLInputElement).select()} /><Copy text={link} label="Copy invite link" /></div>
       </div>
-      <div class="card stack small">
-        <h2>Where {c.name} lives</h2>
-        <div><b>Network</b> <span class="mono">{c.node}</span></div>
-        <div><b>Inbox contract</b> <span class="mono">{c.inbox}</span> <Copy text={c.inbox} /></div>
-        <div><b>Group contract</b> <span class="mono">{c.group}</span> <Copy text={c.group} /></div>
-        <div><b>Issue contract</b> <span class="mono">{c.issue}</span> <Copy text={c.issue} /></div>
-        <p class="muted">These are quantum-os <b>rgov-core</b> contracts. A quantum-os room can use the same ones with <span class="mono">/gov chain inbox|group|issue &lt;uri&gt;</span>, so a group pushed from a room shows up here and vice versa.</p>
-      </div>
+      {/* Contract addresses and the raw node URL are for someone wiring rhogov to a room
+          or a node, not for the everyday surface. Kept, unchanged, one click in (#47). */}
+      <details class="card small">
+        <summary>Where {c.name} lives, and entering contracts by hand</summary>
+        <div class="stack small" style={{ marginTop: ".6rem" }}>
+          <div><b>Network</b> <span class="mono">{c.node}</span></div>
+          <div><b>Inbox contract</b> <span class="mono">{c.inbox}</span> <Copy text={c.inbox} /></div>
+          <div><b>Group contract</b> <span class="mono">{c.group}</span> <Copy text={c.group} /></div>
+          <div><b>Issue contract</b> <span class="mono">{c.issue}</span> <Copy text={c.issue} /></div>
+          <p class="muted">These are quantum-os <b>rgov-core</b> contracts. A quantum-os room can use the same ones with <span class="mono">/gov chain inbox|group|issue &lt;uri&gt;</span>, so a group pushed from a room shows up here and vice versa.</p>
+          <div><button class="small" onClick={() => setPaste(true)}>Enter contract addresses by hand</button></div>
+        </div>
+      </details>
       {communities.value.length > 1 && (
         <div class="card stack">
           <h2>Switch community</h2>
@@ -104,7 +109,6 @@ export function CommunityScreen() {
       )}
       <div class="row">
         <button onClick={() => go("/welcome")}>Join or start another community</button>
-        <button onClick={() => setPaste(true)}>Enter contract addresses by hand</button>
       </div>
       {paste && <ManualCommunity onClose={() => setPaste(false)} />}
     </div>
