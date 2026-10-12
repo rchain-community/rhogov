@@ -4,7 +4,7 @@ import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { blake2b } from "@noble/hashes/blake2.js";
 import { filterPeople, resolvePerson, suggestNames } from "../chain/people";
-import { Gov, type Community } from "../chain/gov";
+import { Gov, ReviewDeclined, setReviewGate, type Community } from "../chain/gov";
 import { hex } from "../chain/keys";
 import { RNode } from "../chain/node";
 import { active, addCommunity, addressBook, communities, forceTick, gov, removeCommunity, setActive, nameNotes, learnListed, learnNames, myAddr, refresh, refreshTick, reviewBeforeSign } from "../state";
@@ -232,7 +232,7 @@ export function ReviewModal() {
 export async function act<T>(
   title: string,
   run: (onTick: (s: string) => void) => Promise<T>,
-  opts: { risk: Risk; key: string; term?: string; done?: string; confirm?: string | false },
+  opts: { risk: Risk; key: string; done?: string; confirm?: string | false },
 ): Promise<T | undefined> {
   const id = writeId(opts.key);
   if (locked(id)) {
@@ -240,36 +240,48 @@ export async function act<T>(
     return undefined;
   }
   acquire(id);
+  // Review happens inside the write, where the rholang exists and nothing is signed yet
+  // (gov.ts). This is what `risk` decides: routine housekeeping — putting your name on
+  // the community's list, sending a message — signs without asking, so it can happen
+  // quietly while you are doing something else; anything that moves trust, membership,
+  // weight or money is shown before it goes.
+  setReviewGate(async (term) => {
+    if (!reviewBeforeSign.value || opts.risk === "routine") return true;
+    return await new Promise<boolean>((resolve) => { review.value = { title, term, resolve }; });
+  });
+  let t: ReturnType<typeof pushToast> | undefined;
+  // With no review to do, the progress card goes up the moment the action is taken: it is
+  // the feedback that something is happening, and (see tests/e2e/helpers.ts settle()) the
+  // signal that it has finished. When a review *is* coming, the card waits until the
+  // person has agreed, so they are not told a write is signing while they are still deciding.
+  if (!(reviewBeforeSign.value && opts.risk !== "routine")) t = pushToast({ title, detail: "Signing…", kind: "busy", since: Date.now() });
   try {
     // Only a question the call site actually states gets asked. Deriving one from
-    // `risk` was the first thing tried here and it was wrong twice over: a modal on
-    // every irreversible write is confirm fatigue, and because a dismissed dialog
-    // silently cancels the action, a synthesised question on the install path broke
-    // every test that starts a community. `confirm: false` silences a question a
-    // site would otherwise inherit from its own flow.
+    // `risk` was tried and removed: a modal on every irreversible write is confirm
+    // fatigue, and because a dismissed dialog silently cancels the action, a
+    // synthesised question on the install path broke every test that starts a
+    // community. `confirm: false` silences a question a site inherits from its flow.
     if (opts.confirm && !confirm(opts.confirm)) return undefined;
-    // Review shows the rholang, so it only opens when there is one to show. `key`
-    // identifies the write for the lock and is usually a composite, not a term —
-    // showing that as "the exact rholang your key will sign" would be a lie.
-    // Coverage grows as call sites can hand over a real term; today two can.
-    if (reviewBeforeSign.value && opts.term) {
-      const ok = await new Promise<boolean>((resolve) => { review.value = { title, term: opts.term!, resolve }; });
-      if (!ok) return undefined;
-    }
-    const t = pushToast({ title, detail: "Signing…", kind: "busy", since: Date.now() });
+    // The progress card appears when the write actually starts, not while the person is
+    // still deciding at the review step.
+    const show = () => (t ??= pushToast({ title, detail: "Signing…", kind: "busy", since: Date.now() }));
     try {
-      const out = await run((s) => t.update({ detail: TICK[s] ?? s }));
-      t.update({ kind: "done", detail: opts.done ?? "Recorded on chain." });
-      t.close(3500);
+      const out = await run((s) => show().update({ detail: TICK[s] ?? s }));
+      const done = show();
+      done.update({ kind: "done", detail: opts.done ?? "Recorded on chain." });
+      done.close(3500);
       refresh(true);
       return out;
     } catch (e) {
+      // Declined at the review step: nothing was signed, so nothing went wrong.
+      if (e instanceof ReviewDeclined) { t?.close(0); return undefined; }
       logError(title, (e as Error).message);
-      t.update({ kind: "error", detail: (e as Error).message });
+      show().update({ kind: "error", detail: (e as Error).message });
       refresh(true);
       return undefined;
     }
   } finally {
+    setReviewGate(null);
     release(id);
   }
 }

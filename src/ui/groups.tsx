@@ -75,7 +75,7 @@ function NewGroupModal({ onClose }: { onClose: () => void }) {
     onClose();
     const term = G.preview("group", "create", [JSON.stringify(gid), JSON.stringify(name), JSON.stringify(policy)]);
     const r = await act(`Creating “${name}”`, (t) => G.createGroup(gid, name.trim(), policy, t),
-      { risk: "consequential", key: term, term, done: "Group created. You're its first admin." });
+      { risk: "consequential", key: term, done: "Group created. You're its first admin." });
     if (r) go(`/g/${encodeURIComponent(gid)}`);
   };
   return (
@@ -146,7 +146,7 @@ export function JoinButton({ g }: { g: Group }) {
   const join = () => {
     const term = G.preview("group", "join", [JSON.stringify(g.id), JSON.stringify(displayName.value)]);
     return act(`Joining ${g.name}`, (t) => G.join(g.id, displayName.value || "member", t),
-      { risk: "consequential", key: term, term, done: `You're a member of ${g.name}.` });
+      { risk: "consequential", key: term, done: `You're a member of ${g.name}.` });
   };
   return <button class="primary" onClick={join}>Join group</button>;
 }
