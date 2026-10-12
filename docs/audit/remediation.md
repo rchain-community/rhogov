@@ -7,6 +7,15 @@ orders them for fixing, by **criticality × triviality**, descending: cheap-but-
 **This document fixes nothing.** It is the order and the reasoning; the fixes are separate work, and
 each unit's own issue carries its fix plan and design scope.
 
+### Status — amended 2026-10-12
+
+**Two units are done.** `2cca707` landed `Fixes #38` (names) and `Fixes #39` (retry), and both issues
+auto-closed. So the order below covers the **11 remaining units**; #38 and #39 keep their rows, marked
+done, because their ratings are what the rest were ranked against. What they left open is recorded
+under [Done](#done-two-units-already-landed).
+
+Three ratings are corrected in this amendment, and two counts. Each is marked **✎**.
+
 ## The two scales
 
 ### Criticality (C)
@@ -49,37 +58,42 @@ re-derived rather than taken on trust:
 
 | Unit | C | Why that C | T | Why that T (counted) |
 |---|---|---|---|---|
-| **RC-01** empty states (#52) | 4 | CS-002 is S1 — an empty community is told it is all caught up, so the reader leaves thinking they are done | 3 | 4 files, ~5 edits. The `card soft empty` idiom already exists (`home.tsx:59,78`), so `EmptyState` wraps rather than invents; the real work is reordering `home.tsx:56-79` |
-| **RC-02** write gate (#53) | 3 | RT-07 and RT-02 are both S2 | **1** | ~39 edits: one signature (`kit.tsx:175`) + **31** `act(` call sites + **7** `confirm(` call sites (only **2** call sites pass `preview`) |
+| **RC-01** empty states (#52) | 4 | CS-002 is S1 — an empty community is told it is all caught up, so the reader leaves thinking they are done | **2** ✎ | 4 files plus a new shared `EmptyState`. The T3 anchor caps at ≤2 files, and a new shared component is a T2 clause; the work itself is only ~5 edits (the `card soft empty` idiom at `home.tsx:59,78` already exists). Small, but not local |
+| **RC-02** write gate (#53) | 3 | RT-07 and RT-02 are both S2 | **1** | ~42 edits: one signature (`kit.tsx:175`) + **34** `act(` call sites ✎ + **7** `confirm(` call sites (only **2** pass `preview`) |
 | **RC-03** weight invisible (#54) | 3† | RT-03 `I3 X4 D2`, RT-14 `I3 X2 D2`, RT-16 `I3 X3 D2` → all AS-2 | 3 | ~5 edits; every value already comes from the native standing query, so this is display and plumbing |
 | **RC-04** result provenance (#55) | 3 | #37 is S2 and #40 S3 as filed; RT-13 `I3 X4 D2` and RT-10 `I3 X2 D2` → AS-2† | 2 | ~6–7 edits + one `<NodeResult>` badge + a record-format change (bare string → map) |
-| **RC-05** failure and stale states (#56) | 3 | CS-006, CS-008 and RT-06 are all S2 | 2 | ~8 edits, one new `StatusCard`; staleness is an *additive* field, so none of the 10 `useAsync` callers is forced to change |
+| **RC-05** failure and stale states (#56) | 3 | CS-006, CS-008 and RT-06 are all S2 | 2 | ~8 edits, one new `StatusCard`; staleness is an *additive* field, so none of the **15** `useAsync` callers ✎ is forced to change |
 | **RC-06** copy vs. facts (#57) | 3† | RT-12 is S3 as filed, but RT-09 grades `I3 X2 D2` → AS-2 | 3 | 4 edits, one of them `CLAUDE.md` |
 | **RC-07** jargon in labels (#58) | 2 | CS-004 and CS-005 are both S3 | 3 | ~7 edits; a new `term()` map. The `JARGON` regex sweeps 8+ visible sites across the 5 probed routes |
 | **#10** invite re-asks (CS-007) | 4 | S1 as filed — a stray click installs a second set of contracts | 3 | ~3–4 edits; reuse the module `setupNode` signal (`setup.tsx:14-15`) |
-| **#26** invitation public (RT-15) | 3† | `I3 X2 D2` → AS-2 | **4** | **1–2 copy sites** |
+| **#26** invitation public (RT-15) | 3† | `I3 X2 D2` → AS-2 | **4** | **1–2 copy sites** — the smallest change here, and **deferred** from the sequence: the client half is a warning and removes almost none of the harm, so its place at the top of the board is the instrument, not the value ✎ |
 | **#30** invite node (RT-01) | 4 | S1 as filed — a signed deploy goes to a host the user never chose | 3 | 2 edits; `NETWORKS` (3 presets, `state.ts:32-36`) exists, so it can warn rather than gate |
 | **#38** names (RT-05) | 3 | S2 as filed, `I3 X3 D2` | 2 | ~4–5 edits, but the subtlest unit here: cross-community state reset + a homoglyph policy + deterministic numbering. **Its T2 is a subtlety estimate, not a size estimate** |
 | **#39** retry advice (RT-08) | 3 | S2 as filed, `I4 X1 D3` | 3 | 2–3 edits; reuse the `RNode.outcome` re-poll by signature (`node.ts:199`) |
-| **#47** quiet corner (V-06) | 1 | no defect behind it — a design opinion, filed because the vibes set was deduped rather than dropped | **4** | 1 file, ~3 edits; reuses `Info` (`kit.tsx:258`) |
+| **#47** quiet corner (V-06) | 1 | no defect behind it — a design opinion, filed because the vibes set was deduped rather than dropped | **3** ✎ | 1 file, ~3 edits; reuses `Info` (`kit.tsx:258`). Not T4: it carries a real information-architecture decision (which controls count as power-user) and a dependency on RC-05, and the T4 anchor requires no decision |
 
 ## The order
 
 | # | Unit | C | T | Score | Note |
 |---|---|---|---|---|---|
-| 1 | **#30** invite node | 4 | 3 | **12** | 2 edits; warn on a host outside the 3 presets before anything is signed |
-| 2 | **#10** invite re-asks | 4 | 3 | **12** | S1 with a 3–4 edit fix — the best value on the list |
-| 3 | **RC-01** empty states (#52) | 4 | 3 | **12** | the only S1 root cause |
-| 4 | **#26** invitation public | 3 | 4 | **12** | smallest change on the board, and see the caution below |
-| 5 | **#39** retry advice | 3 | 3 | **9** | mitigation only; idempotency is upstream |
-| 6 | **RC-06** copy vs. facts (#57) | 3 | 3 | **9** | rule prose only — the number is unobtainable |
-| 7 | **RC-03** weight invisible (#54) | 3 | 3 | **9** | display and plumbing; its gate half waits on RC-02 |
-| 8 | **#38** names | 3 | 2 | **6** | a policy decision gates it |
-| 9 | **RC-04** result provenance (#55) | 3 | 2 | **6** | client-only — confirmed below |
-| 10 | **RC-05** failure and stale states (#56) | 3 | 2 | **6** | additive field, so no caller is forced to change |
-| 11 | **RC-07** jargon (#58) | 2 | 3 | **6** | the lowest-criticality root cause |
-| 12 | **#47** quiet corner | 1 | 4 | **4** | no defect behind it |
-| 13 | **RC-02** write gate (#53) | 3 | 1 | **3** | **last — and this is the metric misfiring** |
+| 1 | **#10** invite re-asks | 4 | 3 | **12** | S1 with a 3–4 edit fix — the best value on the list |
+| 2 | **#30** invite node | 4 | 3 | **12** | 2 edits; warn on a host outside the 3 presets before anything is signed |
+| 3 | **RC-06** copy vs. facts (#57) | 3 | 3 | **9** | rule prose only — the number is unobtainable |
+| 4 | **RC-03** weight invisible (#54) | 3 | 3 | **9** | display and plumbing; its gate half waits on RC-02 |
+| 5 | **RC-01** empty states (#52) | 4 | 2 | **8** | the only S1 root cause — and it now ranks *below* two S2/S3 units. See below |
+| 6 | **RC-04** result provenance (#55) | 3 | 2 | **6** | client-only — confirmed below |
+| 7 | **RC-05** failure and stale states (#56) | 3 | 2 | **6** | additive field, so no caller is forced to change |
+| 8 | **RC-07** jargon (#58) | 2 | 3 | **6** | the lowest-criticality root cause |
+| 9 | **RC-02** write gate (#53) | 3 | 1 | **3** | the metric's worst output — see below |
+| 10 | **#47** quiet corner | 1 | 3 | **3** | no defect behind it |
+| — | **#26** invitation public | 3 | 4 | (12) | **deferred by judgement, not by score** — 1–2 copy sites that remove almost none of the harm. It would rank 3rd on the arithmetic |
+
+Done, and no longer in the order:
+
+| Unit | Commit |
+|---|---|
+| **#38** names | `2cca707` — issue closed |
+| **#39** retry advice | `2cca707` — issue closed |
 
 ### Where the metric misfires
 
@@ -90,6 +104,22 @@ it.
 
 This is a property of a multiplicative score, not a mistake in the arithmetic. It is recorded rather
 than corrected, with one exception: the two enablers below run before wave 1.
+
+**The cause is the symmetry, not the arithmetic.** Both axes are 1–4 and equally weighted, so a
+one-step ease gap always cancels a one-step severity gap. Nothing in *"cheap high-harm work first"* says
+the two are fungible — the product smuggles that in. Two consequences are visible in the table above:
+
+- **RC-01, the only S1 root cause, ranks 5th** — below two S2/S3 units. Correcting its size from T3 to
+  T2 cost it more places than its severity earns it. An S1 that is merely *not tiny* loses to an S3
+  that is.
+- **#47, which has no defect behind it at all, ranks one place below RC-02** — and outranked it
+  outright under the pre-amendment ratings.
+
+Eleven of the 13 units therefore fall into ties, which means the tie-break rule is doing more of the
+work than the product is. A **lexicographic** order — severity band first, then triviality — would put
+RC-01 in the top three, never let #47 outrank a gate, and need almost no tie-breaking. That is the
+instrument this data wants. It is recorded here and **not adopted**, because the product is what was
+asked for and the ordering is good enough to work from.
 
 ## Wave 0 — two enablers, outside the ranking
 
@@ -127,6 +157,33 @@ four-unit footprint, which is why it is wave 0 rather than a footnote in four pl
 **Decision it needs:** whether to open the gloss on the screens that raise the question, or move the
 gloss into the control itself (which is RC-07's approach). The two are not exclusive, but doing neither
 leaves the four findings half-fixed by copy alone.
+
+## Done: two units already landed
+
+`2cca707` — *"Names stay in their community; look-alikes collide; no repeat that could happen twice"* —
+closed **#38** and **#39**. Verified against the commit, not its message:
+
+| Sub-point | State |
+|---|---|
+| #38 address book per community (`state.ts:131-141` `inScope`) | done |
+| #38 look-alikes one name (NFKC, confusables, mixed-script refusal) | done |
+| #38 duplicates numbered by **claim order** | **not done** — still address order (`state.ts:186-193`). The commit resolved the finding another way: every duplicate is numbered, with a tooltip saying the numbers do not imply who was first, which removes the false implication the finding was about. **Resolved by other means, not reopened** |
+| #39 reasonless refusal reconciled before advising a retry (`node.ts:206,242-255`) | done |
+| #39 timeout copy, 15-minute wait, `StillUnknown` (`node.ts:218,231,233-235`) | done |
+| #39 a failed deploy says its fee was charged (`node.ts:229`) | done |
+| #39 the in-flight lock (`kit.tsx:158`) | done, **defective** — superseded in wave 0 |
+
+**The in-flight lock is keyed by the human title string.** It is wrong in five ways, and because it is
+the same mechanism wave 0 must build, wave 0 **replaces** it rather than extending it: two different
+writes sharing a title collide; a constant title over-blocks independent writes (`groups.tsx:245` is
+"Removing admin" for *any* member); a title containing a name defeats the lock entirely; the check sits
+*after* the review modal, so two clicks both open it; and it does not survive a reload.
+
+Four follow-ups are filed as issues rather than absorbed: the `help.tsx` three-places gap for the new
+pending-install advice; five untested claims (the lock, `NotCarried`, `StillUnknown`, the
+`DeployFailed` fee line, and the `(1)/(2)` path when more than one claim exists);
+`inScope` wiping the address book on any community change (`state.ts:139`) while keeping the directory
+within a network; and `tests/e2e/names.spec.ts` having been "modified" as a lone trailing newline.
 
 ## Cautions — what "done" actually means per unit
 
@@ -176,8 +233,8 @@ stay red until the code changes — a closed finding is not a fixed finding.
 | #10 | `P7a`, `P7b`; the S7 guard in `cold-start.spec.ts` must stay green |
 | #26 | **none** — evidence-pending |
 | #30 | `RP2` |
-| #38 | **none** — evidence-pending |
-| #39 | **none** — evidence-pending |
+| #38 | **done** — closed by `2cca707`; unit tests added in `tests/unit.ts`, no node needed |
+| #39 | **done** — closed by `2cca707`; `tests/e2e/deploys.spec.ts` added with it, and it needs a live node |
 | #47 | **none** — no defect, human review only |
 
 ```sh
@@ -213,5 +270,6 @@ of them is complete without it.
 
 ## Status
 
-Nothing here is fixed. The order is a recommendation for whoever picks the work up, and every rating
-carries the count or the `I/X/D` it came from so it can be argued with rather than merely followed.
+Two of the thirteen units are fixed (#38, #39) and eleven remain. The order is a recommendation for
+whoever picks the work up, and every rating carries the count or the `I/X/D` it came from so it can be
+argued with rather than merely followed.
