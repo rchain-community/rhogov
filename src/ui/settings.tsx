@@ -9,6 +9,7 @@ import { Copy, Modal, go, short } from "./kit";
 import { Balance, setSetupNode, setupNode } from "./setup";
 import { sameName } from "../chain/gov";
 import { nameError } from "../chain/people";
+import { GUIDE } from "./help";
 import { nameProblem, syncMyName } from "./name-sync";
 
 export function AccountScreen() {
@@ -146,7 +147,7 @@ function familiarNode(node: string): boolean {
 export function JoinScreen({ query }: { query: URLSearchParams }) {
   const c = parseInvite(`?c=${query.get("c") ?? ""}`);
   const [trusted, setTrusted] = useState(false);
-  if (!c) return <div class="empty">This invite link is incomplete or damaged. Ask for a fresh one.</div>;
+  if (!c) return <DamagedInvite />;
   const known = communities.value.some((x) => communityKey(x) === communityKey(c));
   const foreign = !known && !familiarNode(c.node);
   const accept = () => {
@@ -172,6 +173,31 @@ export function JoinScreen({ query }: { query: URLSearchParams }) {
           : <button class="primary" disabled={foreign && !trusted} onClick={accept}>{myAddr.value ? `Join ${c.name}` : "Get started"}</button>}</div>
         {!myAddr.value && <p class="muted small">Next you'll pick a name and get a key — it takes a few seconds and stays in this browser.</p>}
       </div>
+    </div>
+  );
+}
+
+/**
+ * An invite link that doesn't decode (cut off when pasted, wrapped in an email,
+ * a character lost): say so, and give somewhere to go from here, since the menu
+ * isn't shown to someone without a key or community yet (#15).
+ */
+function DamagedInvite() {
+  const [manual, setManual] = useState(false);
+  return (
+    <div class="stack" style={{ maxWidth: 560 }}>
+      <h1>This invite link is damaged</h1>
+      <div class="card stack">
+        <p>Part of the link is missing or changed, so rhogov can't tell which community it's for. This usually happens when a long link is cut off or wrapped while being pasted or emailed.</p>
+        <ul class="stack small" style={{ paddingLeft: "1.1rem", margin: 0 }}>
+          <li><b>Ask for a fresh link</b>, ideally sent as one unbroken line (a chat message, not wrapped email text), and open that instead.</li>
+          <li><b>Have the community's three contract addresses?</b> <a href="#" onClick={(e) => { e.preventDefault(); setManual(true); }}>Enter contract addresses by hand</a>.</li>
+          <li><b>Want your own?</b> <a href="#/welcome">Start your own community</a>.</li>
+          {active.value && <li><a href="#/">Back to {active.value.name}</a></li>}
+          <li>New to rhogov? <a href={GUIDE} target="_blank" rel="noopener">Read the user guide</a>.</li>
+        </ul>
+      </div>
+      {manual && <ManualCommunity onClose={() => setManual(false)} />}
     </div>
   );
 }

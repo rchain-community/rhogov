@@ -364,6 +364,8 @@ chose; there's no rhogov server, database or account.
 
 | What you see | What to do |
 |---|---|
+| **"Couldn't read the chain for …"** | The card says which community and network. If the network **isn't answering**, press **Retry**, or **Change network address** if it moved (rhogov checks the community's contracts answer at the new address before switching). If the network answers but the **contracts don't** (a test network that was reset loses everything), **Forget** it or **Join or start another community**. Your other communities are one click away on the same card. |
+| **"This invite link is damaged"** | Part of the link was lost, usually cut off or wrapped when pasted. Ask for a fresh link sent as one unbroken line. The page also lets you enter the community's contract addresses by hand, or start your own. |
 | **"Can't reach it"** when choosing a network | Check the address. A local node needs `--api-host`. A page opened over `https://` can only reach `http://` nodes on your own computer. |
 | **"Waiting for a block…"** for a long time | A card in the middle of the screen shows each action in progress, with how long it has waited; you can keep using the app meanwhile. The network is busy or idle. It usually finishes within a minute; rhogov keeps checking for up to 15. **Don't repeat the action while it waits**: it could happen twice (pressing the same button again just points you at the card). |
 | **"It hasn't appeared in a block after 15 minutes"** | The network is stalled and the action may still land later, so don't repeat it yet. If it was starting a community, the setup screen remembers it and offers **Look for “name”**, which checks for that one instead of installing (and paying for) a second set. |

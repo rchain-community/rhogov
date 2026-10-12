@@ -302,6 +302,12 @@ export class Gov {
 
   // --- groups ----------------------------------------------------------------
 
+  /** Does this community's Group contract answer on its node at all? (An absent contract answers nothing.) */
+  async answers(): Promise<boolean> {
+    const v = await this.node.explore(core.readProgram(this.c.group, "groups"));
+    return v.length > 0 && !(Array.isArray(v[0]) && v[0][0] === "gov-error");
+  }
+
   async groupIds(): Promise<string[]> { return asList(await this.read(this.c.group, "groups")).map(String); }
 
   async group(gid: string): Promise<Group | null> { return toGroup(gid, await this.read(this.c.group, "groupOf", [q(gid)])); }

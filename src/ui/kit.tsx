@@ -4,9 +4,10 @@ import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { blake2b } from "@noble/hashes/blake2.js";
 import { filterPeople, resolvePerson, suggestNames } from "../chain/people";
-import { Gov } from "../chain/gov";
+import { Gov, type Community } from "../chain/gov";
 import { hex } from "../chain/keys";
-import { addressBook, communities, forceTick, gov, nameNotes, learnListed, learnNames, myAddr, refresh, refreshTick, reviewBeforeSign } from "../state";
+import { RNode } from "../chain/node";
+import { active, addCommunity, addressBook, communities, forceTick, gov, removeCommunity, setActive, nameNotes, learnListed, learnNames, myAddr, refresh, refreshTick, reviewBeforeSign } from "../state";
 
 // --- routing (hash) ------------------------------------------------------------
 
@@ -286,9 +287,73 @@ export function Modal({ title, children, actions, onClose }: { title: string; ch
 export const Spinner = () => <span class="spinner" aria-label="Loading" />;
 
 export function Loading({ a, children }: { a: Async<unknown>; children: () => ComponentChildren }) {
+  // An error stays on screen while a retry (or the 15 s poll) runs: swapping it for
+  // a spinner each time would close anything opened from it, mid-typing.
+  if (a.data === undefined && a.error) return <ChainError error={a.error} retry={a.reload} retrying={a.loading} />;
   if (a.data === undefined && a.loading) return <div class="empty"><Spinner /> Reading the chain…</div>;
-  if (a.data === undefined && a.error) return <div class="callout danger"><b>Couldn't read the chain.</b> {a.error} <button class="small" onClick={a.reload}>Retry</button></div>;
   return <>{children()}</>;
+}
+
+/**
+ * A community that can't be read: say which one and where, what probably went
+ * wrong, and give every way out from here, not just Retry (#16). A returning
+ * user whose node moved or whose contracts are gone must not be stuck.
+ */
+export function ChainError({ error, retry, retrying = false }: { error: string; retry: () => void; retrying?: boolean }) {
+  const c = active.value;
+  const [moving, setMoving] = useState(false);
+  const unreachable = /can't reach the node|failed to fetch|no answer in|network/i.test(error);
+  const others = communities.value.filter((x) => x.group !== c?.group);
+  if (!c) return <div class="callout danger"><b>Couldn't read the chain.</b> {error} <button class="small" onClick={retry}>Retry</button></div>;
+  return (
+    <div class="callout danger stack">
+      <b>Couldn't read the chain for {c.name}.</b>
+      <span class="small">
+        {unreachable
+          ? <>Its network, <span class="mono">{c.node}</span>, isn't answering. It may be down for a moment, or it may have moved (a local node restarted on another port, say).</>
+          : <>Its network, <span class="mono">{c.node}</span>, answered, but {c.name}'s contracts didn't. They may not exist on this network (a reset test network loses everything), or the community was entered with a wrong address.</>}
+      </span>
+      <span class="small muted">The node said: {error}</span>
+      <div class="row wrap">
+        <button class="small" disabled={retrying} onClick={retry}>{retrying ? <><Spinner /> Retrying…</> : "Retry"}</button>
+        <button class="small" onClick={() => setMoving(true)}>Change network address</button>
+        {others.map((x) => <button class="small" onClick={() => { setActive(x.group); go("/"); }}>Switch community: {x.name}</button>)}
+        <button class="small" onClick={() => go("/welcome")}>Join or start another community</button>
+        <button class="small danger" onClick={() => { if (confirm(`Forget ${c.name} in this browser? Nothing on chain changes; you can rejoin with its invite link.`)) { removeCommunity(c); go(communities.value.length ? "/" : "/welcome"); } }}>Forget {c.name}</button>
+      </div>
+      <span class="small muted">Still stuck? <b>Help → Report a problem</b> (in the menu) sends us what rhogov knows, including this error.</span>
+      {moving && <MoveNode c={c} onClose={() => setMoving(false)} onMoved={retry} />}
+    </div>
+  );
+}
+
+/** Point a community at another address for the same network: same contracts, new node URL. */
+function MoveNode({ c, onClose, onMoved }: { c: Community; onClose: () => void; onMoved: () => void }) {
+  const [url, setUrl] = useState(c.node);
+  const [check, setCheck] = useState<string | null>(null);
+  const [ok, setOk] = useState(false);
+  const test = async () => {
+    setCheck("Checking…"); setOk(false);
+    try {
+      const st = await new RNode(url.trim()).status();
+      const found = await new Gov({ ...c, node: url.trim() }, () => null).answers().catch(() => false);
+      setOk(found);
+      setCheck(found ? `Connected (shard ${st.shardId ?? "?"}, block ${st.latestBlockNumber ?? "?"}), and ${c.name}'s contracts answer there.`
+        : `Connected, but ${c.name}'s contracts don't answer there: that's a different network, or they're gone.`);
+    } catch (e) { setCheck(`Can't reach it: ${(e as Error).message}`); }
+  };
+  return (
+    <Modal title={`Change ${c.name}'s network address`} onClose={onClose}
+      actions={<><button onClick={onClose}>Cancel</button><button class="primary" disabled={!ok} onClick={() => { addCommunity({ ...c, node: url.trim().replace(/\/+$/, "") }); onClose(); onMoved(); }}>Use this address</button></>}>
+      <div class="stack">
+        <p class="small muted">Use this when the same network is reachable at a different address. The community's contracts must answer there; rhogov checks before switching.</p>
+        <label class="field">Node address
+          <div class="row"><input class="grow mono" value={url} onInput={(e) => { setUrl((e.target as HTMLInputElement).value); setOk(false); setCheck(null); }} /><button onClick={test}>Check</button></div>
+        </label>
+        {check && <span class={`small ${ok ? "" : "muted"}`}>{check}</span>}
+      </div>
+    </Modal>
+  );
 }
 
 const hue = (s: string) => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
