@@ -113,11 +113,11 @@ The three reviewed drafts are filed this pass in
 [`rchain-community/quantum-os`](https://github.com/rchain-community/quantum-os), because the fixes
 live in the vendored `src/chain/rgov-core.js`, which this repo must not edit (`CLAUDE.md:44-47`).
 
-| Seam | Contract line | Backs | Draft |
-|---|---|---|---|
-| `setRoll` replaces the electorate with no membership check, refused only when the issue is *closed* | `rgov-core.js:690-704` | #32, RC-02 | [`upstream/setroll-electorate.md`](upstream/setroll-electorate.md) |
-| `propose` is ungated — any member can post a competing result | `rgov-core.js:771-779` | #20, #27, #37, RC-04 | [`upstream/propose-ungated.md`](upstream/propose-ungated.md) |
-| No `uninvite` verb exists, so a mistaken invitation stays published | `rgov-core.js:477-487`, `:615` | #26 | [`upstream/uninvite-missing.md`](upstream/uninvite-missing.md) |
+| Seam | Contract line | Backs | Filed as | Draft |
+|---|---|---|---|---|
+| `setRoll` replaces the electorate with no membership check, refused only when the issue is *closed* | `rgov-core.js:690-704` | #32, RC-02 | [quantum-os#244](https://github.com/rchain-community/quantum-os/issues/244) | [`upstream/setroll-electorate.md`](upstream/setroll-electorate.md) |
+| `propose` is ungated — any member can post a competing result | `rgov-core.js:771-779` | #20, #27, #37, RC-04 | [quantum-os#245](https://github.com/rchain-community/quantum-os/issues/245) | [`upstream/propose-ungated.md`](upstream/propose-ungated.md) |
+| No `uninvite` verb exists, so a mistaken invitation stays published | `rgov-core.js:477-487`, `:615` | #26 | [quantum-os#246](https://github.com/rchain-community/quantum-os/issues/246) | [`upstream/uninvite-missing.md`](upstream/uninvite-missing.md) |
 
 Two further seams stay **unfiled and undrafted**, because confirming them needs the rchain-rust
 native source rather than this repo: the censure threshold's ceiling-rounding and cascading slash,
@@ -129,7 +129,8 @@ and trust weighting activating on a single rating (`src/chain/gov.ts:210-213`).
 - 28 findings closed as superseded, each with a comment naming its root cause, its sibling findings,
   its probe and the probe's verbatim failure.
 - 6 singletons open, each edited with its root cause and fix plan.
-- 3 upstream issues filed in quantum-os.
+- 3 upstream issues filed in quantum-os: #244 (`setRoll`), #245 (`propose`), #246 (`uninvite`). The
+  drafts in `upstream/` now carry their filed number.
 - #36 rewritten as the ownership table for these root causes.
 
 The findings themselves are unchanged. Every probe that was red before this pass is still red, and
