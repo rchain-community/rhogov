@@ -9,7 +9,7 @@ import { act, notify } from "./kit";
 
 // Enough for the one name deploy (batch phlo limit), so an unfunded newcomer
 // isn't greeted by a failure: the name waits until they have REV.
-const NAME_NEEDS = 3_000_000;
+export const NAME_NEEDS = 3_000_000;
 
 /** Why your name isn't showing, if it's because someone else holds it (shown on Account). */
 export const nameProblem = signal<{ name: string; holder: string } | null>(null);

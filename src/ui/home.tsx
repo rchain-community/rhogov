@@ -2,7 +2,7 @@
 import { type Group, type Issue } from "../chain/gov";
 import { resolveNames } from "../chain/profile";
 import { active, displayName, gov, learnListed, listedName, myAddr, notePublished } from "../state";
-import { nameProblem } from "./name-sync";
+import { NAME_NEEDS, nameProblem } from "./name-sync";
 import { Balance } from "./setup";
 import { JoinButton, learnFrom } from "./groups";
 import { Loading, go, useAsync } from "./kit";
@@ -23,21 +23,24 @@ export function HomeScreen() {
     const [listed, dir] = await Promise.all([G.names().catch(() => ({})), resolveNames(G.node, [me]).catch(() => null)]);
     learnListed(listed, true);
     if (dir?.[me]) notePublished(me, dir[me]);
-    return { groups, mine, issues, inbox };
+    // With REV the name goes on the list by itself; only without it is there
+    // anything to tell (or do).
+    const bal = await G.node.balance(me).catch(() => null);
+    return { groups, mine, issues, inbox, bal };
   }, [G.c.group, me]);
   return (
     <div>
       <h1>Hello{displayName.value ? `, ${displayName.value}` : ""}</h1>
       <p class="muted">{active.value!.name}</p>
       <Loading a={a}>{() => {
-        const { groups, mine, issues, inbox } = a.data!;
+        const { groups, mine, issues, inbox, bal } = a.data!;
         const needs = issues.filter(([i]) => i.status === "open" && (i.voters.includes(me) || i.guests.includes(me)) && !i.ballots[me]);
         const openOthers = issues.filter(([i]) => i.status === "open" && !needs.some(([x]) => x.id === i.id));
         const invites = groups.filter((g) => g.invited.includes(me) && !g.members.some((m) => m.addr === me));
         const unread = Object.values(inbox).reduce((x, y) => x + y, 0);
         return (
           <div class="stack">
-            {!listedName(me) && !nameProblem.value && (
+            {!listedName(me) && !nameProblem.value && bal !== null && bal < NAME_NEEDS && (
               // Until a name is on chain, nobody can find you by it (to invite you,
               // message you, delegate to you): say so where it's seen first.
               <div class="callout warn stack">
