@@ -1,0 +1,152 @@
+# A finding from the adversarial red-team tabletop. See docs/audit/red-team-tabletop.md.
+# The label must exist on the repository before the form can apply it:
+#   gh label create red-team --description "Finding from the adversarial red-team tabletop"
+name: Red-team finding
+description: An adversarial finding from the red-team tabletop (docs/audit/red-team-tabletop.md)
+title: "[RT-] "
+labels: ["red-team"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        One finding per issue. This exercise is played by crypto-competent, DAO-literate testers,
+        so a finding is a place where a rational actor is **misled** or can **take** something —
+        not a place where someone is confused.
+
+        Never paste a private key. The app's own report says only *whether* one is set.
+
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed
+      description: What the app actually did — verbatim strings, a screenshot, a trace.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+      description: What the affected person needs instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity (abuse class)
+      description: AS-1 Blocker · AS-2 Major · AS-3 Minor · AS-4 Nit. See the rubric in the pack.
+      options:
+        - "S1 / AS-1 — Blocker"
+        - "S2 / AS-2 — Major"
+        - "S3 / AS-3 — Minor"
+        - "S4 / AS-4 — Nit"
+    validations:
+      required: true
+
+  - type: input
+    id: ixd
+    attributes:
+      label: Impact / Exploitability / Detectability
+      description: The raw triple, so a reader can re-derive the class and disagree explicitly.
+      placeholder: "I3 X2 D2"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: owner
+    attributes:
+      label: Owner
+      description: Half the sharpest seams are in the vendored contract, which this repo must not edit (CLAUDE.md:44-47).
+      options:
+        - "client-fixable (this repo)"
+        - "upstream — quantum-os"
+        - "upstream — rchain-rust"
+        - "client + upstream"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: rung
+    attributes:
+      label: Persona rung
+      options:
+        - "RA — the pragmatic member"
+        - "RB — the operator / steward"
+        - "RC — the protocol engineer"
+        - "RD — the capture adversary"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scenario
+    attributes:
+      label: Scenario
+      options:
+        - "T1 — a hostile node named by an invite link"
+        - "T2 — capture the roll after the tally"
+        - "T3 — one rating flips the group to admin-weighted"
+        - "T4 — record, or propose, a winner that lost"
+        - "T5 — impersonation by name bleed and homoglyph"
+        - "T6 — the frozen chain: silent staleness"
+        - "T7 — review-before-sign coverage"
+        - "T8 — the second community: retry after a timeout"
+        - "T9 — the costless censure and its cascade"
+        - "T10 — council arithmetic presented as the node's"
+        - "T11 — the longest bar that loses"
+        - "T12 — the inbox that is neither private nor stamped"
+    validations:
+      required: true
+
+  - type: input
+    id: boundary
+    attributes:
+      label: Trust boundary
+      description: TB1 browser · TB2 node · TB3 contracts · TB4 other members · TB5 invite link · TB6 names
+      placeholder: "TB4"
+    validations:
+      required: true
+
+  - type: input
+    id: route
+    attributes:
+      label: Route
+      placeholder: "#/v/:gid/:iid"
+    validations:
+      required: true
+
+  - type: input
+    id: probe
+    attributes:
+      label: Probe (if any)
+      placeholder: "RP3 — tests/e2e/redteam/redteam.probe.spec.ts"
+    validations:
+      required: false
+
+  - type: input
+    id: target
+    attributes:
+      label: Target
+      description: The file and line that would change.
+      placeholder: "src/ui/votes.tsx:168"
+    validations:
+      required: false
+
+  - type: textarea
+    id: setup
+    attributes:
+      label: My setup
+      description: Paste the "My setup" block from Help → Report a problem. It never contains your key.
+      render: markdown
+    validations:
+      required: false
