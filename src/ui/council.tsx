@@ -615,7 +615,7 @@ function RecordView({ i, rec, args }: { i: Issue; rec: ReturnType<typeof recordO
       {rec.rationale && <p style={{ marginTop: ".8rem", whiteSpace: "pre-wrap" }}>{rec.rationale}</p>}
       {rec.actions && rec.actions.length > 0 && <><h3>Action items</h3><ul>{rec.actions.map((x) => <li>{x}</li>)}</ul></>}
       {dissent.length > 0 && <><h3>Recorded dissent</h3><ul class="small">{dissent.map((x) => <li>{x.text} <span class="muted">({endorse(x.raw)} endorsed)</span></li>)}</ul></>}
-      <p class="small muted">Recorded on chain by <Addr addr={i.by} avatar={false} />. Ballots and arguments stay public for review.</p>
+      <p class="small muted">Recorded on chain by <Addr addr={i.by} avatar={false} /> from the voting power as it stood then. The combination is recomputed from live ratings and delegations, so it can read differently later with the record untouched — this is what the council decided. Ballots and arguments stay public for review.</p>
     </div>
   );
 }

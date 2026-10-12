@@ -1,6 +1,6 @@
 // unit.ts — offline checks (no node): decoding, keys, council arithmetic.
 import { approvalShare, approvals, chamberPower, combine, decodeArg, encodeArg, estimateBallot, parseEstimate } from "../src/chain/council";
-import { toGroup } from "../src/chain/gov";
+import { readRecord, toGroup } from "../src/chain/gov";
 import { addCommunity, addressBook, learnNames, nameNotes, setActive } from "../src/state";
 import { filterPeople, looksLike, nameError, resolvePerson, suggestNames } from "../src/chain/people";
 import { revAddressOf } from "../src/chain/keys";
@@ -99,6 +99,18 @@ ok("vote counts: one per person per option, unknown options ignored",
 // Arguments.
 ok("argument round trip keeps pipes in text", eq(decodeArg(encodeArg("con", "2s", "a | b")), { raw: "con|2s|a | b", side: "con", option: "2s", text: "a | b" }));
 ok("non-argument rejected", decodeArg("hello") === null);
+
+// Recorded results (RT-13). Closing a vote records the node's answer and the weights it
+// was taken over, so the record can be checked against the weights rather than against a
+// tally that keeps moving. Records made before that are a bare winner string.
+{
+  const frozen = readRecord({ winner: "Alpha", weight: 7, ballots: 3 });
+  ok("a frozen record gives back what it was taken over", frozen.winner === "Alpha" && frozen.weight === 7 && frozen.ballots === 3 && frozen.frozen);
+  ok("a frozen record with no winner reads as no winner", readRecord({ winner: null }).winner === null);
+  const legacy = readRecord("Beta");
+  ok("an older bare-string record still reads, and is not claimed as frozen", legacy.winner === "Beta" && !legacy.frozen);
+  ok("a value that is neither shape reads as nothing rather than guessing", readRecord([]).winner === null && !readRecord([]).frozen);
+}
 
 console.log(`unit: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);
