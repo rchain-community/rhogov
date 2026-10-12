@@ -23,7 +23,7 @@ const section = (n: string) => `${GUIDE}#${n}`;
 function screenHelp(): { title: string; text: string; link: string } {
   const [head, , tab] = route.value.parts;
   if (head === "welcome" || !myAddr.value || !active.value)
-    return { title: "Getting started", text: "Three steps: choose a network, create (or bring) your key, then join a community with an invite link or start your own.", link: section("1-getting-started") };
+    return { title: "Getting started", text: "Three steps: choose a network, create (or bring) your key, then join a community with an invite link or start your own. If a button is greyed out, the screen says why — a name is missing, there is no key yet, or the fee is not covered.", link: section("1-getting-started") };
   switch (head) {
     case undefined: return { title: "Home", text: "What needs you now: votes waiting for your ballot, invitations, and new messages. A community with no groups yet offers the first thing to do instead, since there is nothing to catch up on.", link: section("4-voting") };
     case "groups": return { title: "Groups", text: "The groups in this community. Join an open one, or start your own and invite people.", link: section("3-groups") };

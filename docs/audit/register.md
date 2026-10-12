@@ -95,3 +95,9 @@ record of what was found, and none of them was wrong.
 ```sh
 npm run test:audit    # 12 passed, 0 failed, against a local node at RHOGOV_NODE
 ```
+
+**What the run needs**, none of which is obvious from the command: a node at `RHOGOV_NODE`
+(default `http://127.0.0.1:40403`), `CHROMIUM_PATH` set if Playwright's own Chromium is not installed,
+and **test keys with REV**. The probes install communities, which costs about 0.02 REV each, so a key
+that has been drained by repeated runs leaves a greyed-out button and a test that times out rather
+than failing on its assertion. `scratch/fund-test-keys.ts` tops them up through the node's faucet.
