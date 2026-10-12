@@ -171,44 +171,21 @@ export type Risk = "routine" | "consequential" | "irreversible";
  */
 const writeId = (term: string) => hex(blake2b(new TextEncoder().encode(term), { dkLen: 16 }));
 
-/** Writes in flight *now*, in this tab. */
+/**
+ * Writes in flight *now*, by their identity. In memory only.
+ *
+ * A durable version of this was tried and retracted: it kept a reload from
+ * offering a second close or a second install, but it also refused the *resume*
+ * that Gov.install already does properly — `deploys.spec.ts` installs, is
+ * interrupted, reloads, and asks the app to look for the install it started. A
+ * lock that cannot tell "pressing again" from "finishing what I started" breaks
+ * the better mechanism rather than protecting it.
+ */
 const inFlight = new Set<string>();
 
-/**
- * Writes that were in flight when the page went away. Only irreversible ones are
- * kept: a reload must not offer a second chance to close a vote or install a
- * second set of contracts. Entries expire with the long wait in node.ts.
- */
-const PENDING = "rhogov:pending-write:";
-const PENDING_TTL = 15 * 60_000;
-
-function pending(id: string): { title: string; at: number } | null {
-  try {
-    const raw = localStorage.getItem(PENDING + id);
-    if (!raw) return null;
-    const p = JSON.parse(raw) as { title?: string; at?: number };
-    if (typeof p.at !== "number" || Date.now() - p.at > PENDING_TTL) {
-      localStorage.removeItem(PENDING + id);
-      return null;
-    }
-    return { title: p.title ?? "", at: p.at };
-  } catch {
-    return null;
-  }
-}
-
-const locked = (id: string) => inFlight.has(id) || pending(id) !== null;
-
-function acquire(id: string, title: string, risk: Risk) {
-  inFlight.add(id);
-  if (risk !== "irreversible") return;
-  try { localStorage.setItem(PENDING + id, JSON.stringify({ title, at: Date.now() })); } catch { /* full or blocked: the in-memory set still holds */ }
-}
-
-function release(id: string) {
-  inFlight.delete(id);
-  try { localStorage.removeItem(PENDING + id); } catch { /* nothing to do */ }
-}
+const locked = (id: string) => inFlight.has(id);
+const acquire = (id: string) => { inFlight.add(id); };
+const release = (id: string) => { inFlight.delete(id); };
 
 // --- review-before-sign ---------------------------------------------------------
 
@@ -227,25 +204,32 @@ export function ReviewModal() {
 }
 
 /**
- * Run a chain write with visible progress. One declaration — `risk` — decides what
- * the person is asked before their key signs, and `key` gives the write an identity
- * so it cannot be started twice.
+/**
+ * Run a chain write with visible progress.
  *
- * The gate is outermost: the in-flight check and the confirmation both come before
- * the review modal, so a second click is refused before it opens anything.
+ * `key` is the write's identity: the same action cannot be started twice at once,
+ * and the id is derived from the target rather than a heading, so two different
+ * targets never collide and a label containing a name never defeats it.
+ *
+ * `risk` is a declaration of intent at every call site — it is deliberately *not*
+ * used to decide anything here. Deriving behaviour from it was tried and retracted
+ * twice: a question for every irreversible write is confirm fatigue, and a durable
+ * lock for them refuses the resume that Gov.install already does properly. What a
+ * site wants asked, it asks in `confirm`, where the trade-off can be stated in
+ * words; and what it wants explained, it explains in the screen or modal the
+ * person is looking at, which is where a dialog cannot be dismissed unread.
  */
 export async function act<T>(
   title: string,
   run: (onTick: (s: string) => void) => Promise<T>,
   opts: { risk: Risk; key: string; term?: string; done?: string; confirm?: string | false },
 ): Promise<T | undefined> {
-  const risk = opts.risk;
   const id = writeId(opts.key);
   if (locked(id)) {
     notify(`Already in progress: ${title}`, "It's still waiting for a block (see the card). Pressing again would do it twice.", "info");
     return undefined;
   }
-  acquire(id, title, risk);
+  acquire(id);
   try {
     // Only a question the call site actually states gets asked. Deriving one from
     // `risk` was the first thing tried here and it was wrong twice over: a modal on

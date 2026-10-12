@@ -200,7 +200,6 @@ function refreshRolls(d: CouncilData) {
   return act("Adding new participants to the rolls", (t) => G.batch("issue", open.map((i) => ["setRoll", [q(i.id), roll]]), t), {
     risk: "consequential",
     key: `setRolls:${open[0]?.id ?? ""}`,
-    confirm: `Add the people who belong to each stakeholder group to ${open.length} open vote${open.length > 1 ? "s" : ""}? This replaces the roll of each one. Ballots already cast are not re-weighed, and the roll can be changed again while a vote is open.`,
     done: "Everyone taking part can now estimate and vote.",
   });
 }

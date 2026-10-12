@@ -345,7 +345,6 @@ function InviteModal({ g, onClose }: { g: Group; onClose: () => void }) {
     if (g.policy === "invite") await act(`Inviting ${nameOf(a)}`, (t) => G.invite(g.id, a, t), {
       risk: "irreversible",
       key: `invite:${g.id}:${a}`,
-      confirm: `Invite ${nameOf(a)}? Their address is written into this group's public state, where anyone can read it, and an invitation cannot be withdrawn — it stays there until they join.`,
       done: "Invitation recorded on chain.",
     });
     if (notify) await act(`Sending ${nameOf(a)} the invitation`, (t) => G.send(a, "invite", { gid: g.id, group: g.name, body: `You're invited to join ${g.name}.` }, t), { risk: "routine", key: `send:${a}:invite:${g.id}`, done: "Delivered to their inbox." });
@@ -357,6 +356,7 @@ function InviteModal({ g, onClose }: { g: Group; onClose: () => void }) {
         <PersonField label="Who" onChange={setAddr} />
         {already && <span class="badge warn">{nameOf(addr!)} is already a member.</span>}
         <label class="row"><input type="checkbox" style={{ width: "auto" }} checked={notify} onChange={(e) => setNotify((e.target as HTMLInputElement).checked)} /> Also send them a message with a link to join</label>
+        <p class="small muted">An invitation writes their address into this group's public state, where anyone can read it. It cannot be withdrawn — it stays there until they join, and anyone whose key is lost keeps their invitation published.</p>
         {g.policy === "open" && <p class="muted small">This group is open, so anyone can already join; the message just lets them know.</p>}
       </div>
     </Modal>
