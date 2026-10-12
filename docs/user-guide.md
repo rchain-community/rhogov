@@ -55,7 +55,17 @@ paid in REV (see [section 11](#11-what-is-public-and-what-it-costs)).
 
 **Step 3: join or start a community.** If someone sent you an invite link,
 paste it and press **Join community**. Otherwise choose **Start a new community**
-(next section).
+(next section). If an earlier install has not confirmed, return with the same
+key and network in this browser, choose **Start a new community**, and press
+**Look for “name”** to check the remembered install instead of installing another
+set of contracts (see [section 2](#2-communities-and-invitations)).
+
+While a write is waiting, rhogov keeps checking. After **4 minutes** it says the
+network is slow; do not repeat the write, because it could happen twice. After
+**15 minutes** without a block, the outcome is still unknown and it may land later.
+If the node ran the deploy and it failed, nothing changed but **its fee was still
+charged**. If rhogov instead says it was **not carried** and is safe to try again,
+nothing was charged.
 
 Then you land on **Home**. It opens with what rhogov is for, and says what needs you
 now: votes waiting for your ballot, invitations, new messages. A community with
@@ -72,9 +82,25 @@ A **community** is everyone who uses the same set of governance contracts on the
 same network. A community can hold any number of groups and councils.
 
 **Starting one.** Give it a name and press **Start community**. rhogov installs
-three small contracts with your key (Inbox, Group and Issue), which takes a few
-seconds. Installing them gives you no special power: you're an ordinary member
+three small contracts with your key (Inbox, Group and Issue), in one deploy
+that needs a block and about 0.02 REV for its fee. A slow or stalled network can
+take longer. Installing them gives you no special power: you're an ordinary member
 like everyone else.
+
+**An install that has not confirmed.** rhogov remembers the submitted install
+signature and community name in this browser, for the network and your address.
+Even after closing the tab, return with the same key and network, choose
+**Start a new community**, and use **Look for “name”**. It checks whether that
+earlier deploy was carried; it does not submit another install or charge another
+install fee. When the install is confirmed, rhogov adds the community and opens
+its groups. If its outcome is still unknown, it stays remembered.
+
+**Forget it and start fresh** discards that local reminder; it does not cancel
+the earlier deploy. If you install again and both deploys land, you pay for both.
+The reminder stays only in this browser: clearing its data, using another
+browser, or choosing another key or network will not show the same reminder.
+Only retry when rhogov explicitly says the deploy was not carried and it is safe
+to try again. A deploy that ran and failed still charged its fee.
 
 ![Starting a community](images/start-community.png)
 

@@ -23,7 +23,7 @@ const section = (n: string) => `${GUIDE}#${n}`;
 function screenHelp(): { title: string; text: string; link: string } {
   const [head, , tab] = route.value.parts;
   if (head === "welcome" || !myAddr.value || !active.value)
-    return { title: "Getting started", text: "Three steps: choose a network, create (or bring) your key, then join a community with an invite link or start your own. If a button is greyed out, the screen says why — a name is missing, there is no key yet, or the fee is not covered.", link: section("1-getting-started") };
+    return { title: "Getting started", text: "Three steps: choose a network, create (or bring) your key, then join a community with an invite link or start your own. If a button is greyed out, the screen says why — a name is missing, there is no key yet, or the fee is not covered. If an earlier install has not confirmed, choose Start a new community, then Look for “name” to check that install instead of paying for another. After 4 minutes rhogov keeps checking; after 15 minutes the outcome may still be unknown, so do not repeat it yet. A deploy that ran and failed still costs its fee.", link: section("1-getting-started") };
   switch (head) {
     case undefined: return { title: "Home", text: "What needs you now: votes waiting for your ballot, invitations, and new messages. A community with no groups yet offers the first thing to do instead, since there is nothing to catch up on.", link: section("4-voting") };
     case "groups": return { title: "Groups", text: "The groups in this community. Join an open one, or start your own and invite people.", link: section("3-groups") };
@@ -33,7 +33,7 @@ function screenHelp(): { title: string; text: string; link: string } {
     case "v": return { title: "A vote", text: "Choose one or more options (or rank them) and press Vote. You can change your vote while it's open. The node counts it, with trust and delegation.", link: section("4-voting") };
     case "councils": case "c": return { title: "Councils", text: "Decisions across stakeholder groups: estimate each group's voting power, deliberate with pros and cons, then vote.", link: section("9-councils-decisions-across-stakeholder-groups") };
     case "inbox": return { title: "Inbox", text: "Messages and invitations sent to you. Collect them to read them; they then live in this browser.", link: section("8-inbox") };
-    case "community": return { title: "Community", text: "The invite link to share, and switching communities. The network address and the three contract addresses are under “Where it lives”, closed by default — you only need them to wire rhogov to a quantum-os room or a node.", link: section("2-communities-and-invitations") };
+    case "community": return { title: "Community", text: "The invite link to share, and switching communities. To check an unconfirmed install, return to setup and choose Start a new community → Look for “name”; it checks the earlier install without submitting another. The network address and the three contract addresses are under “Where it lives”, closed by default — you only need them to wire rhogov to a quantum-os room or a node.", link: section("2-communities-and-invitations") };
     case "account": return { title: "Account", text: "Your name, your address, your balance, and backing up your key.", link: section("10-your-account-and-your-key") };
     default: return { title: "rhogov", text: "", link: GUIDE };
   }
@@ -49,7 +49,7 @@ async function tipsFor(): Promise<Tip[]> {
   const c = active.value, me = myAddr.value, G = gov.value;
   if (newVersion.value) tips.push({ text: "A newer version of rhogov is available.", href: "javascript:location.reload()", label: "Reload" });
   if (!me) return [...tips, { text: "Create or bring your key: it's your identity here, and it signs everything you do.", href: "#/welcome", label: "Set up" }];
-  if (!c || !G) return [...tips, { text: "Join a community with an invite link someone sent you, or start your own.", href: "#/welcome", label: "Continue setup" }];
+  if (!c || !G) return [...tips, { text: "Join a community with an invite link someone sent you, or start your own. If you already started one and it has not confirmed, choose Start a new community → Look for “name” to check the remembered install on the same network with the same key. Do not repeat an unknown deploy: it may still land. Forget it and start fresh can cost twice if both installs land.", href: "#/welcome", label: "Continue setup" }];
   const node = new RNode(c.node);
   const [st, bal, groups, inbox] = await Promise.all([
     node.status().catch(() => null), node.balance(me), G.groups().catch(() => []), G.inboxCounts(me).catch(() => ({} as Record<string, number>)),

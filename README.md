@@ -41,7 +41,14 @@ no backend, no relay, no database and no account:
 ## What you can do
 
 - **Communities.** Start one (installs the three contracts with your key, in one deploy; Start stays disabled until your balance covers its fee, about 0.02 REV)
-  or join one with an invite link. Every community is independent.
+  or join one with an invite link. An unconfirmed install is remembered in this browser
+  for the same key and network: setup offers **Look for “name”** to check it without
+  submitting another install. **Forget it and start fresh** does not cancel the earlier
+  deploy and can cost twice if both land. Every community is independent.
+- **Waiting and retry advice.** After 4 minutes without a block, rhogov keeps checking;
+  after 15 minutes the outcome may still be unknown, so do not repeat the write yet.
+  A deploy that ran and failed still costs its fee; retry only when rhogov says it
+  was not carried and is safe to try again.
 - **Groups.** Open or invite-only. Admins invite by address (with an inbox notification)
   and promote admins; anyone can join an open group.
 - **A first run that says what to do.** Home opens with what rhogov is for, and a
