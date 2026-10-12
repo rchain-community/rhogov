@@ -2,8 +2,10 @@
 import { signal } from "@preact/signals";
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
+import { blake2b } from "@noble/hashes/blake2.js";
 import { filterPeople, resolvePerson, suggestNames } from "../chain/people";
 import { Gov } from "../chain/gov";
+import { hex } from "../chain/keys";
 import { addressBook, communities, forceTick, gov, nameNotes, learnListed, learnNames, myAddr, refresh, refreshTick, reviewBeforeSign } from "../state";
 
 // --- routing (hash) ------------------------------------------------------------
@@ -154,8 +156,59 @@ const TICK: Record<string, string> = {
   unconfirmed: "The node didn't confirm it, but it may have been carried anyway. Checking for it before anything else…",
 };
 
-/** Actions waiting for a block, by title: the same one can't be started twice at once. */
+/**
+ * How much a write can cost the person doing it. Declared at the call site so the
+ * gate below can decide what to ask, rather than each site remembering.
+ */
+export type Risk = "routine" | "consequential" | "irreversible";
+
+/**
+ * A write's identity: its deploy term, hashed. The term carries the contract, the
+ * verb and the arguments — and never a name shown to a person — so two clicks on
+ * the same action give one id, and two different targets give two. Keying this on
+ * the visible title instead would collide across targets and be defeated by a
+ * title that varies (§ the in-flight lock, docs/audit/remediation.md).
+ */
+const writeId = (term: string) => hex(blake2b(new TextEncoder().encode(term), { dkLen: 16 }));
+
+/** Writes in flight *now*, in this tab. */
 const inFlight = new Set<string>();
+
+/**
+ * Writes that were in flight when the page went away. Only irreversible ones are
+ * kept: a reload must not offer a second chance to close a vote or install a
+ * second set of contracts. Entries expire with the long wait in node.ts.
+ */
+const PENDING = "rhogov:pending-write:";
+const PENDING_TTL = 15 * 60_000;
+
+function pending(id: string): { title: string; at: number } | null {
+  try {
+    const raw = localStorage.getItem(PENDING + id);
+    if (!raw) return null;
+    const p = JSON.parse(raw) as { title?: string; at?: number };
+    if (typeof p.at !== "number" || Date.now() - p.at > PENDING_TTL) {
+      localStorage.removeItem(PENDING + id);
+      return null;
+    }
+    return { title: p.title ?? "", at: p.at };
+  } catch {
+    return null;
+  }
+}
+
+const locked = (id: string) => inFlight.has(id) || pending(id) !== null;
+
+function acquire(id: string, title: string, risk: Risk) {
+  inFlight.add(id);
+  if (risk !== "irreversible") return;
+  try { localStorage.setItem(PENDING + id, JSON.stringify({ title, at: Date.now() })); } catch { /* full or blocked: the in-memory set still holds */ }
+}
+
+function release(id: string) {
+  inFlight.delete(id);
+  try { localStorage.removeItem(PENDING + id); } catch { /* nothing to do */ }
+}
 
 // --- review-before-sign ---------------------------------------------------------
 
@@ -174,33 +227,50 @@ export function ReviewModal() {
 }
 
 /**
- * Run a chain write with visible progress: optional review, then a toast that
- * follows the deploy into a block and reports what came back.
+ * Run a chain write with visible progress. One declaration — `risk` — decides what
+ * the person is asked before their key signs, and `key` gives the write an identity
+ * so it cannot be started twice.
+ *
+ * The gate is outermost: the in-flight check and the confirmation both come before
+ * the review modal, so a second click is refused before it opens anything.
  */
-export async function act<T>(title: string, run: (onTick: (s: string) => void) => Promise<T>, opts: { done?: string; preview?: string } = {}): Promise<T | undefined> {
-  if (reviewBeforeSign.value && opts.preview) {
-    const ok = await new Promise<boolean>((resolve) => { review.value = { title, term: opts.preview!, resolve }; });
-    if (!ok) return undefined;
-  }
-  if (inFlight.has(title)) {
+export async function act<T>(
+  title: string,
+  run: (onTick: (s: string) => void) => Promise<T>,
+  opts: { done?: string; key?: string; risk?: Risk; confirm?: string | false } = {},
+): Promise<T | undefined> {
+  const risk: Risk = opts.risk ?? "consequential";
+  const id = writeId(opts.key ?? title);
+  if (locked(id)) {
     notify(`Already in progress: ${title}`, "It's still waiting for a block (see the card). Pressing again would do it twice.", "info");
     return undefined;
   }
-  inFlight.add(title);
-  const t = pushToast({ title, detail: "Signing…", kind: "busy", since: Date.now() });
+  acquire(id, title, risk);
   try {
-    const out = await run((s) => t.update({ detail: TICK[s] ?? s }));
-    t.update({ kind: "done", detail: opts.done ?? "Recorded on chain." });
-    t.close(3500);
-    refresh(true);
-    return out;
-  } catch (e) {
-    logError(title, (e as Error).message);
-    t.update({ kind: "error", detail: (e as Error).message });
-    refresh(true);
-    return undefined;
+    // What to ask before signing. A site may state the trade-off itself; otherwise
+    // an irreversible write asks a plain question rather than none at all.
+    const question = opts.confirm === false ? null
+      : opts.confirm ?? (risk === "irreversible" ? `${title} — this can't be undone by another action. Do it?` : null);
+    if (question && !confirm(question)) return undefined;
+    if (reviewBeforeSign.value && opts.key) {
+      const ok = await new Promise<boolean>((resolve) => { review.value = { title, term: opts.key!, resolve }; });
+      if (!ok) return undefined;
+    }
+    const t = pushToast({ title, detail: "Signing…", kind: "busy", since: Date.now() });
+    try {
+      const out = await run((s) => t.update({ detail: TICK[s] ?? s }));
+      t.update({ kind: "done", detail: opts.done ?? "Recorded on chain." });
+      t.close(3500);
+      refresh(true);
+      return out;
+    } catch (e) {
+      logError(title, (e as Error).message);
+      t.update({ kind: "error", detail: (e as Error).message });
+      refresh(true);
+      return undefined;
+    }
   } finally {
-    inFlight.delete(title);
+    release(id);
   }
 }
 
