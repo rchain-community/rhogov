@@ -95,7 +95,10 @@ groups you're in and the others in the community.
 
 Wherever you choose a person (inviting, messaging, delegating, finding a member),
 start typing their name: the names that start with what you've typed are offered.
-Typing a number instead looks for an address.
+Typing a number instead looks for an address. Someone can be found by name once their name is
+on the community's list, which happens by itself with one small deploy once they
+have a little REV. Until then their Home page says "Others can't find you by
+name yet", with a **Get test REV** button where the network has a faucet.
 
 Whoever creates a group is its first **admin**. Admins can invite people (with
 an optional message to their inbox) and make other members admins. To invite

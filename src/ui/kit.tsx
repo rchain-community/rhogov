@@ -314,7 +314,7 @@ export function PersonField({ label, hint, initial = "", onChange }: { label: st
         : <span class="badge danger">{
             r.why === "bad-address" ? "That doesn't look like a complete REV address."
             : people.loading && !people.data ? "Looking up names…"
-            : `No one in your communities is called “${text.trim()}” (capitals count). Pick a name from the list, or paste their REV address.`}</span>)}
+            : `No one in your communities is called “${text.trim()}” (capitals count). Someone can be found by name once they've joined a group or their name is on the community's list (that takes them a little REV). Until then, paste their REV address.`}</span>)}
     </div>
   );
 }

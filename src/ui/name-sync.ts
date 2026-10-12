@@ -37,11 +37,24 @@ export async function syncMyName(force = false) {
     // A key that already has a name keeps it: signing in with an existing key
     // brings its name back (here, or on another device), whatever was typed.
     // Only an explicit Save on Account (force) renames.
+    // Being findable in THIS community needs the name on its list, even where
+    // the chain also has a directory (the directory says what your name is, the
+    // list says you are part of this community). One small deploy, once funded.
+    const ensureListed = async (n: string) => {
+      if (listedName(me) === n || failedFor === `${c.group}|${me}|${n}|list`) return;
+      if (Object.entries(await G.names().catch(() => ({} as Record<string, string>))).some(([a, x]) => a !== me && sameName(x, n))) return;
+      const b = await node.balance(revAddressOf(key));
+      if (b !== null && b < NAME_NEEDS) return;
+      const ok = await act("Putting your name on this community's list", (t) => G.setName(n, t), { done: `People in ${c.name} can now find you as “${n}”.` });
+      if (ok === undefined) failedFor = `${c.group}|${me}|${n}|list`;
+      else learnListed({ [me]: n }, true);
+    };
     const mine = have !== null ? have[me] : listedName(me);
     if (mine && (!force || mine === name)) {
       if (have !== null) notePublished(me, mine);
       if (mine !== displayName.value) setDisplayName(mine);
       nameProblem.value = null;
+      if (have !== null) await ensureListed(mine);
       return;
     }
     if (nameError(name)) return; // e.g. starts with a digit: Account says why
@@ -72,7 +85,7 @@ export async function syncMyName(force = false) {
       : await act("Putting your name on this community's list", (t) => G.setName(name, t), { done: `Others now see you as “${name}”.` });
     if (ok === undefined) { failedFor = attempt; return; }
     failedFor = "";
-    if (have !== null) notePublished(me, name);
+    if (have !== null) { notePublished(me, name); await ensureListed(name); }
     else learnListed({ [me]: name }, true);
   } finally {
     running = false;

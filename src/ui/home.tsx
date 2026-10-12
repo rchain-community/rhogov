@@ -1,6 +1,9 @@
 // home.tsx — what needs you now.
 import { type Group, type Issue } from "../chain/gov";
-import { active, displayName, gov, myAddr } from "../state";
+import { resolveNames } from "../chain/profile";
+import { active, displayName, gov, learnListed, listedName, myAddr, notePublished } from "../state";
+import { nameProblem } from "./name-sync";
+import { Balance } from "./setup";
 import { JoinButton, learnFrom } from "./groups";
 import { Loading, go, useAsync } from "./kit";
 import { IssueCard } from "./votes";
@@ -16,6 +19,10 @@ export function HomeScreen() {
     const mine = groups.filter((g) => g.members.some((m) => m.addr === me) && !groups.some((c) => isCouncilId(c.id) && isChamberOf(c.id, g.id)));
     const issues = (await Promise.all(mine.map((g) => G.issues(g.id).then((is) => is.filter((i) => !isAuxIssue(i.id)).map((i) => [i, g] as [Issue, Group]))))).flat();
     const inbox = await G.inboxCounts(me).catch(() => ({} as Record<string, number>));
+    // Is my name on chain yet? (The "can't find you by name" note depends on it.)
+    const [listed, dir] = await Promise.all([G.names().catch(() => ({})), resolveNames(G.node, [me]).catch(() => null)]);
+    learnListed(listed, true);
+    if (dir?.[me]) notePublished(me, dir[me]);
     return { groups, mine, issues, inbox };
   }, [G.c.group, me]);
   return (
@@ -30,6 +37,16 @@ export function HomeScreen() {
         const unread = Object.values(inbox).reduce((x, y) => x + y, 0);
         return (
           <div class="stack">
+            {!listedName(me) && !nameProblem.value && (
+              // Until a name is on chain, nobody can find you by it (to invite you,
+              // message you, delegate to you): say so where it's seen first.
+              <div class="callout warn stack">
+                <span><b>Others can't find you by name yet.</b> {displayName.value
+                  ? <>“{displayName.value}” goes on {active.value!.name}'s name list by itself with one small deploy (about 0.03 REV) once you have the REV for it.</>
+                  : <>Choose a name on <a href="#/account">Account</a>.</>}</span>
+                {displayName.value && <span class="small">Your balance: <Balance node={active.value!.node} addr={me} /></span>}
+              </div>
+            )}
             {unread > 0 && <div class="callout row between"><span>You have <b>{unread} new message{unread > 1 ? "s" : ""}</b>.</span><button class="primary" onClick={() => go("/inbox")}>Open inbox</button></div>}
             {invites.map((g) => <div class="callout warn row between"><span>You're invited to join <b>{g.name}</b>.</span><JoinButton g={g} /></div>)}
 
