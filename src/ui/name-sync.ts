@@ -4,7 +4,7 @@ import { publishName, resolveNames } from "../chain/profile";
 import { signal } from "@preact/signals";
 import { looksLike, nameError } from "../chain/people";
 import { active, displayName, gov, setDisplayName, rawNames, learnListed, listedName, myAddr, notePublished, publishedName, secretKey } from "../state";
-import { act, notify } from "./kit";
+import { act, scopedAction, notify } from "./kit";
 
 // Enough for the one name deploy (batch phlo limit), so an unfunded newcomer
 // isn't greeted by a failure: the name waits until they have REV.
@@ -40,11 +40,11 @@ export async function syncMyName(force = false) {
     // the chain also has a directory (the directory says what your name is, the
     // list says you are part of this community). One small deploy, once funded.
     const ensureListed = async (n: string) => {
-      if (listedName(me) === n || failedFor === `${c.group}|${me}|${n}|list`) return;
+      if (listedName(me) === n || (!force && failedFor === `${c.group}|${me}|${n}|list`)) return;
       if (Object.entries(await G.names().catch(() => ({} as Record<string, string>))).some(([a, x]) => a !== me && looksLike(x, n))) return;
       const b = await node.balance(revAddressOf(key));
-      if (b === null || b < NAME_NEEDS) return; // unknown (node unreachable) or too little: don't try
-      const ok = await act("Putting your name on this community's list", (t) => G.setName(n, t), { risk: "routine", key: `setName:${c.group}:${me}:${n}`, done: `People in ${c.name} can now find you as “${n}”.` });
+      if (b === null || b < NAME_NEEDS) return;
+      const ok = await act("Putting your name on this community's list", (t) => G.setName(n, t), { risk: "routine", action: scopedAction(G, "group", "setName", "~names"), background: !force, done: `People in ${c.name} can now find you as “${n}”.` });
       if (ok === undefined) failedFor = `${c.group}|${me}|${n}|list`;
       else learnListed({ [me]: n }, true);
     };
@@ -81,8 +81,8 @@ export async function syncMyName(force = false) {
     const bal = await node.balance(revAddressOf(key));
     if (bal === null || bal < NAME_NEEDS) return; // unknown (node unreachable) or too little: don't try
     const ok = have !== null
-      ? await act("Publishing your name", (t) => publishName(node, key, me, name, t), { risk: "routine", key: `publishName:${me}:${name}`, done: `Others now see you as “${name}”.` })
-      : await act("Putting your name on this community's list", (t) => G.setName(name, t), { risk: "routine", key: `setName:${me}:${name}`, done: `Others now see you as “${name}”.` });
+      ? await act("Publishing your name", (t) => publishName(node, key, me, name, t), { risk: "routine", action: scopedAction(G, "profile", "publishName", me), background: !force, done: `Others now see you as “${name}”.` })
+      : await act("Putting your name on this community's list", (t) => G.setName(name, t), { risk: "routine", action: scopedAction(G, "group", "setName", "~names"), background: !force, done: `Others now see you as “${name}”.` });
     if (ok === undefined) { failedFor = attempt; return; }
     failedFor = "";
     if (have !== null) { notePublished(me, name); await ensureListed(name); }

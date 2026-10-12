@@ -2,7 +2,7 @@
 // council → stakeholder groups → voting-power estimates (median) →
 // deliberation (pros/cons) → stakeholder-weighted vote → decision of record.
 import { expect, test } from "@playwright/test";
-import { onboard, open, person, settle, startCommunity } from "./helpers";
+import { onboard, open, person, settle, signReview, startCommunity } from "./helpers";
 
 test("a council reaches a decision of record across stakeholder groups", async ({ browser }) => {
   const alice = await person(browser, "Alice");
@@ -39,6 +39,7 @@ test("a council reaches a decision of record across stakeholder groups", async (
   }
 
   await open(alice, council);
+  alice.once("dialog", async (d) => { expect(d.message()).toContain("open voter rolls"); await d.accept(); });
   await alice.getByRole("button", { name: "Add them" }).click();
   await settle(alice);
 
@@ -84,6 +85,7 @@ test("a council reaches a decision of record across stakeholder groups", async (
 
   // Decide.
   await open(alice, decision);
+  alice.once("dialog", async (d) => { expect(d.message()).toContain("phase is advisory"); await d.accept(); });
   await alice.getByRole("button", { name: "Close deliberation and open voting" }).click();
   await settle(alice);
   for (const [p, choice] of [[alice, "5 seconds"], [bob, "2 seconds"], [carol, "5 seconds"]] as const) {
@@ -109,6 +111,7 @@ test("a council reaches a decision of record across stakeholder groups", async (
   // Recording the decision closes both issues for good, so the app asks first.
   alice.once("dialog", (d) => d.accept());
   await alice.getByRole("button", { name: "Record and close" }).click();
+  await signReview(alice, "Recording the decision", "close");
   await settle(alice);
   await open(carol, decision);
   const record = carol.locator(".card", { hasText: "Decision of record" });

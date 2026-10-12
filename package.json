@@ -9,7 +9,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "node src/chain/rgov-core.js --selftest && tsx tests/unit.ts",
+    "test": "node src/chain/rgov-core.js --selftest && tsx tests/unit.ts && tsx --test tests/write-gate.test.ts",
     "test:chain": "tsx tests/chain-check.ts",
     "test:e2e": "playwright test",
     "test:audit": "npm run build && RHOGOV_AUDIT=1 playwright test tests/e2e/audit",

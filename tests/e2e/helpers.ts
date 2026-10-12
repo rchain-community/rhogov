@@ -63,3 +63,11 @@ export async function startCommunity(page: Page, name: string): Promise<string> 
   await page.goto(APP + "#/community");
   return page.locator("input[readonly]").inputValue();
 }
+
+/** Approve an expected irreversible write and verify the term shown before signing. */
+export async function signReview(page: Page, title: string, verb: string) {
+  const modal = page.getByRole("dialog", { name: "Sign: " + title, exact: true });
+  await expect(modal).toBeVisible();
+  await expect(modal.locator("pre")).toContainText('"' + verb + '"');
+  await modal.getByRole("button", { name: "Sign and send", exact: true }).click();
+}

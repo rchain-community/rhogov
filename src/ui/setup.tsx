@@ -9,7 +9,7 @@ import { RNode, StillUnknown, type NodeStatus } from "../chain/node";
 import {
   NETWORKS, R_WALLET, active, addCommunity, displayName, keyName, myAddr, parseInvite, secretKey, setKey,
 } from "../state";
-import { Copy, Info, Spinner, act, go, notify, short } from "./kit";
+import { Copy, Info, Spinner, act, actionRef, forgetPendingInstall, pendingWrites, go, notify, short } from "./kit";
 
 export const setupNode = signal<string>(localStorage.getItem("rhogov:setupNode") ?? NETWORKS[0].url);
 export const setSetupNode = (u: string) => { setupNode.value = u; try { localStorage.setItem("rhogov:setupNode", u); } catch { /* storage refused */ } };
@@ -196,11 +196,11 @@ export function CommunityForm({ node }: { node: string }) {
       try {
         return await Gov.install(node, key, t, { resume: pending?.sig, onSubmitted: (sig) => remember({ sig, name: cname }) });
       } catch (e) {
-        // Still unknown: keep remembering it. Definitely not carried, or failed: forget it.
-        if (e instanceof StillUnknown) unknown = true; else remember(null);
+        // Preserve the specialized resume path whenever the generic gate still holds a receipt.
+        if (e instanceof StillUnknown || pendingWrites().some((r) => r.action.node === node && r.action.contract === "install")) unknown = true; else remember(null);
         throw e;
       }
-    }, { risk: "irreversible", key: `install:${node}:${myAddr.value}`, done: "Three contracts installed: Inbox, Group, Issue." });
+    }, { risk: "routine", action: actionRef("install", "install", node), resume: pending?.sig, done: "Three contracts installed: Inbox, Group, Issue." });
     setBusy(false);
     if (uris) { remember(null); addCommunity({ name: cname, node, ...uris }); go("/groups"); }
     else if (!unknown) remember(null);
@@ -226,7 +226,7 @@ export function CommunityForm({ node }: { node: string }) {
           {pending && (
             <div class="callout warn small stack">
               <span>You started <b>{pending.name}</b> earlier and it hasn't confirmed yet. <b>Look for “{pending.name}”</b> checks whether it was carried, instead of installing another (which would cost again).</span>
-              <span><button class="ghost small" onClick={() => { if (confirm(`Forget "${pending.name}" and install a new community? If the earlier one is carried later, you'll have paid for both.`)) remember(null); }}>Forget it and start fresh</button></span>
+              <span><button class="ghost small" onClick={() => { act("Forgetting the pending install", () => { forgetPendingInstall(node, pending.sig); remember(null); }, { risk: "irreversible", action: actionRef("local", "forget-install", node, pending.sig), confirm: `Forget "${pending.name}" and install a new community? If the earlier one is carried later, you'll have paid for both.`, done: "Pending install forgotten; its deploy may still be carried." }); }}>Forget it and start fresh</button></span>
             </div>
           )}
           <label class="field">Community name
@@ -283,7 +283,7 @@ export function Welcome() {
               : step > 2 ? (
                 <div class="stack small">
                   <div class="row between"><span><b>{displayName.value}</b> · <span class="mono">{short(myAddr.value!)}</span> <Copy text={myAddr.value!} /></span>
-                    <button class="ghost small" onClick={() => { if (confirm("Forget this key? Back it up first if it holds anything.")) setKey(null); }}>Use another</button></div>
+                    <button class="ghost small" onClick={() => { act("Changing your key", () => setKey(null), { risk: "irreversible", action: actionRef("local", "remove-key"), confirm: "Forget this key? Back it up first if it holds anything.", done: "Key removed from this browser." }); }}>Use another</button></div>
                   <Balance node={setupNode.value} addr={myAddr.value!} />
                 </div>
               ) : <p class="muted small">A key in this browser signs everything you do. No account, no email.</p>}

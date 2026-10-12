@@ -1,3 +1,4 @@
+import type { WriteObserver } from "./write-gate";
 // node.ts — rchain-rust's HTTP API, from the browser.
 //
 // Three operations, and the difference is what the node does with your term:
@@ -179,7 +180,7 @@ export class RNode {
   }
 
   /** Sign and submit. Returns the deploy's signature, which is how it is found again. */
-  async submit(term: string, key: string, phloLimit = 1_000_000): Promise<string> {
+  async submit(term: string, key: string, phloLimit = 1_000_000, beforeSend?: (signature: string) => void): Promise<string> {
     const st = await this.status().catch(() => ({} as NodeStatus));
     // The node pre-charges phloLimit × phloPrice, and a deploy it cannot charge
     // fails with no useful reason ("deploy error message not available…").
@@ -196,6 +197,7 @@ export class RNode {
       shardId: st.shardId || "root",
     };
     const { deployer, signature } = signDeployData(data, key);
+    beforeSend?.(signature); // retain the receipt before the first POST can leave this browser
     let reply: unknown;
     try {
       reply = await this.post("/api/deploy", { data, deployer, signature, sigAlgorithm: "secp256k1" });
@@ -239,19 +241,32 @@ export class RNode {
    * Submit and wait for the outcome. `onSubmitted` gets the signature as soon as
    * it exists, so a caller can remember a deploy that might still land later.
    */
-  async deploy(term: string, key: string, opts: { phloLimit?: number; onTick?: (s: string) => void; onSubmitted?: (sig: string) => void } = {}): Promise<RhoValue[]> {
-    let sig: string;
+  async deploy(term: string, key: string, opts: { phloLimit?: number; onTick?: WriteObserver; onSubmitted?: (sig: string) => void } = {}): Promise<RhoValue[]> {
+    await opts.onTick?.beforeSign?.({ node: this.url, actor: revAddressOf(key), term, phloLimit: opts.phloLimit ?? 1_000_000 });
+    const beforeSend = (sig: string) => {
+      opts.onTick?.onSigned?.(sig);
+      opts.onSubmitted?.(sig);
+    };
     try {
-      sig = await this.submit(term, key, opts.phloLimit);
+      let sig: string;
+      try {
+        sig = await this.submit(term, key, opts.phloLimit, beforeSend);
+      } catch (e) {
+        if (!(e instanceof Unconfirmed)) throw e;
+        opts.onTick?.("unconfirmed");
+        const result = await this.outcome(e.sig, { onTick: opts.onTick, timeoutMs: 120_000, unconfirmed: true });
+        opts.onTick?.onSettled?.();
+        return result;
+      }
+      opts.onTick?.("submitted");
+      const result = await this.outcome(sig, { onTick: opts.onTick });
+      opts.onTick?.onSettled?.();
+      return result;
     } catch (e) {
-      if (!(e instanceof Unconfirmed)) throw e;
-      opts.onSubmitted?.(e.sig);
-      opts.onTick?.("unconfirmed");
-      return this.outcome(e.sig, { onTick: opts.onTick, timeoutMs: 120_000, unconfirmed: true });
+      if (e instanceof DeployFailed) opts.onTick?.onSettled?.();
+      // A transport error, absence from a short poll, or StillUnknown is not a terminal receipt.
+      throw e;
     }
-    opts.onSubmitted?.(sig);
-    opts.onTick?.("submitted");
-    return this.outcome(sig, { onTick: opts.onTick });
   }
 
   /** REV balance of an address, in dust (1 REV = 10^8). */

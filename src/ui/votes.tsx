@@ -4,7 +4,7 @@ import { type Group, type Issue, type Outcome, makeId } from "../chain/gov";
 import { gov, myAddr } from "../state";
 import { DelegateModal, learnFrom } from "./groups";
 import { isCouncilId } from "../chain/council";
-import { Addr, Info, Loading, Modal, act, go, nameOf, useAsync } from "./kit";
+import { Addr, Info, Loading, Modal, act, scopedAction, go, nameOf, useAsync } from "./kit";
 
 const STATUS: Record<Issue["status"], [string, string]> = {
   open: ["Voting open", "accent"],
@@ -40,6 +40,7 @@ export function IssueCard({ i, g }: { i: Issue; g?: Group }) {
 export function NewIssueModal({ g, onClose }: { g: Group; onClose: () => void }) {
   const G = gov.value!;
   const [title, setTitle] = useState("");
+  const [actionId] = useState(() => makeId("new-vote"));
   const [opts, setOpts] = useState<string[]>(["", ""]);
   const [mode, setMode] = useState<"approval" | "ranked">("approval");
   const clean = [...new Set(opts.map((o) => o.trim()).filter(Boolean))];
@@ -48,9 +49,7 @@ export function NewIssueModal({ g, onClose }: { g: Group; onClose: () => void })
     const iid = makeId(title);
     onClose();
     const roll = g.members.map((m) => m.addr);
-    const r = await act(`Opening “${title.trim()}”`, (t) => G.openIssue(iid, g.id, title.trim(), mode, clean, roll, t), {
-      risk: "consequential", key: `openIssue:${iid}`, done: "The vote is open.",
-    });
+    const r = await act(`Opening “${title.trim()}”`, (t) => G.openIssue(iid, g.id, title.trim(), mode, clean, roll, t), { risk: "routine", action: scopedAction(G, "issue", "open", g.id, actionId), done: "The vote is open." });
     if (r) go(issueHref(g.id, iid));
   };
   return (
@@ -110,18 +109,8 @@ function IssueView({ i, g, out }: { i: Issue; g: Group; out: Outcome }) {
   const standingDelegate = me ? g.deleg[me] : undefined;
 
   const closeAndRecord = async () => {
-    const closed = await act("Closing the vote", (t) => G.close(i.id, t), {
-      risk: "irreversible",
-      key: `close:${i.id}`,
-      confirm: "Close voting? No more ballots can be cast. The node's tally will be recorded as the result under your name.",
-      done: "Voting closed.",
-    });
-    if (closed) await act("Recording the result", (t) => G.propose(i.id, out.winner, t), {
-      risk: "irreversible",
-      key: `propose:${i.id}`,
-      confirm: false, // the close above already asked, and it names both consequences
-      done: out.winner ? `Recorded: ${out.winner}` : "Recorded: no winner.",
-    });
+    const closed = await act("Closing the vote", (t) => G.close(i.id, t), { risk: "irreversible", action: scopedAction(G, "issue", "close", i.id), confirm: "Close voting? No more ballots can be cast. The node’s tally will be recorded as the result under your name.", done: "Voting closed." });
+    if (closed) await act("Recording the result", (t) => G.propose(i.id, out.winner, t), { risk: "routine", action: scopedAction(G, "issue", "propose", i.id), done: out.winner ? `Recorded: ${out.winner}` : "Recorded: no winner." });
   };
 
   return (
@@ -155,7 +144,7 @@ function IssueView({ i, g, out }: { i: Issue; g: Group; out: Outcome }) {
                 : standingDelegate ? <>Until you vote, {nameOf(standingDelegate)} (your delegate) carries your vote.</>
                 : "If you don't vote and haven't delegated, your weight goes unused."}
               {" "}<button class="ghost small" onClick={() => setDelegating(true)}>{topicDelegate ? "Change delegate for this vote" : "Delegate this vote"}</button>
-              {topicDelegate && <button class="ghost small" onClick={() => act("Removing delegation for this vote", (t) => G.undelegate(g.id, i.id, t), { risk: "routine", key: `undelegate:${g.id}:${i.id}` })}>Remove</button>}
+              {topicDelegate && <button class="ghost small" onClick={() => act("Removing delegation for this vote", (t) => G.undelegate(g.id, i.id, t), { risk: "consequential", action: scopedAction(G, "group", "delegation", g.id, i.id), confirm: "Remove your delegation for this vote?" })}>Remove</button>}
             </div>
           )}
         </div>
@@ -167,7 +156,7 @@ function IssueView({ i, g, out }: { i: Issue; g: Group; out: Outcome }) {
         <div class="section card soft">
           <div class="row">
             <input class="grow" placeholder="Suggest another option" value={adding} onInput={(e) => setAdding((e.target as HTMLInputElement).value)} />
-            <button disabled={!adding.trim() || i.options.includes(adding.trim())} onClick={() => { const o = adding.trim(); setAdding(""); act(`Adding “${o}”`, (t) => G.addOption(i.id, o, t), { risk: "routine", key: `addOption:${i.id}:${o}` }); }}>Add option</button>
+            <button disabled={!adding.trim() || i.options.includes(adding.trim())} onClick={() => { const o = adding.trim(); setAdding(""); act(`Adding “${o}”`, (t) => G.addOption(i.id, o, t), { risk: "routine", action: scopedAction(G, "issue", "addOption", i.id) }); }}>Add option</button>
           </div>
         </div>
       )}
@@ -176,12 +165,7 @@ function IssueView({ i, g, out }: { i: Issue; g: Group; out: Outcome }) {
         <div class="section card">
           <h3>You opened this vote</h3>
           <div class="row">
-            {missing.length > 0 && <button onClick={() => act("Refreshing the voter roll", (t) => G.setRoll(i.id, g.members.map((m) => m.addr), t), {
-              risk: "consequential",
-              key: `setRoll:${i.id}`,
-              confirm: `Add ${missing.length} member${missing.length > 1 ? "s" : ""} to the roll? This replaces who may vote on this issue. Ballots already cast are not re-weighed, and the roll can be changed again while the vote is open.`,
-              done: `${missing.length} new member${missing.length > 1 ? "s" : ""} can now vote.`,
-            })}>Add {missing.length} new member{missing.length > 1 ? "s" : ""} to the roll</button>}
+            {missing.length > 0 && <button onClick={() => act("Refreshing the voter roll", (t) => G.setRoll(i.id, g.members.map((m) => m.addr), t), { risk: "consequential", action: scopedAction(G, "issue", "setRoll", i.id), confirm: "Replace the voter roll with the current group members? This may add and remove voters after ballots already exist. Existing ballots remain recorded; the contract does not verify membership.", done: `${missing.length} new member${missing.length > 1 ? "s" : ""} can now vote.` })}>Add {missing.length} new member{missing.length > 1 ? "s" : ""} to the roll</button>}
             <button class="primary" onClick={closeAndRecord}>Close voting and record result</button>
           </div>
         </div>
@@ -197,7 +181,7 @@ export function Ballot({ i }: { i: Issue }) {
   const prior = i.ballots[me] ?? [];
   const [picked, setPicked] = useState<string[]>(prior);
   const changed = JSON.stringify(picked) !== JSON.stringify(prior);
-  const submit = () => act(prior.length ? "Changing your vote" : "Casting your vote", (t) => G.cast(i.id, picked, t), { risk: "consequential", key: `cast:${i.id}`, done: "Your ballot is on chain." });
+  const submit = () => act(prior.length ? "Changing your vote" : "Casting your vote", (t) => G.cast(i.id, picked, t), { risk: "routine", action: scopedAction(G, "issue", "cast", i.id), done: "Your ballot is on chain." });
 
   if (i.mode === "approval") {
     return (
