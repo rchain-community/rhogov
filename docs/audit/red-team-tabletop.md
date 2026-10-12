@@ -343,7 +343,10 @@ one-founder group shows no roll control and no Censure button).
 | RP1 | T7 | live | RT-07 |
 | RP3 | T2 | live | RT-02 |
 | RP6 | T6 | live | RT-06 |
-| — | T3, T4, T5, T8, T9, T10, T11 | live | manual-first: RT-03/04/05/08/09/10/11 |
+| — | T3, T4, T5, T8, T9, T10, T11 | live | no probe yet — evidence-pending issues RT-03, RT-04, RT-05, RT-08, RT-09, RT-10, RT-11 |
+
+All twelve scenarios have a filed issue; seven of them (the row above) rest on reading rather than
+a probe, and each of those carries an "Evidence-pending" marker on its issue.
 
 ## Findings register
 

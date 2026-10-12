@@ -59,8 +59,12 @@ are not held to the standard of the five above.
 | ID | Finding | Scenario | Owner | Issue |
 |---|---|---|---|---|
 | RT-03 | One rating flips a whole group to weighted voting, and ratings are forward-looking | T3 | client + upstream | [#21](https://github.com/rchain-community/rhogov/issues/21) |
+| RT-04 | A council's decision of record carries no compare-to-tally badge once saved | T4 | client + upstream | [#37](https://github.com/rchain-community/rhogov/issues/37) |
+| RT-05 | A name earned in one community is worn unmarked in another; homoglyphs are claimable; `(2)` follows address order | T5 | client | [#38](https://github.com/rchain-community/rhogov/issues/38) |
+| RT-08 | Retry advice after a timeout or an ambiguous deploy can install a second community | T8 | client | [#39](https://github.com/rchain-community/rhogov/issues/39) |
 | RT-09 | The censure threshold is ceiling-rounded and the slash cascades; neither is disclosed | T9 | client + upstream (rchain-rust) | [#22](https://github.com/rchain-community/rhogov/issues/22) |
 | RT-10 | Council power, the combined score and the recorded scores are browser-computed, not node-verified | T10 | client | [#27](https://github.com/rchain-community/rhogov/issues/27) |
+| RT-11 | Ranked-choice bars can show a losing option as the longest, disclosed only in muted text | T11 | client | [#40](https://github.com/rchain-community/rhogov/issues/40) |
 | RT-13 | A recorded result is compared to a tally that keeps moving after the vote closes | — (additional) | client | [#20](https://github.com/rchain-community/rhogov/issues/20) |
 | RT-14 | Making or removing an admin silently changes vote weight; a group can strand itself with no admins | — (additional) | client | [#25](https://github.com/rchain-community/rhogov/issues/25) |
 | RT-15 | A group invitation leaks the invitee's address publicly, and the message is unencrypted | — (additional) | client + upstream | [#26](https://github.com/rchain-community/rhogov/issues/26) |
@@ -75,11 +79,14 @@ and the cascading slash are computed by the node), so any change there belongs u
 disclosure half is client-fixable. RT-15's missing `uninvite` verb is likewise upstream
 ([`upstream/uninvite-missing.md`](upstream/uninvite-missing.md)).
 
-### Scenarios still unfiled
+### Coverage
 
-Documented in the pack with predictions, but neither probed nor filed: **T4** (record a winner
-that lost), **T5** (name bleed / homoglyph), **T8** (retry after a timeout), **T11** (the longest
-bar that loses). Recorded so the gap is visible rather than implied.
+All twelve scenarios now have a filed issue, so no documented finding is left without one. The
+two-way property the tracker already had still holds: every `RT-nn` here resolves to an issue,
+and every open issue links back to its row.
+
+Filing order within the evidence-pending set reflects how the findings were reached, not their
+severity — read the `Sev` column for that.
 
 ## Tracker remediation
 
