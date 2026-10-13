@@ -129,15 +129,22 @@ let flushTimer: ReturnType<typeof setTimeout> | null = null;
 // a label someone typed joining a group in community A says nothing about who
 // they are in B. Switching community starts the book afresh (#38).
 let scope = "", scopeNode = "";
+let directoryEpoch = 0;
 function inScope() {
   const c = active.value, here = c ? `${c.node}|${c.group}` : "", node = c?.node ?? "";
   if (here === scope) return;
   scope = here;
   raw = {};
   listed.clear();
-  if (node !== scopeNode) { scopeNode = node; published.clear(); pending = new Set(); }
-  addressBook.value = {};
-  nameNotes.value = {};
+  if (node !== scopeNode) {
+    scopeNode = node;
+    directoryEpoch++;
+    published.clear();
+    pending = new Set();
+  }
+  // Rebuild now: community labels and claims are gone, but directory names
+  // still belong to this network. Recalculate markers from those claims alone.
+  rebuild({});
 }
 
 /** Names people put on their community's name list (Gov.names): over group labels, under the directory. */
@@ -158,7 +165,7 @@ export const rawNames = () => raw;
 /** Why a name is shown with a marker ("(unclaimed)", "(2)"), for its tooltip. */
 export const nameNotes = signal<Record<string, string>>({});
 
-// Switching community empties the book at once, not on the next name lookup.
+// Switching community removes its names at once, retaining this network's directory.
 effect(() => { void active.value; inScope(); });
 
 function rebuild(labels: Record<string, string>) {
@@ -210,12 +217,16 @@ export function learnNames(pairs: { addr: string; label: string }[]) {
 async function flushNames() {
   flushTimer = null;
   const c = active.value;
+  const epoch = directoryEpoch;
   const addrs = [...pending];
   pending = new Set();
   if (!c || !addrs.length) return;
   for (const a of addrs) published.set(a, null);
   try {
     const found = await resolveNames(new RNode(c.node), addrs);
+    // A lookup may finish after we leave its network, even if we return to the
+    // same URL before it answers. It must not refill a newer directory cache.
+    if (epoch !== directoryEpoch) return;
     for (const [a, n] of Object.entries(found)) published.set(a, n);
     rebuild({});
   } catch { /* a chain without the name directory: labels only */ }
