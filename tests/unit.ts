@@ -96,6 +96,7 @@ ok("vote counts: one per person per option, unknown options ignored",
 
   const C = { name: "C", node: "http://n", inbox: "rho:id:c1", group: "rho:id:c2", issue: "rho:id:c3" };
   addCommunity(C);
+  setActive(C.group);
   learnListed({ "1111A": "Ada", "1111B": "Adα" });
   ok("two claimed look-alikes are both numbered",
     addressBook.value["1111A"] === "Ada (1)" && addressBook.value["1111B"] === "Adα (2)", addressBook.value);
