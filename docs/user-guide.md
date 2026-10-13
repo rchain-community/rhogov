@@ -319,8 +319,21 @@ So a missing voice shows up as missing support.
 
 ![The decision of record](images/council-record.png)
 
-**New participants.** As with ordinary votes, people who join a council later
-must be added to the open decisions. The facilitator sees an **Add them** button.
+**New participants.** People who join a council after a decision opened can
+read it, but can't add points, endorse or vote until the facilitator adds them.
+They see "You're waiting to be added to this decision", and who adds them.
+
+The facilitator sees them as **waiting**: on the council's list of decisions
+("2 waiting to take part"), and at the top of each decision, one row per person,
+with their stakeholder groups. From that row the facilitator can:
+
+- **Add to this decision**, one person at a time, so each is approved
+  individually (there's an **Add all** for when that's what you want);
+- **Invite to a stakeholder group**, if they're in none yet;
+- **Trust in …**, to vouch for them in a stakeholder group you share.
+
+**Invite someone to a stakeholder group** on the same card brings in someone
+new: they get a message with a link, and show as waiting once they've joined.
 
 ## 10. Your account and your key
 

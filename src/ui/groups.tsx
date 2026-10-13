@@ -286,7 +286,7 @@ function Members({ g, st }: { g: Group; st: Standing }) {
   );
 }
 
-function RateModal({ g, addr, myLevel, onClose }: { g: Group; addr: string; myLevel: number; onClose: () => void }) {
+export function RateModal({ g, addr, myLevel, onClose }: { g: Group; addr: string; myLevel: number; onClose: () => void }) {
   const G = gov.value!;
   const me = myAddr.value!;
   const current = g.ratings[me]?.[addr];

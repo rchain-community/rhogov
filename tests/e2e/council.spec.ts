@@ -38,9 +38,17 @@ test("a council reaches a decision of record across stakeholder groups", async (
     await settle(p);
   }
 
+  // The facilitator approves each newcomer on their own (#83), not all at once.
   await open(alice, council);
-  await alice.getByRole("button", { name: "Add them" }).click();
-  await settle(alice);
+  const waitingEst = alice.locator(".card", { hasText: "Waiting to take part in the voting-power estimates" });
+  await expect(waitingEst).toContainText("Bob");
+  await expect(waitingEst).toContainText("Carol");
+  for (const who of ["Bob", "Carol"]) {
+    await waitingEst.locator(".row", { hasText: who }).getByRole("button", { name: "Add to the voting-power estimates" }).click();
+    await settle(alice);
+    await open(alice, council);
+  }
+  await expect(alice.getByText("Waiting to take part in the voting-power estimates")).toHaveCount(0);
 
   // Voting power: each estimates; the median decides.
   for (const [p, est] of [[alice, { Validators: 60 }], [bob, { Developers: 70 }], [carol, { Users: 80 }]] as const) {
@@ -62,6 +70,27 @@ test("a council reaches a decision of record across stakeholder groups", async (
   await alice.getByRole("button", { name: "Open for deliberation" }).click();
   await settle(alice);
   const decision = await alice.evaluate(() => location.hash);
+
+  // A latecomer (#83): Dave joins a stakeholder group after the decision opened. He's
+  // told why he can't take part yet, and shows on the facilitator's waiting list.
+  const dave = await person(browser, "Dave");
+  await onboard(dave, "Dave", invite);
+  await settle(dave);
+  await open(dave, council + "/stakeholders");
+  await dave.locator(".card", { hasText: "Developers" }).getByText("I belong here").click();
+  await dave.getByRole("button", { name: /^Join \d group/ }).click();
+  await settle(dave);
+  await open(dave, decision);
+  await expect(dave.getByText("You're waiting to be added to this decision")).toBeVisible();
+  await expect(dave.getByPlaceholder("One clear point")).toHaveCount(0);
+  await open(alice, decision);
+  const waiting = alice.locator(".card", { hasText: "Waiting to take part in this decision" });
+  await expect(waiting.locator(".row", { hasText: "Dave" })).toContainText("in Developers");
+  await waiting.locator(".row", { hasText: "Dave" }).getByRole("button", { name: "Add to this decision" }).click();
+  await settle(alice);
+  await open(dave, decision);
+  await expect(dave.getByText("You're waiting to be added")).toHaveCount(0);
+  await expect(dave.getByPlaceholder("One clear point")).toBeVisible();
 
   // Deliberate.
   await open(bob, decision);

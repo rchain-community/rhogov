@@ -8,8 +8,8 @@ import {
 } from "../chain/council";
 import { type Group, type Issue, makeId, q, qList, qSet } from "../chain/gov";
 import { displayName, gov, myAddr } from "../state";
-import { DelegateModal, learnFrom } from "./groups";
-import { Addr, Info, Loading, Modal, act, go, nameOf, useAsync } from "./kit";
+import { DelegateModal, RateModal, learnFrom } from "./groups";
+import { Addr, Info, Loading, Modal, PersonField, act, go, nameOf, useAsync } from "./kit";
 import { Ballot } from "./votes";
 
 const cHref = (cid: string, ...rest: string[]) => `/c/${[cid, ...rest].map(encodeURIComponent).join("/")}`;
@@ -167,12 +167,7 @@ export function CouncilScreen({ cid, tab = "decisions", sub }: { cid: string; ta
             <span>Facilitated by {nameOf(facilitator)}</span>
             <span>· {d.participants.length} participants in {d.chambers.length} stakeholder groups</span>
           </div>
-          {me === facilitator && newcomers.length > 0 && (
-            <div class="callout warn row between" style={{ marginTop: ".8rem" }}>
-              <span>{newcomers.length} new participant{newcomers.length > 1 ? "s" : ""} can't estimate or vote until you add them to the rolls.</span>
-              <button class="primary" onClick={() => refreshRolls(d)}>Add them</button>
-            </div>
-          )}
+          {me === facilitator && newcomers.length > 0 && d.weights && <WaitingPanel d={d} issues={[d.weights]} what="the voting-power estimates" />}
           {me && !d.chambers.some((ch) => isIn(ch, me)) && (
             <div class="callout row between" style={{ marginTop: ".8rem" }}>
               <span>You're not in any stakeholder group yet. Pick the ones you belong to.</span>
@@ -191,17 +186,104 @@ export function CouncilScreen({ cid, tab = "decisions", sub }: { cid: string; ta
   );
 }
 
-/** One deploy: every open council issue's roll becomes everyone taking part. */
-function refreshRolls(d: CouncilData) {
+/**
+ * People waiting to take part (#83): in the council (or one of its stakeholder
+ * groups) but not yet on the list for `issues`. The facilitator approves each
+ * person one at a time, and can do the rest of bringing them in from the same
+ * row: invite them into a stakeholder group if they're in none, and vouch for
+ * them where both are members. Adding someone to a vote's list is a separate,
+ * explicit act per person, not one "add everyone" button.
+ */
+function WaitingPanel({ d, issues, what }: { d: CouncilData; issues: Issue[]; what: string }) {
   const G = gov.value!;
-  const roll = qSet(d.participants);
-  const open = [d.weights, ...d.decisions.flatMap((i) => [i, { id: argsIssueId(i.id), status: i.status } as Issue])]
-    .filter((i): i is Issue => !!i && i.status !== "closed");
-  return act("Adding new participants to the rolls", (t) => G.batch("issue", open.map((i) => ["setRoll", [q(i.id), roll]]), t), {
-    risk: "consequential",
-    key: `setRolls:${open[0]?.id ?? ""}`,
-    done: "Everyone taking part can now estimate and vote.",
-  });
+  const me = myAddr.value;
+  const open = issues.filter((i) => i.status !== "closed");
+  const [rating, setRating] = useState<{ g: Group; addr: string; level: number } | null>(null);
+  const [inviting, setInviting] = useState(false);
+  if (!open.length) return null;
+  const onAll = (p: string) => open.every((i) => i.voters.includes(p));
+  const waiting = d.participants.filter((p) => !onAll(p));
+  const chambersOf = (p: string) => d.chambers.filter((ch) => isIn(ch, p));
+  const admins = d.chambers.filter((ch) => !!me && ch.admins.includes(me));
+  const add = (people: string[]) => {
+    const calls = open.map((i) => ["setRoll", [q(i.id), qSet([...new Set([...i.voters, ...people])])]] as [string, string[]]);
+    const who = people.length === 1 ? nameOf(people[0]) : `${people.length} people`;
+    const voted = open.some((i) => Object.keys(i.ballots).length > 0);
+    return act(`Adding ${who} to ${what}`, (t) => G.batch("issue", calls, t), {
+      risk: "consequential",
+      key: `addToRolls:${open[0].id}:${people.join(",")}`,
+      // The click is the approval; ask again only where it changes a vote already under way.
+      confirm: voted ? `Add ${who} to ${what}? People have already taken part, so this changes who may vote while it's under way. Ballots already cast are not re-weighed.` : false,
+      done: `${who} can now take part in ${what}.`,
+    });
+  };
+  const inviteTo = async (ch: Group, p: string) => {
+    if (ch.policy === "invite") await act(`Inviting ${nameOf(p)} to ${ch.name}`, (t) => G.invite(ch.id, p, t), {
+      risk: "irreversible",
+      key: `invite:${ch.id}:${p}`,
+      confirm: `Invite ${nameOf(p)} to ${ch.name}? Their address is written into the group's public state, where anyone can read it, and an invitation can't be withdrawn.`,
+      done: "Invitation recorded on chain.",
+    });
+    await act(`Telling ${nameOf(p)} about ${ch.name}`, (t) => G.send(p, "invite", { gid: ch.id, group: ch.name, body: `You're invited to join ${ch.name} in ${d.group.name}, so your voice counts in its decisions.` }, t),
+      { risk: "routine", key: `send:${p}:invite:${ch.id}`, done: "Delivered to their inbox." });
+  };
+  const vouch = async (ch: Group, p: string) => {
+    const st = await G.standing(ch.id).catch(() => null);
+    setRating({ g: ch, addr: p, level: (me && st?.levels[me]) || 0 });
+  };
+  return (
+    <div class="card stack" style={{ marginTop: ".8rem" }}>
+      <div class="row between">
+        <b>{waiting.length ? `Waiting to take part in ${what} (${waiting.length})` : `Everyone in ${d.group.name} can take part in ${what}`}</b>
+        <button class="small ghost" onClick={() => setInviting(true)}>Invite someone to a stakeholder group</button>
+      </div>
+      {waiting.length > 0 && <p class="small muted">They joined after it opened. Add each person you recognise; they can then add points, endorse and vote. Their ballot counts in the stakeholder groups they're in.</p>}
+      {waiting.map((p) => {
+        const mine = chambersOf(p);
+        const canVouch = mine.filter((ch) => !!me && isIn(ch, me));
+        return (
+          <div class="row between wrap" style={{ borderTop: "1px solid var(--line)", paddingTop: ".5rem" }}>
+            <span><Addr addr={p} /> <span class="small muted">{mine.length ? `in ${mine.map((c) => c.name).join(", ")}` : "in no stakeholder group yet"}</span></span>
+            <span class="row wrap">
+              {!mine.length && admins.length > 0 && (
+                <select class="small" style={{ width: "auto" }} value="" onChange={(e) => { const ch = d.chambers.find((c) => c.id === (e.target as HTMLSelectElement).value); if (ch) inviteTo(ch, p); }}>
+                  <option value="">Invite to a stakeholder group…</option>
+                  {admins.map((ch) => <option value={ch.id}>{ch.name}</option>)}
+                </select>
+              )}
+              {canVouch.map((ch) => <button class="small" onClick={() => vouch(ch, p)}>Trust in {ch.name}…</button>)}
+              <button class="small primary" onClick={() => add([p])}>Add to {what}</button>
+            </span>
+          </div>
+        );
+      })}
+      {waiting.length > 1 && <div><button class="small" onClick={() => { if (confirm(`Add all ${waiting.length} people to ${what}? Each can then take part.`)) add(waiting); }}>Add all {waiting.length}</button></div>}
+      {rating && <RateModal g={rating.g} addr={rating.addr} myLevel={rating.level} onClose={() => setRating(null)} />}
+      {inviting && <InviteToChamber d={d} admins={admins} onClose={() => setInviting(false)} onInvite={inviteTo} />}
+    </div>
+  );
+}
+
+/** Bring someone new in: pick the person (by name or address) and the stakeholder group. */
+function InviteToChamber({ d, admins, onClose, onInvite }: { d: CouncilData; admins: Group[]; onClose: () => void; onInvite: (ch: Group, p: string) => Promise<void> }) {
+  const [who, setWho] = useState<string | null>(null);
+  const [gid, setGid] = useState(admins[0]?.id ?? d.chambers[0]?.id ?? "");
+  const ch = d.chambers.find((c) => c.id === gid);
+  const allowed = !!ch && (ch.policy === "open" || admins.some((a) => a.id === ch.id));
+  return (
+    <Modal title={`Invite someone into ${d.group.name}`} onClose={onClose}
+      actions={<><button onClick={onClose}>Cancel</button><button class="primary" disabled={!who || !allowed} onClick={() => { onClose(); onInvite(ch!, who!); }}>Invite</button></>}>
+      <div class="stack">
+        <PersonField label="Who" onChange={setWho} />
+        <label class="field">Stakeholder group
+          <select value={gid} onChange={(e) => setGid((e.target as HTMLSelectElement).value)}>{d.chambers.map((c) => <option value={c.id}>{c.name}{c.policy === "invite" ? " (invite only)" : ""}</option>)}</select>
+        </label>
+        {ch && !allowed && <span class="badge warn">{ch.name} is invite-only and you're not one of its admins.</span>}
+        <p class="small muted">They get a message with a link to join. Once they've joined, they show here as waiting, for you to add to decisions.</p>
+        {ch?.policy === "invite" && <p class="small muted">For an invite-only group, the invitation writes their address into the group's public state, where anyone can read it. It can't be withdrawn.</p>}
+      </div>
+    </Modal>
+  );
 }
 
 function Stakeholders({ d }: { d: CouncilData }) {
@@ -314,6 +396,7 @@ function Decisions({ d }: { d: CouncilData }) {
             <div class="row between"><h3 style={{ margin: 0 }}>{i.title}</h3><span class={`badge ${r.phase === "decided" ? "" : "accent"}`}>{ph.name}</span></div>
             <div class="row small muted" style={{ marginTop: ".3rem" }}>
               <span>{i.options.length} options</span><span>· {Object.keys(i.ballots).length} voted</span>
+              {me === i.by && i.status !== "closed" && d.participants.some((p) => !i.voters.includes(p)) && <span class="badge warn">{d.participants.filter((p) => !i.voters.includes(p)).length} waiting to take part</span>}
               {r.phase === "decided" && r.winner && <span>· Decided: <b>{r.winner}</b></span>}
               {r.phase === "vote" && me && i.voters.includes(me) && !i.ballots[me] && <span class="badge warn">Your vote is needed</span>}
             </div>
@@ -421,17 +504,28 @@ function Decision({ d, i, args, results }: { d: CouncilData; i: Issue; args: Iss
         ))}
       </div>
       <p class="muted small">{PHASES[phaseIx].what}</p>
+      {me && !onRoll && rec.phase !== "decided" && (
+        // Someone who joined after the decision opened can read it but not take part
+        // yet: say so, and what happens next, instead of greyed-out buttons (#83).
+        <div class="callout warn small section">
+          {d.participants.includes(me)
+            ? <><b>You're waiting to be added to this decision.</b> You joined after it opened, so you can read it but not add points, endorse or vote yet. {nameOf(i.by)} (the facilitator) sees you on their waiting list and adds people one at a time.</>
+            : <><b>You're not taking part in this council yet.</b> Join one of its stakeholder groups first (<a href={`#${cHref(d.group.id, "stakeholders")}`}>stakeholder groups</a>); the facilitator, {nameOf(i.by)}, can then add you to this decision.</>}
+        </div>
+      )}
 
       {args?.title && args.title !== i.title && <div class="card soft section" style={{ whiteSpace: "pre-wrap" }}><b>Background</b><div>{args.title}</div></div>}
 
       {rec.phase === "decided" && <RecordView i={i} rec={rec} args={args} />}
+
+      {facilitator && rec.phase !== "decided" && <WaitingPanel d={d} issues={[i, ...(args ? [args] : [])]} what="this decision" />}
 
       <div class="section"><Deliberation i={i} args={args} open={rec.phase !== "decided"} /></div>
 
       {rec.phase === "vote" && (
         <div class="section card">
           <h2>Your vote</h2>
-          {!me ? null : !onRoll ? <p class="callout warn small">{d.participants.includes(me) ? "The facilitator needs to add you to the roll." : "Join a stakeholder group to vote."}</p> : (
+          {!me ? null : !onRoll ? <p class="muted small">You can vote once you're added to this decision (see above).</p> : (
             <>
               <p class="small muted">Your ballot counts in {myChambers.length ? myChambers.map((c) => c.name).join(", ") : "no stakeholder group yet — join one, or it won't count"}.</p>
               <Ballot i={i} />
@@ -454,7 +548,7 @@ function Decision({ d, i, args, results }: { d: CouncilData; i: Issue; args: Iss
             {rec.phase === "deliberate" && <button class="primary" onClick={() => setPhase("vote")}>Close deliberation and open voting</button>}
             {rec.phase === "vote" && <button onClick={() => setPhase("deliberate")}>Back to deliberation</button>}
             {rec.phase === "vote" && <button class="primary" onClick={() => setRecording(true)}>Record the decision</button>}
-            {d.participants.some((p) => !i.voters.includes(p)) && <button onClick={() => refreshRolls(d)}>Add new participants to the rolls</button>}
+
           </div>
         </div>
       )}
