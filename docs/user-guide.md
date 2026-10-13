@@ -53,19 +53,11 @@ faucet is the same one in [r-wallet](https://rhowallet.org), the RChain web
 wallet, so you can also use it from there.) Every action costs a tiny fee,
 paid in REV (see [section 11](#11-what-is-public-and-what-it-costs)).
 
-**Step 3: join or start a community.** If someone sent you an invite link,
-paste it and press **Join community**. Otherwise choose **Start a new community**
-(next section). If an earlier install has not confirmed, return with the same
-key and network in this browser, choose **Start a new community**, and press
-**Look for “name”** to check the remembered install instead of installing another
-set of contracts (see [section 2](#2-communities-and-invitations)).
-
-While a write is waiting, rhogov keeps checking. After **4 minutes** it says the
-network is slow; do not repeat the write, because it could happen twice. After
-**15 minutes** without a block, the outcome is still unknown and it may land later.
-If the node ran the deploy and it failed, nothing changed but **its fee was still
-charged**. If rhogov instead says it was **not carried** and is safe to try again,
-nothing was charged.
+**Step 3: join or start a community.** Open the invite link someone sent you;
+it already chooses the network and community, so you only need your name and
+key. Otherwise choose **Start a new community** (next section). To resume an
+unconfirmed install, see [section 2](#2-communities-and-invitations).
+For waiting, retry and fee messages, see [Troubleshooting](#12-troubleshooting).
 
 Then you land on **Home**. It opens with what rhogov is for, and says what needs you
 now: votes waiting for your ballot, invitations, new messages. A community with
@@ -99,8 +91,7 @@ its groups. If its outcome is still unknown, it stays remembered.
 the earlier deploy. If you install again and both deploys land, you pay for both.
 The reminder stays only in this browser: clearing its data, using another
 browser, or choosing another key or network will not show the same reminder.
-Only retry when rhogov explicitly says the deploy was not carried and it is safe
-to try again. A deploy that ran and failed still charged its fee.
+For waiting, retry and fee messages, see [Troubleshooting](#12-troubleshooting).
 
 ![Starting a community](images/start-community.png)
 
