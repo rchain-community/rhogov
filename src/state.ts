@@ -127,7 +127,8 @@ let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Everything here belongs to ONE community (and the directory to one network):
 // a label someone typed joining a group in community A says nothing about who
-// they are in B. Switching community starts the book afresh (#38).
+// they are in B. Switching communities drops their labels and claims;
+// directory names survive while the network stays the same (#38, #64).
 let scope = "", scopeNode = "";
 let directoryEpoch = 0;
 function inScope() {
@@ -226,6 +227,7 @@ async function flushNames() {
     const found = await resolveNames(new RNode(c.node), addrs);
     // A lookup may finish after we leave its network, even if we return to the
     // same URL before it answers. It must not refill a newer directory cache.
+    // The next screen calls learnNames to requeue addresses cleared on the switch.
     if (epoch !== directoryEpoch) return;
     for (const [a, n] of Object.entries(found)) published.set(a, n);
     rebuild({});
