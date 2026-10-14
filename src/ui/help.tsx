@@ -34,7 +34,7 @@ function screenHelp(): { title: string; text: string; link: string } {
     case "councils": case "c": return { title: "Councils", text: "Decisions across stakeholder groups: estimate each group's voting power, deliberate with pros and cons, then vote.", link: section("9-councils-decisions-across-stakeholder-groups") };
     case "inbox": return { title: "Inbox", text: "Messages and invitations sent to you. Collect them to read them; they then live in this browser.", link: section("8-inbox") };
     case "community": return { title: "Community", text: "The invite link to share, and switching communities. The network address and the three contract addresses are under “Where it lives”, closed by default — you only need them to wire rhogov to a quantum-os room or a node.", link: section("2-communities-and-invitations") };
-    case "account": return { title: "Account", text: "Your name, your address, your balance, and backing up your key.", link: section("10-your-account-and-your-key") };
+    case "account": return { title: "Account", text: "Your name, your address, your balance, and saving your key as a password-protected keystore file.", link: section("10-your-account-and-your-key") };
     default: return { title: "rhogov", text: "", link: GUIDE };
   }
 }

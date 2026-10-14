@@ -45,7 +45,7 @@ community told you to.
 **Continue**. rhogov creates a *key* for you in your browser. The key is your
 identity: it signs everything you do, and it never leaves your device. There's
 no account, no email and no password. (Already have an RChain key? Choose **I
-have a key** and paste it.)
+have a key** and paste it, or choose its keystore file and type its password.)
 
 Once your key exists you'll see your balance. On the playground or the testnet,
 press **Get test REV**. A moment later you'll have enough to act. (The testnet
@@ -63,7 +63,7 @@ nothing in it yet says so, and offers the first thing to do — a group — rath
 telling you that you're all caught up. Everything in rhogov happens inside a group:
 who belongs, what they decide, and how much each vote weighs.
 
-> **Back up your key** (Account → Download backup) once you've set up. If you
+> **Back up your key** (Account → Save keystore file) once you've set up. If you
 > clear your browser's data without a backup, that identity is gone.
 
 ## 2. Communities and invitations
@@ -352,8 +352,13 @@ On **Account** you can:
   whatever you typed there;
 - copy your **address**: give it to people who want to invite or message you;
 - check your **balance** and, on the playground or testnet, **Get test REV**;
-- **Download backup** of your key, or show it so you can paste it into another
-  browser or device;
+- **Save keystore file**: your key, encrypted with a password you choose, as the
+  standard JSON keystore file (Web3 Secret Storage v3, scrypt and AES) that geth,
+  MetaMask and other wallets read. To use it on another browser or device, choose
+  **I have a key**, pick the file and type its password. The password is checked in
+  the browser; rhogov can't recover a forgotten one. A **plain-text backup** is
+  there too, but it isn't encrypted. You can also show the key to paste it
+  elsewhere;
 - turn on **Show me the exact rholang before I sign each action**, to see precisely
   what you're signing. Anything that moves trust, membership, voting weight or money
   is shown and waits for you. Routine housekeeping — putting your name on the

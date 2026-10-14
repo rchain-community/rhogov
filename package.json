@@ -16,6 +16,7 @@
     "test:redteam": "npm run build && RHOGOV_REDTEAM=1 playwright test tests/e2e/redteam"
   },
   "dependencies": {
+    "@noble/ciphers": "^2.4.0",
     "@noble/curves": "^2.4.0",
     "@noble/hashes": "^2.4.0",
     "@preact/signals": "^2.3.1",
