@@ -151,7 +151,7 @@ export function IdentityForm({ onDone }: { onDone?: () => void }) {
             {isValidKey(impKey) && <span class="muted small">Address: <span class="mono">{revAddressOf(impKey)}</span></span>}
           </label>
           <label class="field">Or a keystore file
-            <span class="hint">A password-protected <span class="mono">UTC--….json</span> file, saved from rhogov's Account page, geth or MetaMask.</span>
+            <span class="hint">A password-protected <span class="mono">UTC--….json</span> file, saved from rhogov's Account page, geth or another Ethereum wallet.</span>
             <input type="file" accept=".json,application/json" onChange={(e) => pick((e.target as HTMLInputElement).files?.[0])} />
           </label>
         </div>
