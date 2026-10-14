@@ -106,8 +106,12 @@ ok("vote counts: one per person per option, unknown options ignored",
 // A reasonless refusal that was not carried is safe to retry (#63).
 {
   let caught: unknown;
+
+  // This zero-timeout offline check pins the NotCarried message/contract only; the
+  // network path into this branch is covered separately by the browser scenarios.
   try { await new RNode("http://offline").outcome("sig", { timeoutMs: 0, unconfirmed: true }); }
   catch (e) { caught = e; }
+
   ok("not-carried outcome says retry is safe",
     caught instanceof NotCarried && /safe to try again/i.test(caught.message) && /nothing was charged/i.test(caught.message),
     caught instanceof Error ? caught.message : caught);
