@@ -53,11 +53,14 @@ faucet is the same one in [r-wallet](https://rhowallet.org), the RChain web
 wallet, so you can also use it from there.) Every action costs a tiny fee,
 paid in REV (see [section 11](#11-what-is-public-and-what-it-costs)).
 
-**Step 3: join or start a community.** Open the invite link someone sent you;
-it already chooses the network and community, so you only need your name and
-key. Otherwise choose **Start a new community** (next section). To resume an
-unconfirmed install, see [section 2](#2-communities-and-invitations).
-For waiting, retry and fee messages, see [Troubleshooting](#12-troubleshooting).
+**Step 3: join or start a community.** Open the invite link someone sent you.
+If you're new, press **Get started**; the link already supplies the network and
+community, so setup asks for your name and key. If the invite points to a network
+you have not chosen before, review its address and tick **I recognise this network
+and trust whoever sent the invite** before continuing. Otherwise choose
+**Start a new community** (next section). To resume an unconfirmed install, see
+[section 2](#2-communities-and-invitations). For waiting, retry and fee messages,
+see [Troubleshooting](#12-troubleshooting).
 
 Then you land on **Home**. It opens with what rhogov is for, and says what needs you
 now: votes waiting for your ballot, invitations, new messages. A community with
@@ -116,14 +119,35 @@ hand**, holding the network address and the three contract addresses. You only
 need those to wire rhogov to a quantum-os room (`/gov chain inbox|group|issue`),
 or to add a community by pasting addresses instead of opening an invite.
 
-**Step 3: join or start a community.** Open the invite link someone sent you.
-If you're new, press **Get started**; the link already supplies the network and
-community, so setup asks for your name and key. If the invite points to a network
-you have not chosen before, review its address and tick **I recognise this network
-and trust whoever sent the invite** before continuing. Otherwise choose
-**Start a new community** (next section). To resume an unconfirmed install, see
-[section 2](#2-communities-and-invitations). For waiting, retry and fee messages,
-see [Troubleshooting](#12-troubleshooting).
+## 3. Groups
+
+A **group** is a set of people who vote together. Open **Groups** to see the
+groups you're in and the others in the community.
+
+**Create a group** with **＋ New group** and choose who can join:
+
+- **Open**: anyone in the community can join.
+- **Invite only**: an admin invites people, and they join when they're ready.
+
+![Creating a group](images/new-group.png)
+
+Wherever you choose a person (inviting, messaging, delegating, finding a member),
+start typing their name: the names that start with what you've typed are offered.
+Typing a number instead looks for an address. Someone can be found by name once their name is
+on the community's list, which happens by itself with one small deploy once they
+have a little REV. Until then their Home page says "Others can't find you by
+name yet", with a **Get test REV** button where the network has a faucet.
+
+Whoever creates a group is its first **admin**. Admins can invite people (with
+an optional message to their inbox) and make other members admins. To invite
+someone, start typing their **name** and pick it from the names offered
+or paste their **REV address**. An address works even for someone who isn't in
+the community yet; a name must belong to exactly one person here. Admins have
+no extra say in votes, apart from the trust they start with
+([section 6](#6-trust)).
+
+A group's page has three tabs: **Votes**, **Members**, and **About** (its
+settings, and **Leave group**).
 
 ## 4. Voting
 
