@@ -35,7 +35,7 @@ function screenHelp(): { title: string; text: string; link: string } {
       return { title: "A group", text: "Its votes, members and settings. Open a vote, or vote on one that's open.", link: section("3-groups") };
     case "v": return { title: "A vote", text: "Choose one or more options (or rank them) and press Vote. You can change your vote while it's open. The node counts it, with trust and delegation.", link: section("4-voting") };
     case "councils": case "c": return { title: "Councils", text: "Decisions across stakeholder groups: estimate each group's voting power, deliberate with pros and cons, then vote. The facilitator can add a stakeholder group later.", link: section("9-councils-decisions-across-stakeholder-groups") };
-    case "inbox": return { title: "Inbox", text: "Messages and invitations sent to you. Collect them to read them; they then live in this browser.", link: section("8-inbox") };
+    case "inbox": return { title: "Inbox", text: "Messages and invitations sent to you. Collect them to read them; they then live in this browser. Export archive saves the collected messages to a readable JSON file, without your key. Import it in another browser with the same key and community; existing messages stay and repeated imports add no extra copies. This costs no fee and does not restore messages on chain. Files can be edited, so imported messages are not proof of their sender.", link: section("8-inbox") };
     case "community": return { title: "Community", text: "The invite link to share, switching communities, and communities kept from a network's earlier chain. The network address and the three contract addresses are under “Where it lives”, closed by default — you only need them to wire rhogov to a quantum-os room or a node.", link: section("2-communities-and-invitations") };
     case "account": return { title: "Account", text: "Your name, your address, your balance, and saving your key as a password-protected keystore file.", link: section("10-your-account-and-your-key") };
     default: return { title: "rhogov", text: "", link: GUIDE };
@@ -80,6 +80,10 @@ async function tipsFor(): Promise<Tip[]> {
       ? <>Your name “{displayName.value}” isn't claimed in this community yet, so others may see “No name yet” for you. It goes on the community's list by itself once you have a little REV.</>
       : "Others see “No name yet” for you, because you haven't chosen a name.",
     href: "#/account", label: "Your name",
+  });
+  if (route.value.parts[0] === "inbox") tips.push({
+    text: "To move collected messages to another browser, export the archive here, then use the same key and community there to import it. Keep the readable file private; it does not include your key.",
+    href: "#/inbox", label: "Your archive",
   });
   const unread = Object.values(inbox).reduce((a, b) => a + b, 0);
   if (unread) tips.push({ text: `${unread} new message${unread > 1 ? "s are" : " is"} waiting for you.`, href: "#/inbox", label: "Open Inbox" });

@@ -266,6 +266,37 @@ and send.
   them from the chain, so another browser or device with the same key won't see
   them, and clearing this browser's site data deletes them.
 
+**Move collected messages to another browser.** In Inbox, press **Export archive**
+to download a JSON file for your current address and community. It contains
+collected messages only, not your key or messages still waiting on chain. Keep
+it private: anyone with the file can read its messages. Export does not delete
+anything from this browser.
+
+In the other browser, bring the **same key**, join the **same community on the
+same node URL**, then open Inbox and choose the file under **Import archive**.
+Check the message count and press **Import messages**, or Cancel to leave the
+archive unchanged. Existing messages stay. Importing the same file again adds
+no extra copies; identical messages already repeated in an archive stay repeated.
+The file must match your address, node URL and all three contract addresses.
+
+Malformed, unsupported or mismatched files are refused before anything is saved.
+If an archive was created by a newer rhogov format, rhogov tells you to update
+instead of describing the file as damaged. rhogov refuses archive files over
+**20 MiB** to bound parsing, but that is not a promise that the browser can store
+20 MiB: its local-storage quota may be much smaller. If storage is full or
+unavailable, the existing messages are kept and the import reports that it could
+not be saved.
+
+If this browser already contains older, invalid or oversized local message data
+that cannot pass the current transfer validation, rhogov leaves it untouched and
+tells you to keep that browser data and update rhogov or report the problem.
+
+Export and import are local operations: no signature, deploy or fee, and nothing
+is restored to the chain. They do not provide inbox history or read uncollected
+messages on another device. Files can be edited, so an imported message is not
+proof of who sent it. Clearing this browser's site data still deletes its local
+archive; keep your file separately if you want a backup.
+
 ![The inbox](images/inbox.png)
 
 > Messages are **not encrypted**. Until you collect them they sit in the chain's

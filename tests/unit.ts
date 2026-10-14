@@ -1,4 +1,6 @@
 // unit.ts — offline checks (no node): decoding, keys, council arithmetic.
+import { ARCHIVE_MAX_BYTES, exportInboxArchive, mergeInboxArchive, parseInboxArchive } from "../src/inbox-archive";
+import { archived, archiveForTransfer, importArchive } from "../src/state";
 import { approvalShare, approvals, chamberPower, combine, decodeArg, encodeArg, estimateBallot, parseEstimate } from "../src/chain/council";
 import { readRecord, toGroup } from "../src/chain/gov";
 import {
@@ -160,6 +162,610 @@ ok("non-argument rejected", decodeArg("hello") === null);
   const legacy = readRecord("Beta");
   ok("an older bare-string record still reads, and is not claimed as frozen", legacy.winner === "Beta" && !legacy.frozen);
   ok("a value that is neither shape reads as nothing rather than guessing", readRecord([]).winner === null && !readRecord([]).frozen);
+}
+
+// Local archive transfer (#2).
+{
+  const c = {
+    name: "C",
+    node:
+      "https://node.example",
+    inbox:
+      "rho:id:inbox",
+    group:
+      "rho:id:group",
+    issue:
+      "rho:id:issue",
+  };
+
+  const m = {
+    from:
+      "1111bn92xHbttqWHEXqD8PiykFxgeUjizzquT6JRePj2pAoHFAuiK",
+    type: "note",
+    at: 42,
+    fields: {
+      subject:
+        "Tea",
+      body:
+        "سلام <script>text</script>",
+    },
+  };
+
+  const text =
+    exportInboxArchive(
+      "recipient",
+      c,
+      [m],
+    );
+
+  const bundle =
+    JSON.parse(text);
+
+  const rejects = (
+    v: unknown,
+    addr = "recipient",
+    scope = c,
+  ) => {
+    try {
+      parseInboxArchive(
+        typeof v ===
+            "string"
+          ? v
+          : JSON.stringify(
+            v,
+          ),
+        addr,
+        scope,
+      );
+
+      return false;
+    } catch {
+      return true;
+    }
+  };
+
+  const errorOf = (
+    v: unknown,
+    addr = "recipient",
+    scope = c,
+  ) => {
+    try {
+      parseInboxArchive(
+        typeof v ===
+            "string"
+          ? v
+          : JSON.stringify(
+            v,
+          ),
+        addr,
+        scope,
+      );
+
+      return "";
+    } catch (e) {
+      return e instanceof Error
+        ? e.message
+        : String(e);
+    }
+  };
+
+  ok(
+    "archive round trip preserves Unicode and literal markup",
+    eq(
+      parseInboxArchive(
+        text,
+        "recipient",
+        c,
+      ).messages,
+      [m],
+    ),
+  );
+
+  ok(
+    "empty archive round trip",
+    parseInboxArchive(
+      exportInboxArchive(
+        "recipient",
+        c,
+        [],
+      ),
+      "recipient",
+      c,
+    ).messages.length === 0,
+  );
+
+  ok(
+    "archive exports only format, scope and messages",
+    eq(
+      Object.keys(
+        bundle,
+      ).sort(),
+      [
+        "community",
+        "format",
+        "messages",
+        "recipient",
+        "version",
+      ],
+    ),
+  );
+
+  ok(
+    "wrong recipient is refused",
+    rejects(
+      text,
+      "another",
+    ),
+  );
+
+  for (
+    const k of [
+      "node",
+      "inbox",
+      "group",
+      "issue",
+    ] as const
+  ) {
+    ok(
+      `wrong archive ${k} is refused`,
+      rejects(
+        text,
+        "recipient",
+        {
+          ...c,
+          [k]: "other",
+        },
+      ),
+    );
+  }
+
+  ok(
+    "invalid JSON is refused",
+    rejects("{"),
+  );
+
+  const newerMessage =
+    errorOf({
+      ...bundle,
+      version: 2,
+    });
+
+  ok(
+    "newer archive version says to update rhogov",
+    /newer rhogov/i.test(
+      newerMessage,
+    ) &&
+      /update rhogov/i.test(
+        newerMessage,
+      ),
+    newerMessage,
+  );
+
+  const oldMessage =
+    errorOf({
+      ...bundle,
+      version: 0,
+    });
+
+  ok(
+    "older unsupported archive version has a distinct format error",
+    /unsupported rhogov inbox format/i.test(
+      oldMessage,
+    ),
+    oldMessage,
+  );
+
+  ok(
+    "wrong archive format is refused",
+    rejects({
+      ...bundle,
+      format: "other",
+    }),
+  );
+
+  ok(
+    "non-string message fields are refused",
+    rejects({
+      ...bundle,
+      messages: [
+        {
+          ...m,
+          fields: {
+            body: {},
+          },
+        },
+      ],
+    }),
+  );
+
+  ok(
+    "invalid sender addresses are refused",
+    rejects({
+      ...bundle,
+      messages: [
+        {
+          ...m,
+          from: "__proto__",
+        },
+      ],
+    }),
+  );
+
+  ok(
+    "negative timestamps are refused",
+    rejects({
+      ...bundle,
+      messages: [
+        {
+          ...m,
+          at: -1,
+        },
+      ],
+    }),
+  );
+
+  ok(
+    "fractional timestamps are refused",
+    rejects({
+      ...bundle,
+      messages: [
+        {
+          ...m,
+          at: 0.5,
+        },
+      ],
+    }),
+  );
+
+  ok(
+    "one invalid message rejects the whole file",
+    rejects({
+      ...bundle,
+      messages: [
+        m,
+        null,
+      ],
+    }),
+  );
+
+  ok(
+    "UTF-8 file byte limit is enforced",
+    rejects(
+      "😀".repeat(
+        ARCHIVE_MAX_BYTES /
+          4 +
+          1,
+      ),
+    ),
+  );
+
+  const other = {
+    ...m,
+    at: 43,
+  };
+
+  const merged =
+    mergeInboxArchive(
+      [other],
+      [m, m],
+    );
+
+  ok(
+    "merge keeps existing messages and repeated messages from the file",
+    eq(
+      merged,
+      [
+        other,
+        m,
+        m,
+      ],
+    ),
+  );
+
+  ok(
+    "reimport is idempotent",
+    eq(
+      mergeInboxArchive(
+        merged,
+        [m, m],
+      ),
+      merged,
+    ),
+  );
+
+  ok(
+    "existing duplicate count is never reduced",
+    mergeInboxArchive(
+      [m, m, m],
+      [m],
+    ).length === 3,
+  );
+
+  ok(
+    "field ordering does not add a duplicate",
+    mergeInboxArchive(
+      [m],
+      [
+        {
+          ...m,
+          fields: {
+            body:
+              m.fields.body,
+            subject:
+              m.fields
+                .subject,
+          },
+        },
+      ],
+    ).length === 1,
+  );
+
+  const proto =
+    parseInboxArchive(
+      JSON.stringify({
+        ...bundle,
+        messages: [
+          {
+            ...m,
+            fields:
+              JSON.parse(
+                '{"__proto__":"literal"}',
+              ),
+          },
+        ],
+      }),
+      "recipient",
+      c,
+    );
+
+  ok(
+    "special field names remain data",
+    Object.getPrototypeOf(
+      proto.messages[0]
+        .fields,
+    ) === null &&
+      proto.messages[0]
+        .fields
+        .__proto__ ===
+        "literal",
+  );
+
+  const descriptor =
+    Object.getOwnPropertyDescriptor(
+      globalThis,
+      "localStorage",
+    );
+
+  const memory =
+    new Map<
+      string,
+      string
+    >();
+
+  let refuse = false;
+
+  Object.defineProperty(
+    globalThis,
+    "localStorage",
+    {
+      configurable: true,
+      value: {
+        getItem: (
+          key: string,
+        ) =>
+          memory.get(
+            key,
+          ) ?? null,
+
+        setItem: (
+          key: string,
+          value: string,
+        ) => {
+          if (refuse)
+            throw new Error(
+              "QuotaExceededError",
+            );
+
+          memory.set(
+            key,
+            value,
+          );
+        },
+      },
+    },
+  );
+
+  try {
+    importArchive(
+      "recipient",
+      c,
+      [m],
+    );
+
+    ok(
+      "import persists in the current address/community only",
+      eq(
+        archived(
+          "recipient",
+          c,
+        ),
+        [m],
+      ) &&
+        archived(
+          "another",
+          c,
+        ).length === 0 &&
+        archived(
+          "recipient",
+          {
+            ...c,
+            group: "other",
+          },
+        ).length === 0,
+    );
+
+    ok(
+      "transfer reader returns the stored archive",
+      eq(
+        archiveForTransfer(
+          "recipient",
+          c,
+        ),
+        [m],
+      ),
+    );
+
+    const slot =
+      [...memory.keys()][0];
+
+    memory.set(
+      slot,
+      "{",
+    );
+
+    let invalidJSON = "";
+
+    try {
+      archiveForTransfer(
+        "recipient",
+        c,
+      );
+    } catch (e) {
+      invalidJSON =
+        e instanceof Error
+          ? e.message
+          : String(e);
+    }
+
+    ok(
+      "corrupt stored JSON is refused rather than treated as empty",
+      /stored archive is damaged/i.test(
+        invalidJSON,
+      ) &&
+        /report the problem/i.test(
+          invalidJSON,
+        ) &&
+        memory.get(slot) ===
+          "{",
+      invalidJSON,
+    );
+
+    memory.set(
+      slot,
+      "{}",
+    );
+
+    let invalidShape = "";
+
+    try {
+      archiveForTransfer(
+        "recipient",
+        c,
+      );
+    } catch (e) {
+      invalidShape =
+        e instanceof Error
+          ? e.message
+          : String(e);
+    }
+
+    ok(
+      "non-array stored archive is refused and kept",
+      /stored archive is damaged/i.test(
+        invalidShape,
+      ) &&
+        memory.get(slot) ===
+          "{}",
+      invalidShape,
+    );
+
+    const badStored =
+      JSON.stringify([
+        {
+          ...m,
+          from: "__proto__",
+        },
+      ]);
+
+    memory.set(
+      slot,
+      badStored,
+    );
+
+    let invalidMessage = "";
+
+    try {
+      archiveForTransfer(
+        "recipient",
+        c,
+      );
+    } catch (e) {
+      invalidMessage =
+        e instanceof Error
+          ? e.message
+          : String(e);
+    }
+
+    ok(
+      "legacy or malformed stored messages are refused with recovery advice",
+      /older, invalid, or oversized/i.test(
+        invalidMessage,
+      ) &&
+        /update rhogov or report the problem/i.test(
+          invalidMessage,
+        ) &&
+        memory.get(slot) ===
+          badStored,
+      invalidMessage,
+    );
+
+    memory.set(
+      slot,
+      JSON.stringify(
+        [m],
+      ),
+    );
+
+    refuse = true;
+
+    let threw = false;
+
+    try {
+      importArchive(
+        "recipient",
+        c,
+        [other],
+      );
+    } catch {
+      threw = true;
+    }
+
+    ok(
+      "refused storage write throws and keeps the prior archive",
+      threw &&
+        eq(
+          archived(
+            "recipient",
+            c,
+          ),
+          [m],
+        ),
+    );
+  } finally {
+    if (descriptor) {
+      Object.defineProperty(
+        globalThis,
+        "localStorage",
+        descriptor,
+      );
+    } else {
+      delete (
+        globalThis as {
+          localStorage?: Storage;
+        }
+      ).localStorage;
+    }
+  }
 }
 
 // Keystore files (#86): the Web3 Secret Storage v3 test vectors, and a round trip.
