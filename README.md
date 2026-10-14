@@ -30,7 +30,13 @@ network peer is the **rnode HTTP API** you point it at, which answers CORS with 
 no backend, no relay, no database and no account:
 
 - your **key** is generated in, and never leaves, the browser; it signs deploys locally
-  (secp256k1 over blake2b256 of `DeployDataProto`, as rnode verifies);
+  (secp256k1 over blake2b256 of `DeployDataProto`, as rnode verifies). You can save it as
+  a password-protected keystore file (Web3 Secret Storage v3, which geth and MetaMask
+  read) and bring it back from one;
+- what the browser remembers is kept **per chain** (node URL + genesis block hash). The
+  same key is your identity on every network. When a network is restarted from a new
+  genesis, rhogov says so, keeps your identity (or uses a new key there only, if you
+  choose) and lists the old chain's communities apart, as from an earlier chain;
 - **reads** are `explore-deploy` against the newest block; **writes** are signed deploys whose
   answers come back through `deploy-status`;
 - an **invite link** carries only the node URL and the three contract addresses.
@@ -42,6 +48,7 @@ no backend, no relay, no database and no account:
 
 - **Communities.** Start one (installs the three contracts with your key, in one deploy; Start stays disabled until your balance covers its fee, about 0.02 REV)
   or join one with an invite link. Every community is independent.
+  An install that hasn't confirmed is remembered, and setup offers to look for it rather than install twice.
 - **Groups.** Open or invite-only. Admins invite by address (with an inbox notification)
   and promote admins; anyone can join an open group.
 - **A first run that says what to do.** Home opens with what rhogov is for, and a
@@ -81,9 +88,12 @@ design:
 
 - **Stakeholder groups.** Users, Developers, Validators, Token holders, Service providers,
   Governance stewards, or your own. Each is a full group with its own admins, trust,
-  delegation and censure. People join every group that describes them.
+  delegation and censure. People join every group that describes them. The facilitator
+  can add a stakeholder group to a council that's already running.
 - **Voting power** per stakeholder group is the **median of participants' estimates**
-  (each estimate normalised to 100%), so a few extreme estimates can't swing it. The design
+  (each estimate normalised to 100%), so a few extreme estimates can't swing it. An
+  estimate that doesn't name a group (one made before the group was added) doesn't count
+  for that group, rather than counting as 0. The design
   doc's footnote [c], that validators should weigh more, is decided here by the participants.
 - **A facilitated, phased process:** *Prepare* (question, background, options) →
   *Deliberate* (pros and cons per option, with endorsements, ConsiderIt-style) →

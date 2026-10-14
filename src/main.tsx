@@ -5,13 +5,13 @@ import { Help } from "./ui/help";
 import { UpdateBanner, watchForUpdates } from "./ui/update";
 import { checkInbox, startInboxWatch, titleWithCount, waitingCount } from "./ui/inbox-watch";
 import "./styles.css";
-import { active, displayName, myAddr, refreshTick } from "./state";
+import { active, chainChecked, chainReset, checkChain, currentNode, displayName, myAddr, refreshTick } from "./state";
 import { AccountScreen, CommunityScreen, JoinScreen } from "./ui/settings";
 import { GroupScreen, GroupsScreen } from "./ui/groups";
 import { HomeScreen } from "./ui/home";
 import { InboxScreen } from "./ui/inbox";
 import { ReviewModal, Toasts, route, short } from "./ui/kit";
-import { Welcome } from "./ui/setup";
+import { ChainReset, Welcome } from "./ui/setup";
 import { IssueScreen } from "./ui/votes";
 import { CouncilScreen, CouncilsScreen } from "./ui/council";
 
@@ -29,6 +29,7 @@ function Page() {
   const { parts, query } = route.value;
   const [head, a, b] = parts;
   if (head === "join") return <JoinScreen query={query} />;
+  if (chainReset.value) return <ChainReset node={chainReset.value.node} />;
   if (head === "welcome" || !myAddr.value || !active.value) return <Welcome />;
   switch (head) {
     case undefined: return <HomeScreen />;
@@ -45,7 +46,10 @@ function Page() {
 }
 
 function App() {
-  const ready = !!myAddr.value && !!active.value;
+  const ready = !!myAddr.value && !!active.value && chainChecked.value && !chainReset.value;
+  // Which chain the node serves: on arrival, on switching networks, and about once
+  // a minute after that, so a network reset while the page is open is noticed (#89).
+  useEffect(() => { void checkChain(currentNode.value); }, [currentNode.value, Math.floor(refreshTick.value / 4)]);
   // Re-checked with every refresh, so a newcomer's name goes on the list as soon
   // as they have the REV for it, and everyone's names stay current.
   useEffect(() => { if (ready) syncMyName(); }, [ready, active.value?.group, myAddr.value, refreshTick.value]);

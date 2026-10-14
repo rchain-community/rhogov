@@ -9,13 +9,14 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "node src/chain/rgov-core.js --selftest && tsx tests/unit.ts",
+    "test": "node src/chain/rgov-core.js --selftest && tsx tests/unit.ts && node --import tsx --test tests/name-scope.test.ts",
     "test:chain": "tsx tests/chain-check.ts",
     "test:e2e": "playwright test",
     "test:audit": "npm run build && RHOGOV_AUDIT=1 playwright test tests/e2e/audit",
     "test:redteam": "npm run build && RHOGOV_REDTEAM=1 playwright test tests/e2e/redteam"
   },
   "dependencies": {
+    "@noble/ciphers": "^2.4.0",
     "@noble/curves": "^2.4.0",
     "@noble/hashes": "^2.4.0",
     "@preact/signals": "^2.3.1",
