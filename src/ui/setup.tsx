@@ -8,12 +8,12 @@ import { decryptKeystore, looksLikeKeystore } from "../chain/keystore";
 import { nameError } from "../chain/people";
 import { RNode, StillUnknown, type NodeStatus } from "../chain/node";
 import {
-  NETWORKS, R_WALLET, active, addCommunity, displayName, keyName, myAddr, parseInvite, secretKey, setKey,
+  NETWORKS, R_WALLET, acceptChain, active, addCommunity, chainIdOf, communities, displayName, earlier, nodeBase, keyName, myAddr, parseInvite, secretKey, setKey,
+  setSetupNode, setupNode,
 } from "../state";
 import { Copy, Info, Spinner, act, go, notify, short } from "./kit";
 
-export const setupNode = signal<string>(localStorage.getItem("rhogov:setupNode") ?? NETWORKS[0].url);
-export const setSetupNode = (u: string) => { setupNode.value = u; try { localStorage.setItem("rhogov:setupNode", u); } catch { /* storage refused */ } };
+export { setupNode, setSetupNode };
 
 export function useNodeStatus(url: string) {
   const [s, setS] = useState<{ status?: NodeStatus; error?: string; loading: boolean }>({ loading: true });
@@ -44,22 +44,25 @@ export const PURPOSE = "Decide things together on RChain: groups, delegated voti
 export function NetworkPicker({ value, onChange }: { value: string; onChange: (u: string) => void }) {
   const preset = NETWORKS.find((n) => n.url === value);
   const [custom, setCustom] = useState(preset ? "" : value);
+  // Choosing "Another node" before typing an address keeps it chosen: otherwise
+  // any re-render (a status or chain read finishing) would undo the click.
+  const [other, setOther] = useState(!preset);
   const s = useNodeStatus(value);
   return (
     <div class="stack">
       {NETWORKS.map((n) => (
-        <label class={`choice ${value === n.url ? "on" : ""}`}>
-          <input type="radio" name="net" checked={value === n.url} onChange={() => onChange(n.url)} />
+        <label class={`choice ${!other && value === n.url ? "on" : ""}`}>
+          <input type="radio" name="net" checked={!other && value === n.url} onChange={() => { setOther(false); onChange(n.url); }} />
           <div><b>{n.label}</b> <span class="mono muted">{n.url}</span><div class="muted small">{n.note}</div></div>
         </label>
       ))}
-      <label class={`choice ${!preset ? "on" : ""}`}>
-        <input type="radio" name="net" checked={!preset} onChange={() => custom && onChange(custom)} />
+      <label class={`choice ${other ? "on" : ""}`}>
+        <input type="radio" name="net" checked={other} onChange={() => { setOther(true); if (custom) onChange(custom); }} />
         <div class="grow">
           <b>Another node</b>
           <div class="row" style={{ marginTop: ".3rem" }}>
             <input class="grow" placeholder="https://your-node:40403" value={custom} onInput={(e) => setCustom((e.target as HTMLInputElement).value)} />
-            <button class="small" onClick={() => /^https?:\/\//.test(custom) && onChange(custom.trim())}>Use</button>
+            <button class="small" onClick={() => { if (/^https?:\/\//.test(custom)) { setOther(true); onChange(custom.trim()); } }}>Use</button>
           </div>
         </div>
       </label>
@@ -75,9 +78,9 @@ export function NetworkPicker({ value, onChange }: { value: string; onChange: (u
 
 // --- identity -------------------------------------------------------------------
 
-export function IdentityForm({ onDone }: { onDone?: () => void }) {
+export function IdentityForm({ onDone, here }: { onDone?: () => void; here?: boolean }) {
   const [mode, setMode] = useState<"new" | "import">("new");
-  const [name, setName] = useState(displayName.value);
+  const [name, setName] = useState(here ? "" : displayName.value);
   const [imp, setImp] = useState("");
   const [fresh] = useState(generateKey);
   // A keystore file (chosen, or its JSON pasted) opens with its password into `imp`.
@@ -109,7 +112,7 @@ export function IdentityForm({ onDone }: { onDone?: () => void }) {
   const bad = keysName ? "" : nameError(name);
   const save = () => {
     if (!valid || looking || bad) return;
-    setKey(mode === "new" ? fresh : impKey, chosen);
+    setKey(mode === "new" ? fresh : impKey, chosen, { here });
     onDone?.();
   };
   return (
@@ -199,6 +202,17 @@ export function Balance({ node, addr, onBalance }: { node: string; addr: string;
 
 // --- community ----------------------------------------------------------------
 
+/**
+ * Where an unconfirmed install is remembered: per chain, so a reset's leftovers
+ * aren't offered on the new one. Until the chain is known, and for reminders
+ * from before #89, it is the node URL alone.
+ */
+export const pendingInstallKey = (node: string, addr: string | null) => `rhogov:pending-install:${chainIdOf(node).replace(/#$/, "")}:${addr}`;
+const legacyPendingKey = (node: string, addr: string | null) => `rhogov:pending-install:${node}:${addr}`;
+/** The remembered install for this chain and key, or one remembered before #89 for this node. Throws if unreadable. */
+export const readPendingInstall = (node: string, addr: string | null): unknown =>
+  JSON.parse(localStorage.getItem(pendingInstallKey(node, addr)) ?? localStorage.getItem(legacyPendingKey(node, addr)) ?? "null");
+
 export function CommunityForm({ node }: { node: string }) {
   const [tab, setTab] = useState<"join" | "start">("join");
   const [link, setLink] = useState("");
@@ -210,11 +224,14 @@ export function CommunityForm({ node }: { node: string }) {
   // An install that was sent but never confirmed (a stalled network, a closed
   // tab): remembered, so pressing Start again looks for it rather than paying
   // for a second set of contracts.
-  const pendingKey = `rhogov:pending-install:${node}:${myAddr.value}`;
-  const [pending, setPending] = useState<{ sig: string; name: string } | null>(() => { try { return JSON.parse(localStorage.getItem(pendingKey) ?? "null"); } catch { return null; } });
+  const pendingKey = pendingInstallKey(node, myAddr.value);
+  const [pending, setPending] = useState<{ sig: string; name: string } | null>(() => { try { return readPendingInstall(node, myAddr.value) as { sig: string; name: string } | null; } catch { return null; } });
   const remember = (p: { sig: string; name: string } | null) => {
     setPending(p);
-    try { if (p) localStorage.setItem(pendingKey, JSON.stringify(p)); else localStorage.removeItem(pendingKey); } catch { /* storage refused */ }
+    try {
+      localStorage.removeItem(legacyPendingKey(node, myAddr.value));
+      if (p) localStorage.setItem(pendingKey, JSON.stringify(p)); else localStorage.removeItem(pendingKey);
+    } catch { /* storage refused */ }
   };
   const start = async () => {
     const key = secretKey.value;
@@ -339,6 +356,49 @@ export function Welcome() {
         </div>
       </div>
       {active.value && <p class="small"><a href="#/">Back to {active.value.name}</a></p>}
+    </div>
+  );
+}
+
+// --- a network restarted from a new genesis (#89) ------------------------------------
+
+/**
+ * The node now serves a new chain. Everything on the old one is gone; what this
+ * browser kept from it stays, listed as from an earlier chain. Your identity is
+ * in this browser, so it can carry over: same key, same address, same name.
+ */
+export function ChainReset({ node }: { node: string }) {
+  const [fresh, setFresh] = useState(false);
+  const net = NETWORKS.find((n) => nodeBase(n.url) === node)?.label ?? node;
+  const lost = earlier.value.filter((c) => nodeBase(c.node) === node);
+  const left = communities.value.filter((c) => nodeBase(c.node) === node && !lost.includes(c));
+  const done = async () => { setSetupNode(node); await acceptChain(node); go("/welcome"); };
+  return (
+    <div class="stack" style={{ maxWidth: 680 }}>
+      <h1>This network was reset</h1>
+      <div class="callout warn stack">
+        <span><b>{net}</b> (<span class="mono">{node}</span>) now runs a new chain, started from a new genesis block. Nothing from before is on it: every community, group, vote, delegation, trust rating, censure, decision, message waiting in an inbox, and name claim is gone, and so is any REV balance.</span>
+        {left.length > 0 && <span>{left.map((c) => c.name).join(", ")} {left.length > 1 ? "were" : "was"} on the old chain. This browser lists {left.length > 1 ? "them" : "it"} under <b>Community → Earlier chains</b> and still holds the messages you collected, but {left.length > 1 ? "they" : "it"} can't be opened on the new chain.</span>}
+      </div>
+      {!fresh ? (
+        <div class="card stack">
+          <h2>Your identity</h2>
+          {myAddr.value ? (
+            <p>Your key is in this browser, not on the chain, so it carries over: the same address, <span class="mono">{short(myAddr.value)}</span>{displayName.value ? <>, and your name <b>{displayName.value}</b>, which goes on a community's name list again once you join or start one and have a little REV</> : ""}.</p>
+          ) : <p>This browser has no key yet.</p>}
+          <div class="row wrap">
+            {myAddr.value && <button class="primary" onClick={done}>Keep my identity</button>}
+            <button onClick={() => setFresh(true)}>Use a new key on this network</button>
+          </div>
+          <p class="muted small">A new key here is used on this network only; your other networks keep the key they have. You can bring one from a keystore file.</p>
+        </div>
+      ) : (
+        <div class="card stack">
+          <h2>A key for this network</h2>
+          <IdentityForm here onDone={done} />
+          <div><button class="ghost small" onClick={() => setFresh(false)}>Back</button></div>
+        </div>
+      )}
     </div>
   );
 }

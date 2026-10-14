@@ -33,6 +33,10 @@ no backend, no relay, no database and no account:
   (secp256k1 over blake2b256 of `DeployDataProto`, as rnode verifies). You can save it as
   a password-protected keystore file (Web3 Secret Storage v3, which geth and MetaMask
   read) and bring it back from one;
+- what the browser remembers is kept **per chain** (node URL + genesis block hash). The
+  same key is your identity on every network. When a network is restarted from a new
+  genesis, rhogov says so, keeps your identity (or uses a new key there only, if you
+  choose) and lists the old chain's communities apart, as from an earlier chain;
 - **reads** are `explore-deploy` against the newest block; **writes** are signed deploys whose
   answers come back through `deploy-status`;
 - an **invite link** carries only the node URL and the three contract addresses.

@@ -83,7 +83,8 @@ src/ui/     kit.tsx (routing, useAsync, act(), toasts/cards, Addr, Copy, PersonF
             home, groups, votes, council, inbox, settings (screens)
             help.tsx (state-aware Help panel + problem report)   update.tsx (new-version banner)
             inbox-watch.ts (new-message alerts)   name-sync.ts (publish/list your name)
-src/state.ts  networks, key, communities, address book, refresh ticks (15 s poll)
+src/state.ts  networks, chains (per-chain key/name/communities, resets: #89), key, communities,
+              address book, refresh ticks (15 s poll)
 tests/        unit.ts   chain-check.ts (live API)   e2e/*.spec.ts (Playwright, file:// build)
 ```
 

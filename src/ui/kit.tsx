@@ -396,7 +396,7 @@ function MoveNode({ c, onClose, onMoved }: { c: Community; onClose: () => void; 
   };
   return (
     <Modal title={`Change ${c.name}'s network address`} onClose={onClose}
-      actions={<><button onClick={onClose}>Cancel</button><button class="primary" disabled={!ok} onClick={() => { addCommunity({ ...c, node: url.trim().replace(/\/+$/, "") }); onClose(); onMoved(); }}>Use this address</button></>}>
+      actions={<><button onClick={onClose}>Cancel</button><button class="primary" disabled={!ok} onClick={() => { addCommunity({ ...c, node: url.trim().replace(/\/+$/, ""), chain: undefined }); onClose(); onMoved(); }}>Use this address</button></>}>
       <div class="stack">
         <p class="small muted">Use this when the same network is reachable at a different address. The community's contracts must answer there; rhogov checks before switching.</p>
         <label class="field">Node address
