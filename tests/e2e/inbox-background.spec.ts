@@ -24,6 +24,7 @@ async function fixture(browser: Browser, permissionAnswer: "granted" | "denied")
     w.__notifications = [];
     w.__permissionAnswer = answer;
     w.__deployRequests = 0;
+    w.__refreshIntervals = [];
 
     Object.defineProperty(document, "visibilityState", { configurable: true, get: () => w.__hidden ? "hidden" : "visible" });
 
@@ -46,10 +47,14 @@ async function fixture(browser: Browser, permissionAnswer: "granted" | "denied")
 
     const realSetInterval = window.setInterval.bind(window);
     window.setInterval = ((fn: TimerHandler, ms?: number, ...args: any[]) => {
-      if (ms === 5 * 60_000) {
+      if (args[0] === "rhogov-inbox-watch") {
         w.__backgroundIntervalMs = ms;
         w.__runBackgroundCheck = () => typeof fn === "function" && fn(...args);
-        return 300000 as unknown as number;
+        return 300001 as unknown as number;
+      }
+      if (ms === 15_000) {
+        w.__refreshIntervals.push(() => typeof fn === "function" && fn(...args));
+        return 15001 as unknown as number;
       }
       return realSetInterval(fn, ms, ...args);
     }) as typeof window.setInterval;
@@ -117,10 +122,35 @@ test("a denied permission is remembered and is not requested again", async ({ br
     await expect(page.getByRole("heading", { name: "Inbox" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Enable notifications" })).toHaveCount(0);
     expect(await page.evaluate(() => Number(localStorage.getItem("__notificationRequests") ?? 0))).toBe(1);
+
+    await page.locator('a[href="#/account"]').click();
+    await expect(page.getByRole("button", { name: "Reconsider in Inbox" })).toBeVisible();
+    await page.getByRole("button", { name: "Reconsider in Inbox" }).click();
+    await expect(page.getByRole("button", { name: "Enable notifications" })).toBeVisible();
+    expect(await page.evaluate(() => localStorage.getItem("rhogov:inbox-notifications"))).toBe("unset");
+    expect(await page.evaluate(() => Number(localStorage.getItem("__notificationRequests") ?? 0))).toBe(1);
     expect(await page.evaluate(() => (window as any).__deployRequests)).toBe(0);
   } finally { await context.close(); }
 });
 
+test("a visible tab still raises the in-app toast", async ({ browser }) => {
+  const { context, page } = await fixture(browser, "granted");
+  try {
+    await page.locator('a[href="#/"]').click();
+
+    await page.evaluate(() => {
+      const w = window as any;
+      const now = Date.now();
+      Date.now = () => now + 61_000;
+      w.__inboxCount = 1;
+      for (const run of w.__refreshIntervals) run();
+    });
+
+    await expect(page.getByText("A new message is waiting")).toBeVisible();
+    expect(await page.evaluate(() => (window as any).__notifications)).toEqual([]);
+    expect(await page.evaluate(() => (window as any).__deployRequests)).toBe(0);
+  } finally { await context.close(); }
+});
 
 test("No thanks is remembered without opening the permission prompt", async ({ browser }) => {
   const { context, page } = await fixture(browser, "granted");

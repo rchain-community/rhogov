@@ -50,6 +50,9 @@ export async function enableBackgroundNotifications(): Promise<boolean> {
 /** A local decline is durable; rhogov does not ask again on later loads. */
 export function declineBackgroundNotifications() { writeChoice("declined"); }
 
+/** Reset only rhogov's remembered choice. This never requests browser permission. */
+export function reconsiderBackgroundNotifications() { writeChoice("unset"); }
+
 let lastCheck = 0;
 let running = false;
 let watchStarted = false;
@@ -79,12 +82,16 @@ export async function checkInbox(force = false) {
     const n = Object.values(await G.inboxCounts(me)).reduce((a, b) => a + b, 0);
     waitingCount.value = n;
     const before = seen();
+    const hidden = document.visibilityState === "hidden";
+    const backgroundEnabled = hidden && backgroundNotificationsEnabled();
     if (n > before) {
-      if (document.visibilityState === "hidden") systemNotify(n);
-      else if (!location.hash.startsWith("#/inbox"))
+      if (backgroundEnabled) systemNotify(n);
+      else if (!hidden && !location.hash.startsWith("#/inbox"))
         notify(messageTitle(n), "Open Inbox to collect and read them.", "info", { label: "Open Inbox", href: "#/inbox" });
     }
-    setSeen(n); // after collecting, the count drops, so the next arrival alerts again
+    // A hidden caller must not consume the next visible alert unless the person
+    // explicitly enabled system notifications.
+    if (!hidden || backgroundEnabled) setSeen(n);
   } catch { /* a read that fails is retried on the next refresh */ } finally {
     running = false;
   }
@@ -96,7 +103,7 @@ export function startInboxWatch() {
   watchStarted = true;
   window.setInterval(() => {
     if (document.visibilityState === "hidden" && backgroundNotificationsEnabled()) void checkInbox(true);
-  }, BACKGROUND_GAP);
+  }, BACKGROUND_GAP, "rhogov-inbox-watch");
 }
 
 /** The tab title carries the count, so it shows even from another tab. */

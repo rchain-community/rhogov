@@ -11,6 +11,7 @@ import { sameName } from "../chain/gov";
 import { nameError } from "../chain/people";
 import { GUIDE } from "./help";
 import { nameProblem, syncMyName } from "./name-sync";
+import { backgroundNotificationChoice, notificationAvailable, reconsiderBackgroundNotifications } from "./inbox-watch";
 
 export function AccountScreen() {
   const [reveal, setReveal] = useState(false);
@@ -63,6 +64,13 @@ export function AccountScreen() {
           Show me the exact rholang before I sign each action</label>
         <p class="small muted">Anything that moves trust, membership, voting weight or money is shown before it is signed. Routine housekeeping — putting your name on the community's list, sending a message — signs without asking, so it can happen quietly in the background.</p>
       </div>
+      {notificationAvailable() && backgroundNotificationChoice.value === "declined" && (
+        <div class="card stack">
+          <h2>Inbox notifications</h2>
+          <p class="small muted">rhogov is remembering your earlier choice not to ask for background notifications. Reconsidering only restores the choice in Inbox; it does not open the browser permission prompt.</p>
+          <div><button onClick={() => { reconsiderBackgroundNotifications(); go("/inbox"); }}>Reconsider in Inbox</button></div>
+        </div>
+      )}
     </div>
   );
 }

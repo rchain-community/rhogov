@@ -35,7 +35,7 @@ function screenHelp(): { title: string; text: string; link: string } {
     case "councils": case "c": return { title: "Councils", text: "Decisions across stakeholder groups: estimate each group's voting power, deliberate with pros and cons, then vote.", link: section("9-councils-decisions-across-stakeholder-groups") };
     case "inbox": return { title: "Inbox", text: "Messages and invitations sent to you. Collect them to read them; they then live in this browser. Background system notifications are optional: rhogov asks only after you press Enable notifications, then a hidden tab checks about every five minutes.", link: section("8-inbox") };
     case "community": return { title: "Community", text: "The invite link to share, and switching communities. The network address and the three contract addresses are under “Where it lives”, closed by default — you only need them to wire rhogov to a quantum-os room or a node.", link: section("2-communities-and-invitations") };
-    case "account": return { title: "Account", text: "Your name, your address, your balance, and backing up your key.", link: section("10-your-account-and-your-key") };
+    case "account": return { title: "Account", text: "Your name, your address, your balance, backing up your key, and recovering a remembered decline of background Inbox notifications without prompting automatically.", link: section("10-your-account-and-your-key") };
     default: return { title: "rhogov", text: "", link: GUIDE };
   }
 }
@@ -73,6 +73,10 @@ async function tipsFor(): Promise<Tip[]> {
   if (route.value.parts[0] === "inbox" && notificationAvailable() && backgroundNotificationChoice.value === "unset") tips.push({
     text: "Want message alerts while this tab is hidden? Enable them from Inbox. Permission is requested only after you choose to enable them.",
     href: "#/inbox", label: "Inbox notifications",
+  });
+  if (route.value.parts[0] === "account" && notificationAvailable() && backgroundNotificationChoice.value === "declined") tips.push({
+    text: "Background Inbox notifications are off. You can deliberately reconsider them here; rhogov still will not request browser permission until you press Enable notifications in Inbox.",
+    href: "#/account", label: "Notification choice",
   });
   const unread = Object.values(inbox).reduce((a, b) => a + b, 0);
   if (unread) tips.push({ text: `${unread} new message${unread > 1 ? "s are" : " is"} waiting for you.`, href: "#/inbox", label: "Open Inbox" });
