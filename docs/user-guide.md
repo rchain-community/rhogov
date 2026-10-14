@@ -116,11 +116,14 @@ hand**, holding the network address and the three contract addresses. You only
 need those to wire rhogov to a quantum-os room (`/gov chain inbox|group|issue`),
 or to add a community by pasting addresses instead of opening an invite.
 
-**Step 3: join or start a community.** Open the invite link someone sent you;
-it already chooses the network and community, so you only need your name and
-key. Otherwise choose **Start a new community** (next section). To resume an
-unconfirmed install, see [section 2](#2-communities-and-invitations).
-For waiting, retry and fee messages, see [Troubleshooting](#12-troubleshooting).
+**Step 3: join or start a community.** Open the invite link someone sent you.
+If you're new, press **Get started**; the link already supplies the network and
+community, so setup asks for your name and key. If the invite points to a network
+you have not chosen before, review its address and tick **I recognise this network
+and trust whoever sent the invite** before continuing. Otherwise choose
+**Start a new community** (next section). To resume an unconfirmed install, see
+[section 2](#2-communities-and-invitations). For waiting, retry and fee messages,
+see [Troubleshooting](#12-troubleshooting).
 
 ## 4. Voting
 
