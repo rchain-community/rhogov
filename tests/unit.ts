@@ -4,6 +4,7 @@ import { readRecord, toGroup } from "../src/chain/gov";
 import { addCommunity, addressBook, learnNames, nameNotes, setActive } from "../src/state";
 import { filterPeople, looksLike, nameError, resolvePerson, suggestNames } from "../src/chain/people";
 import { revAddressOf } from "../src/chain/keys";
+import { decryptKeystore, encryptKeystore, ethAddressOf, keystoreFileName, looksLikeKeystore } from "../src/chain/keystore";
 import { decode } from "../src/chain/node";
 
 let pass = 0, fail = 0;
@@ -110,6 +111,32 @@ ok("non-argument rejected", decodeArg("hello") === null);
   const legacy = readRecord("Beta");
   ok("an older bare-string record still reads, and is not claimed as frozen", legacy.winner === "Beta" && !legacy.frozen);
   ok("a value that is neither shape reads as nothing rather than guessing", readRecord([]).winner === null && !readRecord([]).frozen);
+}
+
+// Keystore files (#86): the Web3 Secret Storage v3 test vectors, and a round trip.
+{
+  const secret = "7a28b5ba57c53603b0b07b56bba752f7784bf506fa95edc395f5cf6c7514fe9d";
+  const vector = (kdf: string, kdfparams: object, iv: string, ciphertext: string, mac: string) => ({
+    version: 3, id: "3198bc9c-6672-5ab3-d995-4942343ae5b6", address: "008aeeda4d805471df9b2a5b0f38a0c3bcba786b",
+    crypto: { cipher: "aes-128-ctr", cipherparams: { iv }, ciphertext, kdf, kdfparams, mac },
+  });
+  const pbkdf2 = vector("pbkdf2", { c: 262144, dklen: 32, prf: "hmac-sha256", salt: "ae3cd4e7013836a3df6bd7241b12db061dbe2c6785853cce422d148a624ce0bd" },
+    "6087dab2f9fdbbfaddc31a909735c1e6", "5318b4d5bcd28de64ee5559e671353e16f075ecae9f99c7a79a38af5f869aa46", "517ead924a9d0dc3124507e3393d175ce3ff7c1e96529c6c555ce9e51205e9b2");
+  const scrypt = vector("scrypt", { dklen: 32, n: 262144, p: 8, r: 1, salt: "ab0c7876052600dd703518d6fc3fe8984592145b591fc8fb5c6d43190334ba19" },
+    "83dbcc02d8ccb40e466191a123791e0e", "d172bf743a674da9cdad04534d56926ef8358534d458fffccd4e6ad2fbde479c", "2103ac29920d71da29f15d75b4a16dbe95cfd7ff8faea1056c33131d846e3097");
+  const fails = async (f: () => Promise<unknown>, re: RegExp) => f().then(() => false, (e) => re.test(String(e?.message)));
+  ok("eth address of the vector key", ethAddressOf(secret) === "008aeeda4d805471df9b2a5b0f38a0c3bcba786b");
+  ok("keystore: pbkdf2 test vector opens", (await decryptKeystore(pbkdf2, "testpassword")) === secret);
+  ok("keystore: scrypt test vector opens", (await decryptKeystore(JSON.stringify(scrypt), "testpassword")) === secret);
+  ok("keystore: a wrong password says so", await fails(() => decryptKeystore(pbkdf2, "nope"), /Wrong password/));
+  ok("keystore: a file whose address isn't its key's is refused", await fails(() => decryptKeystore({ ...pbkdf2, address: "00".repeat(20) }, "testpassword"), /doesn't match/));
+  ok("keystore: not JSON says so", await fails(() => decryptKeystore("0b60b3ff", "x"), /isn't JSON/));
+  const alice = "0b60b3ffcc43a607e037c3da3c1ed366261d742288abdf92d53cf80b9e3cf98f";
+  const ks = await encryptKeystore(alice, "correct horse", { n: 1024, r: 8, p: 1 });
+  ok("keystore: round trip", (await decryptKeystore(JSON.stringify(ks), "correct horse")) === alice);
+  ok("keystore: written as v3 scrypt aes-128-ctr", ks.version === 3 && ks.crypto.kdf === "scrypt" && ks.crypto.cipher === "aes-128-ctr" && !JSON.stringify(ks).includes(alice));
+  ok("keystore: recognised, a hex key isn't", looksLikeKeystore(JSON.stringify(ks)) && !looksLikeKeystore(alice));
+  ok("keystore: geth file name", keystoreFileName(ks, new Date("2026-10-14T09:53:52Z")) === `UTC--2026-10-14T09-53-52.000Z--${ks.address}.json`);
 }
 
 console.log(`unit: ${pass}/${pass + fail} passed`);

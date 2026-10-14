@@ -4,6 +4,7 @@ import { signal } from "@preact/signals";
 import { useEffect, useState } from "preact/hooks";
 import { Gov } from "../chain/gov";
 import { generateKey, isValidKey, revAddressOf } from "../chain/keys";
+import { decryptKeystore, looksLikeKeystore } from "../chain/keystore";
 import { nameError } from "../chain/people";
 import { RNode, StillUnknown, type NodeStatus } from "../chain/node";
 import {
@@ -79,6 +80,19 @@ export function IdentityForm({ onDone }: { onDone?: () => void }) {
   const [name, setName] = useState(displayName.value);
   const [imp, setImp] = useState("");
   const [fresh] = useState(generateKey);
+  // A keystore file (chosen, or its JSON pasted) opens with its password into `imp`.
+  const [store, setStore] = useState<string | null>(null);
+  const [pw, setPw] = useState("");
+  const [opening, setOpening] = useState(false);
+  const [storeErr, setStoreErr] = useState("");
+  const pick = async (f: File | undefined) => { if (f) { setStore(await f.text()); setImp(""); setStoreErr(""); } };
+  const unlock = async () => {
+    if (!store || opening) return;
+    setOpening(true); setStoreErr("");
+    try { setImp(await decryptKeystore(store, pw)); setStore(null); setPw(""); }
+    catch (e) { setStoreErr(String((e as Error)?.message ?? e)); }
+    setOpening(false);
+  };
   // An existing key brings its own name: look it up as soon as the key is valid.
   const [found, setFound] = useState<{ key: string; name: string | null } | null>(null);
   const impKey = imp.trim().replace(/^0x/, "");
@@ -118,13 +132,29 @@ export function IdentityForm({ onDone }: { onDone?: () => void }) {
           A new key was made in this browser. Your address will be <span class="mono">{short(revAddressOf(fresh))}</span>.
           It never leaves this device; you can back it up from <b>Account</b> afterwards.
         </div>
+      ) : store ? (
+        <div class="stack">
+          <label class="field">Keystore password
+            <span class="hint">The password this keystore file was saved with. It's checked here, in this browser.</span>
+            <input type="password" autocomplete="current-password" value={pw} onInput={(e) => setPw((e.target as HTMLInputElement).value)} onKeyDown={(e) => e.key === "Enter" && unlock()} />
+          </label>
+          {storeErr && <span class="badge danger">{storeErr}</span>}
+          <div class="row"><button disabled={!pw || opening} onClick={unlock}>{opening ? "Opening…" : "Open keystore"}</button>
+            <button class="ghost small" onClick={() => { setStore(null); setPw(""); setStoreErr(""); }}>Use a different key</button></div>
+        </div>
       ) : (
-        <label class="field">Private key (64 hex characters)
-          <span class="hint">From r-wallet, quantum-os <span class="mono">/rholang key show</span>, or another rhogov browser.</span>
-          <input class="mono" value={imp} onInput={(e) => setImp((e.target as HTMLInputElement).value)} placeholder="0b60b3ff…" autocomplete="off" />
-          {imp && !isValidKey(impKey) && <span class="badge danger">That isn't a valid secp256k1 key</span>}
-          {isValidKey(impKey) && <span class="muted small">Address: <span class="mono">{revAddressOf(impKey)}</span></span>}
-        </label>
+        <div class="stack">
+          <label class="field">Private key (64 hex characters)
+            <span class="hint">From r-wallet, quantum-os <span class="mono">/rholang key show</span>, or another rhogov browser.</span>
+            <input class="mono" value={imp} onInput={(e) => { const v = (e.target as HTMLInputElement).value; if (looksLikeKeystore(v)) { setStore(v); setImp(""); } else setImp(v); }} placeholder="0b60b3ff…" autocomplete="off" />
+            {imp && !isValidKey(impKey) && <span class="badge danger">That isn't a valid secp256k1 key</span>}
+            {isValidKey(impKey) && <span class="muted small">Address: <span class="mono">{revAddressOf(impKey)}</span></span>}
+          </label>
+          <label class="field">Or a keystore file
+            <span class="hint">A password-protected <span class="mono">UTC--….json</span> file, saved from rhogov's Account page, geth or MetaMask.</span>
+            <input type="file" accept=".json,application/json" onChange={(e) => pick((e.target as HTMLInputElement).files?.[0])} />
+          </label>
+        </div>
       )}
       <div><button class="primary" disabled={!valid || looking || !!bad} onClick={save}>{looking ? "Looking up this key…" : "Continue"}</button></div>
     </div>

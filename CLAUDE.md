@@ -69,6 +69,7 @@ rchain-rust's `rho:gov:*` natives.
 src/chain/  node.ts (rnode HTTP: status/explore/deploy/outcome/balance/faucet, RhoExpr decode,
                      InsufficientFunds pre-check)
             keys.ts (identity, REV address, deploy signing)
+            keystore.ts (the key as a Web3 Secret Storage v3 file: scrypt + aes-128-ctr)
             gov.ts (typed Gov API over rgov-core + the native standing query; batch(); names)
             council.ts (multi-stakeholder conventions, median power, combination, approvals)
             people.ts (resolvePerson: name or address → person)

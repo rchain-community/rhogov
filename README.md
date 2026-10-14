@@ -30,7 +30,9 @@ network peer is the **rnode HTTP API** you point it at, which answers CORS with 
 no backend, no relay, no database and no account:
 
 - your **key** is generated in, and never leaves, the browser; it signs deploys locally
-  (secp256k1 over blake2b256 of `DeployDataProto`, as rnode verifies);
+  (secp256k1 over blake2b256 of `DeployDataProto`, as rnode verifies). You can save it as
+  a password-protected keystore file (Web3 Secret Storage v3, which geth and MetaMask
+  read) and bring it back from one;
 - **reads** are `explore-deploy` against the newest block; **writes** are signed deploys whose
   answers come back through `deploy-status`;
 - an **invite link** carries only the node URL and the three contract addresses.
