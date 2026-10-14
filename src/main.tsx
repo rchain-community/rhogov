@@ -3,7 +3,7 @@ import { useEffect } from "preact/hooks";
 import { syncMyName } from "./ui/name-sync";
 import { Help } from "./ui/help";
 import { UpdateBanner, watchForUpdates } from "./ui/update";
-import { checkInbox, titleWithCount, waitingCount } from "./ui/inbox-watch";
+import { checkInbox, startInboxWatch, titleWithCount, waitingCount } from "./ui/inbox-watch";
 import "./styles.css";
 import { active, chainChecked, chainReset, checkChain, currentNode, displayName, myAddr, refreshTick } from "./state";
 import { AccountScreen, CommunityScreen, JoinScreen } from "./ui/settings";
@@ -76,3 +76,4 @@ function App() {
 
 render(<App />, document.getElementById("app")!);
 watchForUpdates();
+startInboxWatch();

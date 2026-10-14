@@ -1,9 +1,9 @@
 // inbox-watch.ts — tell people when a message arrives, wherever they are in the app.
 //
 // Message COUNTS are public (bodies are not), so checking costs one free read,
-// no signature. It runs with the app's 15 s refresh, at most once a minute, and
-// alerts only when the count goes UP past what this browser last told you about,
-// so a waiting message is announced once, not every minute.
+// no signature. Visible pages share the app's refresh loop and check at most once
+// a minute. A person can explicitly opt in to a slower hidden-tab check, which
+// raises a system notification when the waiting count increases.
 import { signal } from "@preact/signals";
 import { active, gov, myAddr } from "../state";
 import { notify } from "./kit";
@@ -12,12 +12,66 @@ import { notify } from "./kit";
 export const waitingCount = signal<number | null>(null);
 
 const MIN_GAP = 60_000;
+const BACKGROUND_GAP = 5 * 60_000;
+const NOTIFICATION_CHOICE = "rhogov:inbox-notifications";
+export type InboxNotificationChoice = "unset" | "enabled" | "declined";
+
+const readChoice = (): InboxNotificationChoice => {
+  if (typeof localStorage === "undefined") return "unset";
+  try {
+    const v = localStorage.getItem(NOTIFICATION_CHOICE);
+    return v === "enabled" || v === "declined" ? v : "unset";
+  } catch { return "unset"; }
+};
+const writeChoice = (v: InboxNotificationChoice) => {
+  backgroundNotificationChoice.value = v;
+  try { localStorage.setItem(NOTIFICATION_CHOICE, v); } catch { /* storage refused */ }
+};
+
+/** The person's explicit choice. `unset` never triggers a browser permission prompt. */
+export const backgroundNotificationChoice = signal<InboxNotificationChoice>(readChoice());
+export const notificationAvailable = () => typeof window !== "undefined" && "Notification" in window;
+export const backgroundNotificationsEnabled = () =>
+  backgroundNotificationChoice.value === "enabled" && notificationAvailable() && Notification.permission === "granted";
+
+/** Called only from the Inbox button, so permission is never requested on first load. */
+export async function enableBackgroundNotifications(): Promise<boolean> {
+  if (!notificationAvailable()) return false;
+  let permission = Notification.permission;
+  if (permission === "default") {
+    try { permission = await Notification.requestPermission(); }
+    catch { permission = "denied"; }
+  }
+  const enabled = permission === "granted";
+  writeChoice(enabled ? "enabled" : "declined");
+  return enabled;
+}
+
+/** A local decline is durable; rhogov does not ask again on later loads. */
+export function declineBackgroundNotifications() { writeChoice("declined"); }
+
+/** Reset only rhogov's remembered choice. This never requests browser permission. */
+export function reconsiderBackgroundNotifications() { writeChoice("unset"); }
+
 let lastCheck = 0;
 let running = false;
+let watchStarted = false;
 
 const seenKey = () => `rhogov:inbox-seen:${active.value?.inbox}:${myAddr.value}`;
 const seen = () => { try { return Number(localStorage.getItem(seenKey()) ?? 0) || 0; } catch { return 0; } };
 const setSeen = (n: number) => { try { localStorage.setItem(seenKey(), String(n)); } catch { /* storage refused */ } };
+const messageTitle = (n: number) => n === 1 ? "A new message is waiting" : `${n} new messages are waiting`;
+
+function systemNotify(n: number) {
+  if (!backgroundNotificationsEnabled()) return;
+  try {
+    const note = new Notification(messageTitle(n), {
+      body: "Open rhogov to collect and read them.",
+      tag: `rhogov-inbox:${active.value?.inbox}:${myAddr.value}`,
+    });
+    note.onclick = () => { window.focus(); location.hash = "#/inbox"; note.close(); };
+  } catch { /* browser notification failed; the count still remains in the app */ }
+}
 
 export async function checkInbox(force = false) {
   const G = gov.value, me = myAddr.value;
@@ -28,13 +82,28 @@ export async function checkInbox(force = false) {
     const n = Object.values(await G.inboxCounts(me)).reduce((a, b) => a + b, 0);
     waitingCount.value = n;
     const before = seen();
-    if (n > before && !location.hash.startsWith("#/inbox")) {
-      notify(n === 1 ? "A new message is waiting" : `${n} new messages are waiting`, "Open Inbox to collect and read them.", "info", { label: "Open Inbox", href: "#/inbox" });
+    const hidden = document.visibilityState === "hidden";
+    const backgroundEnabled = hidden && backgroundNotificationsEnabled();
+    if (n > before) {
+      if (backgroundEnabled) systemNotify(n);
+      else if (!hidden && !location.hash.startsWith("#/inbox"))
+        notify(messageTitle(n), "Open Inbox to collect and read them.", "info", { label: "Open Inbox", href: "#/inbox" });
     }
-    setSeen(n); // after collecting, the count drops, so the next arrival alerts again
+    // A hidden caller must not consume the next visible alert unless the person
+    // explicitly enabled system notifications.
+    if (!hidden || backgroundEnabled) setSeen(n);
   } catch { /* a read that fails is retried on the next refresh */ } finally {
     running = false;
   }
+}
+
+/** Start one slower poll for an opted-in hidden tab. */
+export function startInboxWatch() {
+  if (typeof window === "undefined" || watchStarted) return;
+  watchStarted = true;
+  window.setInterval(() => {
+    if (document.visibilityState === "hidden" && backgroundNotificationsEnabled()) void checkInbox(true);
+  }, BACKGROUND_GAP, "rhogov-inbox-watch");
 }
 
 /** The tab title carries the count, so it shows even from another tab. */

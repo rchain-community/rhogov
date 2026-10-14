@@ -260,8 +260,18 @@ and send.
 - Invitations to groups arrive here too, with a button to open the group.
 - **You're told when something arrives**, wherever you are in the app: an alert
   with an **Open Inbox** link, a count next to **Inbox**, and the count in the
-  browser tab's title, e.g. "(2) rhogov". The app checks about once a minute
-  while its page is open (checking is a free read, nothing is signed).
+  browser tab's title, e.g. "(2) rhogov". While the tab is visible, the app checks
+  about once a minute (checking is a free read, nothing is signed).
+- **Background system notifications are optional.** Inbox offers **Enable
+  notifications**; only pressing that button can open the browser's one-time
+  permission prompt. rhogov never asks on first load. If enabled, a hidden tab
+  checks about every five minutes and raises a system notification when the waiting
+  count increases. Choosing **No thanks**, dismissing the permission prompt, or
+  denying it is remembered and rhogov does not ask again on later loads. To change
+  that remembered choice, open **Account → Inbox notifications → Reconsider in
+  Inbox**. Reconsidering does not itself request permission; the browser prompt can
+  still open only after you press **Enable notifications**. If the browser has
+  blocked notifications for the site, change that permission in the browser first.
 - **Old messages live in the browser that collected them.** Collecting removes
   them from the chain, so another browser or device with the same key won't see
   them, and clearing this browser's site data deletes them.
@@ -395,6 +405,9 @@ On **Account** you can:
   the browser; rhogov can't recover a forgotten one. A **plain-text backup** is
   there too, but it isn't encrypted. You can also show the key to paste it
   elsewhere;
+- reconsider a remembered **No thanks** for background Inbox notifications. The
+  Account button only restores the choice in Inbox and never opens the browser
+  permission prompt by itself;
 - turn on **Show me the exact rholang before I sign each action**, to see precisely
   what you're signing. Anything that moves trust, membership, voting weight or money
   is shown and waits for you. Routine housekeeping — putting your name on the
