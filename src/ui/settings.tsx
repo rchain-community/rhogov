@@ -2,7 +2,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { generateKey } from "../chain/keys";
 import {
-  NETWORKS, active, addCommunity, communities, communityKey, displayName, inviteLink, myAddr, parseInvite, removeCommunity,
+  NETWORKS, active, addCommunity, communities, communityKey, displayName, earlier, ownKeyHere, usable, inviteLink, myAddr, parseInvite, removeCommunity,
   reviewBeforeSign, secretKey, setActive, setDisplayName, setKey, setReview,
 } from "../state";
 import { Copy, Modal, go, short } from "./kit";
@@ -46,6 +46,9 @@ export function AccountScreen() {
       <div class="card stack">
         <h2>Your key</h2>
         <p class="muted small">Your private key is stored only in this browser. It signs every action you take. If you clear site data without a backup, it's gone — and so is this identity.</p>
+        {ownKeyHere.value
+          ? <div class="callout small row between wrap"><span>This network uses a key of its own; your other networks use your main key.</span><button class="small" onClick={() => { if (confirm("Stop using this network's own key, and use your main key here? Back this one up first if it holds anything.")) setKey(null); }}>Use my main key here</button></div>
+          : <p class="muted small">The same key is your identity on every network, and stays yours if a network is restarted.</p>}
         <p class="muted small"><b>Save keystore file</b> encrypts the key with a password you choose, as the standard JSON keystore file (Web3 Secret Storage v3) that geth, MetaMask and other wallets read; rhogov reads it back under <b>I have a key</b>. The <b>plain-text backup</b> is not encrypted.</p>
         <div class="row">
           <button onClick={() => setSaving(true)}>Save keystore file</button>
@@ -127,16 +130,28 @@ export function CommunityScreen() {
           <div><button class="small" onClick={() => setPaste(true)}>Enter contract addresses by hand</button></div>
         </div>
       </details>
-      {communities.value.length > 1 && (
+      {usable.value.length > 1 && (
         <div class="card stack">
           <h2>Switch community</h2>
-          {communities.value.map((x) => (
+          {usable.value.map((x) => (
             <div class="row between">
               <span><b>{x.name}</b> <span class="muted small mono">{short(x.group)}</span></span>
               <div class="row">
                 {communityKey(x) === communityKey(c) ? <span class="badge accent">current</span> : <button class="small" onClick={() => { setActive(communityKey(x)); go("/"); }}>Switch</button>}
                 <button class="small ghost danger" onClick={() => confirm(`Forget ${x.name} in this browser? Nothing on chain changes.`) && removeCommunity(x)}>Forget</button>
               </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {earlier.value.length > 0 && (
+        <div class="card stack">
+          <h2 id="earlier">Earlier chains</h2>
+          <p class="muted small">Communities from a chain their network no longer runs: it was restarted from a new genesis, so their groups, votes, trust and decisions are gone from it. This browser still holds what it kept from them, including messages you collected, but they can't be opened on the new chain.</p>
+          {earlier.value.map((x) => (
+            <div class="row between">
+              <span><b>{x.name}</b> <span class="muted small mono">{x.node}</span></span>
+              <button class="small ghost danger" onClick={() => confirm(`Forget ${x.name} in this browser? Its chain is gone, so it can't come back.`) && removeCommunity(x)}>Forget</button>
             </div>
           ))}
         </div>

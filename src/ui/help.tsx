@@ -5,11 +5,11 @@ import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { isAuxIssue, isCouncilId } from "../chain/council";
 import { RNode } from "../chain/node";
-import { active, communities, displayName, gov, listedName, myAddr, publishedName, reviewBeforeSign, secretKey } from "../state";
+import { active, chainReset, communities, displayName, gov, listedName, myAddr, publishedName, reviewBeforeSign, secretKey } from "../state";
 import { Modal, nameOf, recentErrors, route } from "./kit";
 import { nameProblem } from "./name-sync";
 import { newVersion } from "./update";
-import { setupNode } from "./setup";
+import { readPendingInstall, setupNode } from "./setup";
 
 const REPO = "https://github.com/rchain-community/rhogov";
 export const GUIDE = `${REPO}/blob/main/docs/user-guide.md`;
@@ -23,6 +23,8 @@ const section = (n: string) => `${GUIDE}#${n}`;
 /** The screen you're on: what it's for, and the guide section that explains it. */
 function screenHelp(): { title: string; text: string; link: string } {
   const [head, , tab] = route.value.parts;
+  if (chainReset.value && head !== "join")
+    return { title: "A reset network", text: "The network was restarted from a new genesis, so everything on its old chain is gone. Your key is in this browser: keep it and you keep your address and name, or use a new key on this network only. Then join or start a community again; the old ones stay under Community → Earlier chains.", link: section("more-than-one-network-and-a-network-that-is-reset") };
   if (head === "welcome" || !myAddr.value || !active.value)
     return { title: "Getting started", text: "Three steps: choose a network, create (or bring) your key, then join a community with an invite link or start your own. If a button is greyed out, the screen says why — a name is missing, there is no key yet, or the fee is not covered.", link: section("1-getting-started") };
   switch (head) {
@@ -34,7 +36,7 @@ function screenHelp(): { title: string; text: string; link: string } {
     case "v": return { title: "A vote", text: "Choose one or more options (or rank them) and press Vote. You can change your vote while it's open. The node counts it, with trust and delegation.", link: section("4-voting") };
     case "councils": case "c": return { title: "Councils", text: "Decisions across stakeholder groups: estimate each group's voting power, deliberate with pros and cons, then vote.", link: section("9-councils-decisions-across-stakeholder-groups") };
     case "inbox": return { title: "Inbox", text: "Messages and invitations sent to you. Collect them to read them; they then live in this browser.", link: section("8-inbox") };
-    case "community": return { title: "Community", text: "The invite link to share, and switching communities. The network address and the three contract addresses are under “Where it lives”, closed by default — you only need them to wire rhogov to a quantum-os room or a node.", link: section("2-communities-and-invitations") };
+    case "community": return { title: "Community", text: "The invite link to share, switching communities, and communities kept from a network's earlier chain. The network address and the three contract addresses are under “Where it lives”, closed by default — you only need them to wire rhogov to a quantum-os room or a node.", link: section("2-communities-and-invitations") };
     case "account": return { title: "Account", text: "Your name, your address, your balance, and saving your key as a password-protected keystore file.", link: section("10-your-account-and-your-key") };
     default: return { title: "rhogov", text: "", link: GUIDE };
   }
@@ -53,7 +55,7 @@ async function tipsFor(): Promise<Tip[]> {
   // The install form scopes its reminder to the chosen network and identity.
   const nodeUrl = route.value.parts[0] === "welcome" || !c ? setupNode.value : c.node;
   try {
-    const pending = JSON.parse(localStorage.getItem(`rhogov:pending-install:${nodeUrl}:${me}`) ?? "null");
+    const pending = readPendingInstall(nodeUrl, me) as { name?: unknown; sig?: unknown } | null;
     if (typeof pending?.name === "string" && pending.name.trim() && typeof pending?.sig === "string" && pending.sig) tips.push({
       text: <>You started “{pending.name}” and it hasn't confirmed yet. On the same network, choose Start a new community → Look for “{pending.name}”; don't install again while its outcome is unknown.</>,
       href: "#/welcome", label: "Continue setup",

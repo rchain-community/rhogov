@@ -388,6 +388,35 @@ On **Account** you can:
 Your key **is** you. Anyone who has it can act as you, so keep backups private
 and offline. If it's lost, that identity can't be recovered.
 
+### More than one network, and a network that is reset
+
+The same key is your identity on every network you use: the playground, the
+testnet, a node of your own. What this browser remembers is kept **per chain**
+(a network's address plus its first, *genesis*, block): your communities, your
+name there, and the messages you collected. Moving between networks loses
+nothing.
+
+A test network can be **restarted from a new genesis**. Everything on the old
+chain is gone: every community, group, vote, delegation, trust rating, censure,
+decision, uncollected message, name claim and REV balance. rhogov notices (when
+the page opens, and about once a minute while it's open) and says so, and offers:
+
+- **Keep my identity**: the same key, so the same address, and your name, which
+  goes on a community's list again once you join or start one and have a little
+  REV (get test REV first);
+- **Use a new key on this network**: a new key, or one from a keystore file, used
+  on that network only. **Account** then says so, with **Use my main key here** to
+  go back.
+
+The old chain's communities stay listed under **Community → Earlier chains**,
+where you can forget them. They can't be opened, because their contracts are gone.
+
+rhogov can only notice a reset if this browser has seen the network's earlier
+chain. If it last used the network before rhogov learned to tell chains apart,
+a reset looks just like a wrong address: the community shows **"Couldn't read
+the chain for …"**, and **Forget** it keeps your key, so your identity carries
+over all the same.
+
 ## 11. What is public, and what it costs
 
 **Public, by design, and visible to anyone:**
@@ -423,7 +452,7 @@ chose; there's no rhogov server, database or account.
 
 | What you see | What to do |
 |---|---|
-| **"Couldn't read the chain for …"** | The card says which community and network. If the network **isn't answering**, press **Retry**, or **Change network address** if it moved (rhogov checks the community's contracts answer at the new address before switching). If the network answers but the **contracts don't** (a test network that was reset loses everything), **Forget** it or **Join or start another community**. Your other communities are one click away on the same card. |
+| **"Couldn't read the chain for …"** | The card says which community and network. If the network **isn't answering**, press **Retry**, or **Change network address** if it moved (rhogov checks the community's contracts answer at the new address before switching). If the network answers but the **contracts don't** (a test network that was reset loses everything), **Forget** it or **Join or start another community**. When the network was restarted from a new genesis, rhogov usually says so first: see [More than one network, and a network that is reset](#more-than-one-network-and-a-network-that-is-reset). Your other communities are one click away on the same card. |
 | **"This invite link is damaged"** | Part of the link was lost, usually cut off or wrapped when pasted. Ask for a fresh link sent as one unbroken line. The page also lets you enter the community's contract addresses by hand, or start your own. |
 | **"Can't reach it"** when choosing a network | Check the address. A local node needs `--api-host`. A page opened over `https://` can only reach `http://` nodes on your own computer. |
 | **"Waiting for a block…"** for a long time | A card in the middle of the screen shows each action in progress, with how long it has waited; you can keep using the app meanwhile. The network is busy or idle. It usually finishes within a minute; rhogov keeps checking for up to 15. **Don't repeat the action while it waits**: it could happen twice (pressing the same button again just points you at the card). |
@@ -438,6 +467,7 @@ chose; there's no rhogov server, database or account.
 | **"No name yet"** | That person hasn't set a name, or hasn't had the REV for the one small deploy it takes; their name appears once they do. Every person's address is one click away with the ⧉ copy button beside their name. |
 | **"Jim (unclaimed)"** or **"Jim (2)"** | Someone else claimed that name in this community. *(unclaimed)* marks a name only typed when joining a group; *(2)* marks a second claim made at the same moment. |
 | **"“Name” is taken"** | Someone else in this community already uses that name. Choose another on **Account**. |
+| **"This network was reset"** | The network now runs a new chain, and nothing from before is on it. Choose **Keep my identity** (or a new key for that network), then join or start a community again. See [More than one network, and a network that is reset](#more-than-one-network-and-a-network-that-is-reset). |
 | **"A new version of rhogov is available"** | A newer rhogov was published while your page was open. Press **Reload** (nothing you've done is lost), or **Later**. The version you're running is shown at the bottom of the menu. |
 | **Something looks out of date** | rhogov re-reads every 15 seconds; your own actions show up straight away. Reloading the page also works. |
 

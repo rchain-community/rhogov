@@ -1,6 +1,10 @@
 // unit.ts — offline checks (no node): decoding, keys, council arithmetic.
 import { approvalShare, approvals, chamberPower, combine, decodeArg, encodeArg, estimateBallot, parseEstimate } from "../src/chain/council";
 import { readRecord, toGroup } from "../src/chain/gov";
+import {
+  active, chainIdOf, chainReset, displayName, earlier, fromEarlierChain, knownGenesis, liveGenesis, myAddr, ownKeyHere,
+  setDisplayName, setKey, setSetupNode, UNKNOWN_CHAIN, usable,
+} from "../src/state";
 import { addCommunity, addressBook, learnListed, learnNames, nameNotes, setActive } from "../src/state";
 import { filterPeople, looksLike, nameError, resolvePerson, suggestNames } from "../src/chain/people";
 import { revAddressOf } from "../src/chain/keys";
@@ -174,6 +178,47 @@ ok("non-argument rejected", decodeArg("hello") === null);
   ok("keystore: written as v3 scrypt aes-128-ctr", ks.version === 3 && ks.crypto.kdf === "scrypt" && ks.crypto.cipher === "aes-128-ctr" && !JSON.stringify(ks).includes(alice));
   ok("keystore: recognised, a hex key isn't", looksLikeKeystore(JSON.stringify(ks)) && !looksLikeKeystore(alice));
   ok("keystore: geth file name", keystoreFileName(ks, new Date("2026-10-14T09:53:52Z")) === `UTC--2026-10-14T09-53-52.000Z--${ks.address}.json`);
+}
+
+// Per-chain state (#89): a chain is a node URL plus its genesis hash.
+{
+  const A = "aa".repeat(32), B = "bb".repeat(32);
+  const node = "http://pg.example:40403";
+  const k1 = "0b60b3ffcc43a607e037c3da3c1ed366261d742288abdf92d53cf80b9e3cf98f", k2 = "11".repeat(32);
+  setSetupNode(node + "/");
+  knownGenesis.value = { [node]: A }; liveGenesis.value = { [node]: A };
+  ok("chain id: URL without trailing slash, plus genesis", chainIdOf(node + "/") === `${node}#${A}`);
+  ok("no reset while the node serves the known chain", chainReset.value === null);
+  const old = { name: "Old", node, chain: A, inbox: "rho:id:i", group: "rho:id:gold", issue: "rho:id:s" };
+  const pre = { name: "Pre89", node, inbox: "rho:id:i2", group: "rho:id:gpre", issue: "rho:id:s2" };
+  addCommunity(old); addCommunity(pre);
+  ok("a community on the known chain is usable", !fromEarlierChain(old) && active.value?.group === "rho:id:gpre");
+  setKey(k1, "Ada");
+  const addr = myAddr.value;
+  ok("main key and name", !!addr && displayName.value === "Ada" && !ownKeyHere.value);
+
+  liveGenesis.value = { [node]: B };
+  ok("a new genesis at the same URL is a reset", chainReset.value?.was === A && chainReset.value?.now === B, chainReset.value);
+  ok("the old chain's community stays usable until the reset is accepted", !fromEarlierChain(old));
+  ok("identity carries over to the reset chain", myAddr.value === addr && displayName.value === "Ada");
+  knownGenesis.value = { [node]: B };
+  ok("after accepting, the old community is from an earlier chain", fromEarlierChain(old) && earlier.value.some((c) => c.group === "rho:id:gold") && !usable.value.some((c) => c.group === "rho:id:gold"));
+  ok("a community marked unknown is earlier too", fromEarlierChain({ ...pre, chain: UNKNOWN_CHAIN }));
+
+  ok("a community added while the node serves a chain is stamped with it", earlier.value.some((c) => c.group === "rho:id:gpre"));
+  addCommunity({ name: "New", node, inbox: "rho:id:i3", group: "rho:id:gnew", issue: "rho:id:s3" });
+  ok("a community on the new chain is usable and active", active.value?.group === "rho:id:gnew" && !fromEarlierChain(active.value!));
+  setKey(k2, "Bea", { here: true });
+  ok("a key of this chain's own, with its own name", ownKeyHere.value && myAddr.value !== addr && displayName.value === "Bea");
+  liveGenesis.value = { [node]: A }; knownGenesis.value = { [node]: A };
+  addCommunity(old);
+  ok("the other chain keeps the main key and name", myAddr.value === addr && displayName.value === "Ada" && !ownKeyHere.value);
+  setDisplayName("Ada2");
+  liveGenesis.value = { [node]: B }; knownGenesis.value = { [node]: B };
+  addCommunity({ name: "New", node, chain: B, inbox: "rho:id:i3", group: "rho:id:gnew", issue: "rho:id:s3" });
+  ok("renaming on one chain doesn't rename a chain with its own key", displayName.value === "Bea");
+  setKey(null);
+  ok("removing a chain's own key goes back to the main key and name", !ownKeyHere.value && myAddr.value === addr && displayName.value === "Ada2");
 }
 
 console.log(`unit: ${pass}/${pass + fail} passed`);

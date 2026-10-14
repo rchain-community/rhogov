@@ -20,6 +20,10 @@ const LS = {
   reviewBeforeSign: "rhogov:review",
   inbox: (addr: string, c: string) => `rhogov:inbox:${c}:${addr}`,
   dismissed: "rhogov:dismissed",
+  setupNode: "rhogov:setupNode",
+  genesis: "rhogov:genesis",
+  chainNames: "rhogov:chain-names",
+  chainKeys: "rhogov:chain-keys",
 };
 
 const load = <T,>(k: string, d: T): T => {
@@ -36,22 +40,160 @@ export const NETWORKS = [
   { id: "local", label: "Local dev node", url: "http://127.0.0.1:40403", note: "A node on this computer (quantum-os scripts/localnet/run-node.sh, or rnode run -s)." },
 ];
 
-// --- identity ----------------------------------------------------------------
+// --- chains ------------------------------------------------------------------
+// One browser can use several chains: the playground, the testnet, a local node.
+// And a chain can be replaced at the same URL, by a new genesis. So what this
+// browser keeps is kept per chain, a chain being a node URL plus the hash of
+// its genesis block (#89). A reset never overwrites the earlier chain's state:
+// its communities stay listed (as from an earlier chain), and its name and key
+// stay under its own id.
 
-export const secretKey = signal<string | null>(load<string | null>(LS.key, null));
-export const displayName = signal<string>(load(LS.name, ""));
+export const nodeBase = (u: string) => u.trim().replace(/\/+$/, "");
+
+/** The network the welcome steps are set to, before (or besides) any community. */
+export const setupNode = signal<string>((() => { try { return localStorage.getItem(LS.setupNode) ?? NETWORKS[0].url; } catch { return NETWORKS[0].url; } })());
+export const setSetupNode = (u: string) => { setupNode.value = u; try { localStorage.setItem(LS.setupNode, u); } catch { /* storage refused */ } };
+
+/** The genesis each node served when this browser last accepted it: node → hash. */
+export const knownGenesis = signal<Record<string, string>>(load(LS.genesis, {}));
+/** The genesis each node serves now, as read during this visit. */
+export const liveGenesis = signal<Record<string, string>>({});
+
+/** The chain a node serves: its URL and genesis hash (empty until first read). */
+export function chainIdOf(node: string): string {
+  const n = nodeBase(node);
+  return `${n}#${liveGenesis.value[n] ?? knownGenesis.value[n] ?? ""}`;
+}
+
+/** The node in use: the active community's, or the one setup is pointed at. */
+export const currentNode = computed(() => active.value?.node ?? setupNode.value);
+export const currentChain = computed(() => chainIdOf(currentNode.value));
+
+/**
+ * The current node now serves a different chain than the one this browser
+ * knew there: it was restarted from a new genesis. Null when it hasn't.
+ */
+export const chainReset = computed<{ node: string; was: string; now: string } | null>(() => {
+  const n = nodeBase(currentNode.value), was = knownGenesis.value[n], now = liveGenesis.value[n];
+  return was && now && was !== now ? { node: n, was, now } : null;
+});
+
+/** A community from a chain its node no longer serves (or whose contracts were never found there). */
+export function fromEarlierChain(c: Community): boolean {
+  const g = knownGenesis.value[nodeBase(c.node)];
+  return c.chain === UNKNOWN_CHAIN || (!!c.chain && !!g && c.chain !== g);
+}
+/** Stamped, at a reset, on a community remembered without a chain whose contracts the new chain lacks. */
+export const UNKNOWN_CHAIN = "earlier";
+
+const setKnown = (n: string, h: string) => { knownGenesis.value = { ...knownGenesis.value, [n]: h }; save(LS.genesis, knownGenesis.value); };
+
+/**
+ * Read which chain a node serves now. The first time a node is seen, its chain
+ * is simply accepted. A different genesis from the one accepted before is a
+ * reset: chainReset says so, and nothing is changed until acceptChain.
+ */
+export async function checkChain(node: string): Promise<void> {
+  const n = nodeBase(node);
+  const h = await new RNode(n).genesis().catch(() => null);
+  try { if (h) await learnChain(n, h); }
+  finally { if (!checked.value.includes(n)) checked.value = [...checked.value, n]; }
+}
+
+async function learnChain(n: string, h: string) {
+  if (liveGenesis.value[n] !== h) liveGenesis.value = { ...liveGenesis.value, [n]: h };
+  // First sight of this node's chain: accept it. A community remembered there
+  // from before (#89) that doesn't answer may be from a chain that was replaced,
+  // or may never have been there; which, nothing says. It isn't called a reset:
+  // its "couldn't read the chain" card offers to forget it.
+  if (!knownGenesis.value[n]) setKnown(n, h);
+  if (knownGenesis.value[n] === h) await stampCommunities(n, h, false);
+}
+
+/** Nodes whose chain has been read (or tried) during this visit. */
+const checked = signal<string[]>([]);
+/**
+ * The current node's chain has been read, so a reset would be known. Background
+ * writes (your name going on a community's list) wait for it: before, the
+ * active community may be one whose contracts are gone.
+ */
+export const chainChecked = computed(() => checked.value.includes(nodeBase(currentNode.value)));
+
+/** Accept the chain a reset node now serves; its earlier communities become history. */
+export async function acceptChain(node: string): Promise<void> {
+  const n = nodeBase(node), h = liveGenesis.value[n];
+  if (!h) return;
+  // Settle which communities belong to which chain before the reset is
+  // accepted, so none from the old chain is ever taken for a live one.
+  await stampCommunities(n, h, true);
+  setKnown(n, h);
+  if (active.value && fromEarlierChain(active.value)) setActive(null);
+}
+
+/**
+ * Communities remembered without a chain (from before #89, or from an invite
+ * that didn't carry one) get the chain whose node has their contracts. After a
+ * reset (`reset`), those it doesn't have are marked as from the earlier chain.
+ */
+async function stampCommunities(n: string, h: string, reset: boolean) {
+  const loose = communities.value.filter((c) => nodeBase(c.node) === n && !c.chain);
+  if (!loose.length) return;
+  const found = await Promise.all(loose.map((c) => new Gov(c, () => null).answers().then((y) => y, () => null)));
+  const stamp = new Map(loose.map((c, i) => [communityKey(c), found[i] ? h : found[i] === false && reset ? UNKNOWN_CHAIN : undefined]));
+  communities.value = communities.value.map((c) => (stamp.get(communityKey(c)) ? { ...c, chain: stamp.get(communityKey(c)) } : c));
+  save(LS.communities, communities.value);
+}
+
+// --- identity ----------------------------------------------------------------
+// One main key and name, used on every chain. A chain can have its own key
+// (and so its own name) instead; a reset chain starts with the main ones, so
+// your identity carries over unless you choose otherwise.
+
+const mainKey = signal<string | null>(load<string | null>(LS.key, null));
+const mainName = signal<string>(load(LS.name, ""));
+export const chainKeys = signal<Record<string, string>>(load(LS.chainKeys, {}));
+export const chainNames = signal<Record<string, string>>(load(LS.chainNames, {}));
+
+const known = (chain: string) => !chain.endsWith("#");
+export const secretKey = computed<string | null>(() => chainKeys.value[currentChain.value] ?? mainKey.value);
+export const displayName = computed<string>(() => chainNames.value[currentChain.value] ?? (chainKeys.value[currentChain.value] ? "" : mainName.value));
+/** This chain uses a key of its own rather than the main one. */
+export const ownKeyHere = computed(() => !!chainKeys.value[currentChain.value]);
 export const myAddr = computed(() => (secretKey.value && isValidKey(secretKey.value) ? revAddressOf(secretKey.value) : null));
 
 /**
  * A name belongs to a key. Switching keys (or removing one) drops the old key's
  * name rather than carrying it over to a key it was never given to; the new
  * key's own name is looked up (keyName) and adopted.
+ *
+ * `here` gives the current chain a key of its own; a chain that already has one
+ * changes that one. Otherwise it is the main key, used on every other chain.
+ * Removing a chain's own key goes back to the main key there.
  */
-export function setKey(k: string | null, name?: string) {
+export function setKey(k: string | null, name?: string, opts: { here?: boolean } = {}) {
+  const chain = currentChain.value;
   const changed = k !== secretKey.value;
-  secretKey.value = k;
-  if (k) save(LS.key, k); else localStorage.removeItem(LS.key);
+  if ((opts.here || ownKeyHere.value) && known(chain)) {
+    const { [chain]: _, ...rest } = chainKeys.value;
+    chainKeys.value = k ? { ...rest, [chain]: k } : rest;
+    save(LS.chainKeys, chainKeys.value);
+    if (!k) { setName(chain, null); return; }
+  } else {
+    mainKey.value = k;
+    if (k) save(LS.key, k); else try { localStorage.removeItem(LS.key); } catch { /* storage refused */ }
+    // Names given to the old main key on chains that use it are not the new key's.
+    if (changed) {
+      chainNames.value = Object.fromEntries(Object.entries(chainNames.value).filter(([c]) => !!chainKeys.value[c]));
+      save(LS.chainNames, chainNames.value);
+    }
+  }
   if (changed) setDisplayName(name?.trim() ?? "");
+}
+
+function setName(chain: string, n: string | null) {
+  const { [chain]: _, ...rest } = chainNames.value;
+  chainNames.value = n === null ? rest : { ...rest, [chain]: n };
+  save(LS.chainNames, chainNames.value);
 }
 
 /**
@@ -67,7 +209,13 @@ export async function keyName(node: string, addr: string): Promise<string | null
   }
   return null;
 }
-export function setDisplayName(n: string) { displayName.value = n; save(LS.name, n); }
+/** Your name on the current chain; with the main key, also the name it brings to other chains. */
+export function setDisplayName(n: string) {
+  const chain = currentChain.value;
+  if (ownKeyHere.value && known(chain)) { setName(chain, n); return; }
+  mainName.value = n; save(LS.name, n);
+  if (known(chain)) setName(chain, n);
+}
 
 // --- communities -------------------------------------------------------------
 
@@ -75,11 +223,17 @@ export const communities = signal<Community[]>(load<Community[]>(LS.communities,
 export const activeId = signal<string | null>(load<string | null>(LS.active, null));
 
 export const communityKey = (c: Community) => c.group;
+/** The communities you can use: not ones from a chain their node no longer serves. */
+export const usable = computed(() => communities.value.filter((c) => !fromEarlierChain(c)));
+/** Communities kept from earlier chains: listed, never opened. */
+export const earlier = computed(() => communities.value.filter(fromEarlierChain));
 export const active = computed<Community | null>(() =>
-  communities.value.find((c) => communityKey(c) === activeId.value) ?? communities.value[0] ?? null);
+  usable.value.find((c) => communityKey(c) === activeId.value) ?? usable.value[0] ?? null);
 export const gov = computed<Gov | null>(() => (active.value ? new Gov(active.value, () => secretKey.value) : null));
 
 export function addCommunity(c: Community) {
+  const g = liveGenesis.value[nodeBase(c.node)];
+  if (!c.chain && g) c = { ...c, chain: g };
   const rest = communities.value.filter((x) => communityKey(x) !== communityKey(c));
   communities.value = [...rest, c];
   save(LS.communities, communities.value);
@@ -88,7 +242,7 @@ export function addCommunity(c: Community) {
 export function removeCommunity(c: Community) {
   communities.value = communities.value.filter((x) => communityKey(x) !== communityKey(c));
   save(LS.communities, communities.value);
-  if (activeId.value === communityKey(c)) setActive(communities.value[0] ? communityKey(communities.value[0]) : null);
+  if (activeId.value === communityKey(c)) setActive(usable.value[0] ? communityKey(usable.value[0]) : null);
 }
 export function setActive(id: string | null) { activeId.value = id; save(LS.active, id); }
 
@@ -133,7 +287,8 @@ let scope = "", scopeNode = "";
 let directoryEpoch = 0;
 
 function inScope() {
-  const c = active.value, here = c ? `${c.node}|${c.group}` : "", node = c?.node ?? "";
+  // A network restarted from a new genesis is another network: its directory goes too.
+  const c = active.value, node = c ? chainIdOf(c.node) : "", here = c ? `${node}|${c.group}` : "";
   if (here === scope) return;
 
   // This assignment must stay before rebuild() below: rebuild() re-enters
