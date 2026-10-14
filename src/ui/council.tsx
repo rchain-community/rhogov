@@ -782,7 +782,7 @@ function AddStakeholderGroupModal({ d, onClose }: { d: CouncilData; onClose: () 
         <p class="muted small">You become its first admin and member. If you don't belong to it, leave it once someone else can admin it, or your ballot counts there too.</p>
         <p class="muted small">
           {estimated
-            ? `The ${estimated} voting-power estimate${estimated > 1 ? "s" : ""} already made don't include it, so until people update theirs its power is the median of the estimates that do — none at first, so it starts at 0%. Open decisions count it as soon as its members are added to them.`
+            ? `The ${estimated} voting-power estimate${estimated > 1 ? "s" : ""} already made don't include it, so until people update theirs its power is the median of the estimates that do — none at first, so it starts at 0%. Its members can vote in open decisions once you add them, but their group's votes carry no weight until someone estimates its power.`
             : "Nobody has estimated voting power yet, so it starts with an equal share like the others."}
           {" "}Two deploys: one creates the group, one adds it to the voting-power estimates.
         </p>

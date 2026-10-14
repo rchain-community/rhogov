@@ -317,8 +317,9 @@ Estimates made before the group existed don't mention it. They still count for
 the other groups, but not for the new one, so its power is the median of the
 estimates that do include it. Until someone includes it, it has 0%. The
 **Voting power** tab says which groups were added after estimates were made;
-update your estimate to include them. Open decisions count the new group as soon
-as the facilitator adds its members to them.
+update your estimate to include them. The new group's members can vote in open
+decisions once the facilitator adds them, but the group's votes carry no weight
+while its power is 0%.
 
 ### A decision, step by step
 
