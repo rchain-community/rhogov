@@ -45,7 +45,7 @@ community told you to.
 **Continue**. rhogov creates a *key* for you in your browser. The key is your
 identity: it signs everything you do, and it never leaves your device. There's
 no account, no email and no password. (Already have an RChain key? Choose **I
-have a key** and paste it.)
+have a key** and paste it, or choose its keystore file and type its password.)
 
 Once your key exists you'll see your balance. On the playground or the testnet,
 press **Get test REV**. A moment later you'll have enough to act. (The testnet
@@ -53,9 +53,14 @@ faucet is the same one in [r-wallet](https://rhowallet.org), the RChain web
 wallet, so you can also use it from there.) Every action costs a tiny fee,
 paid in REV (see [section 11](#11-what-is-public-and-what-it-costs)).
 
-**Step 3: join or start a community.** If someone sent you an invite link,
-paste it and press **Join community**. Otherwise choose **Start a new community**
-(next section).
+**Step 3: join or start a community.** Open the invite link someone sent you.
+If you're new, press **Get started**; the link already supplies the network and
+community, so setup asks for your name and key. If the invite points to a network
+you have not chosen before, review its address and tick **I recognise this network
+and trust whoever sent the invite** before continuing. Otherwise choose
+**Start a new community** (next section). To resume an unconfirmed install, see
+[section 2](#2-communities-and-invitations). For waiting, retry and fee messages,
+see [Troubleshooting](#12-troubleshooting).
 
 Then you land on **Home**. It opens with what rhogov is for, and says what needs you
 now: votes waiting for your ballot, invitations, new messages. A community with
@@ -63,7 +68,7 @@ nothing in it yet says so, and offers the first thing to do — a group — rath
 telling you that you're all caught up. Everything in rhogov happens inside a group:
 who belongs, what they decide, and how much each vote weighs.
 
-> **Back up your key** (Account → Download backup) once you've set up. If you
+> **Back up your key** (Account → Save keystore file) once you've set up. If you
 > clear your browser's data without a backup, that identity is gone.
 
 ## 2. Communities and invitations
@@ -72,9 +77,24 @@ A **community** is everyone who uses the same set of governance contracts on the
 same network. A community can hold any number of groups and councils.
 
 **Starting one.** Give it a name and press **Start community**. rhogov installs
-three small contracts with your key (Inbox, Group and Issue), which takes a few
-seconds. Installing them gives you no special power: you're an ordinary member
+three small contracts with your key (Inbox, Group and Issue), in one deploy
+that needs a block and about 0.02 REV for its fee. A slow or stalled network can
+take longer. Installing them gives you no special power: you're an ordinary member
 like everyone else.
+
+**An install that has not confirmed.** rhogov remembers the submitted install
+signature and community name in this browser, for the network and your address.
+Even after closing the tab, return with the same key and network, choose
+**Start a new community**, and use **Look for “name”**. It checks whether that
+earlier deploy was carried; it does not submit another install or charge another
+install fee. When the install is confirmed, rhogov adds the community and opens
+its groups. If its outcome is still unknown, it stays remembered.
+
+**Forget it and start fresh** discards that local reminder; it does not cancel
+the earlier deploy. If you install again and both deploys land, you pay for both.
+The reminder stays only in this browser: clearing its data, using another
+browser, or choosing another key or network will not show the same reminder.
+For waiting, retry and fee messages, see [Troubleshooting](#12-troubleshooting).
 
 ![Starting a community](images/start-community.png)
 
@@ -316,6 +336,22 @@ estimates can't swing it.
 
 ![Voting power](images/council-power.png)
 
+### Adding a stakeholder group later
+
+A council can grow. The facilitator opens the **Stakeholder groups** tab and
+presses **＋ Add a stakeholder group**, then picks one of the suggested groups
+the council doesn't have yet, or names their own, and chooses whether it's
+invite only. The facilitator becomes its first admin and member, so they should
+leave it if they don't belong to it.
+
+Estimates made before the group existed don't mention it. They still count for
+the other groups, but not for the new one, so its power is the median of the
+estimates that do include it. Until someone includes it, it has 0%. The
+**Voting power** tab says which groups were added after estimates were made;
+update your estimate to include them. The new group's members can vote in open
+decisions once the facilitator adds them, but the group's votes carry no weight
+while its power is 0%.
+
 ### A decision, step by step
 
 The facilitator starts a decision with **＋ New decision**: the question, the
@@ -383,8 +419,13 @@ On **Account** you can:
   whatever you typed there;
 - copy your **address**: give it to people who want to invite or message you;
 - check your **balance** and, on the playground or testnet, **Get test REV**;
-- **Download backup** of your key, or show it so you can paste it into another
-  browser or device;
+- **Save keystore file**: your key, encrypted with a password you choose, as the
+  standard JSON keystore file (Web3 Secret Storage v3, scrypt and AES) that geth,
+  MetaMask and other wallets read. To use it on another browser or device, choose
+  **I have a key**, pick the file and type its password. The password is checked in
+  the browser; rhogov can't recover a forgotten one. A **plain-text backup** is
+  there too, but it isn't encrypted. You can also show the key to paste it
+  elsewhere;
 - turn on **Show me the exact rholang before I sign each action**, to see precisely
   what you're signing. Anything that moves trust, membership, voting weight or money
   is shown and waits for you. Routine housekeeping — putting your name on the
@@ -393,6 +434,35 @@ On **Account** you can:
 
 Your key **is** you. Anyone who has it can act as you, so keep backups private
 and offline. If it's lost, that identity can't be recovered.
+
+### More than one network, and a network that is reset
+
+The same key is your identity on every network you use: the playground, the
+testnet, a node of your own. What this browser remembers is kept **per chain**
+(a network's address plus its first, *genesis*, block): your communities, your
+name there, and the messages you collected. Moving between networks loses
+nothing.
+
+A test network can be **restarted from a new genesis**. Everything on the old
+chain is gone: every community, group, vote, delegation, trust rating, censure,
+decision, uncollected message, name claim and REV balance. rhogov notices (when
+the page opens, and about once a minute while it's open) and says so, and offers:
+
+- **Keep my identity**: the same key, so the same address, and your name, which
+  goes on a community's list again once you join or start one and have a little
+  REV (get test REV first);
+- **Use a new key on this network**: a new key, or one from a keystore file, used
+  on that network only. **Account** then says so, with **Use my main key here** to
+  go back.
+
+The old chain's communities stay listed under **Community → Earlier chains**,
+where you can forget them. They can't be opened, because their contracts are gone.
+
+rhogov can only notice a reset if this browser has seen the network's earlier
+chain. If it last used the network before rhogov learned to tell chains apart,
+a reset looks just like a wrong address: the community shows **"Couldn't read
+the chain for …"**, and **Forget** it keeps your key, so your identity carries
+over all the same.
 
 ## 11. What is public, and what it costs
 
@@ -429,7 +499,7 @@ chose; there's no rhogov server, database or account.
 
 | What you see | What to do |
 |---|---|
-| **"Couldn't read the chain for …"** | The card says which community and network. If the network **isn't answering**, press **Retry**, or **Change network address** if it moved (rhogov checks the community's contracts answer at the new address before switching). If the network answers but the **contracts don't** (a test network that was reset loses everything), **Forget** it or **Join or start another community**. Your other communities are one click away on the same card. |
+| **"Couldn't read the chain for …"** | The card says which community and network. If the network **isn't answering**, press **Retry**, or **Change network address** if it moved (rhogov checks the community's contracts answer at the new address before switching). If the network answers but the **contracts don't** (a test network that was reset loses everything), **Forget** it or **Join or start another community**. When the network was restarted from a new genesis, rhogov usually says so first: see [More than one network, and a network that is reset](#more-than-one-network-and-a-network-that-is-reset). Your other communities are one click away on the same card. |
 | **"This invite link is damaged"** | Part of the link was lost, usually cut off or wrapped when pasted. Ask for a fresh link sent as one unbroken line. The page also lets you enter the community's contract addresses by hand, or start your own. |
 | **"Can't reach it"** when choosing a network | Check the address. A local node needs `--api-host`. A page opened over `https://` can only reach `http://` nodes on your own computer. |
 | **"Waiting for a block…"** for a long time | A card in the middle of the screen shows each action in progress, with how long it has waited; you can keep using the app meanwhile. The network is busy or idle. It usually finishes within a minute; rhogov keeps checking for up to 15. **Don't repeat the action while it waits**: it could happen twice (pressing the same button again just points you at the card). |
@@ -444,6 +514,7 @@ chose; there's no rhogov server, database or account.
 | **"No name yet"** | That person hasn't set a name, or hasn't had the REV for the one small deploy it takes; their name appears once they do. Every person's address is one click away with the ⧉ copy button beside their name. |
 | **"Jim (unclaimed)"** or **"Jim (2)"** | Someone else claimed that name in this community. *(unclaimed)* marks a name only typed when joining a group; *(2)* marks a second claim made at the same moment. |
 | **"“Name” is taken"** | Someone else in this community already uses that name. Choose another on **Account**. |
+| **"This network was reset"** | The network now runs a new chain, and nothing from before is on it. Choose **Keep my identity** (or a new key for that network), then join or start a community again. See [More than one network, and a network that is reset](#more-than-one-network-and-a-network-that-is-reset). |
 | **"A new version of rhogov is available"** | A newer rhogov was published while your page was open. Press **Reload** (nothing you've done is lost), or **Later**. The version you're running is shown at the bottom of the menu. |
 | **Something looks out of date** | rhogov re-reads every 15 seconds; your own actions show up straight away. Reloading the page also works. |
 
