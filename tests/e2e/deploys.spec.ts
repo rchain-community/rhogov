@@ -57,6 +57,9 @@ test("a deploy still unknown after 15 minutes says not to repeat it", async ({ b
 
   await alice.getByRole("button", { name: "Start community" }).click();
   await expect(alice.getByText("Signed and sent. Waiting for a block…")).toBeVisible();
+
+  // fastForward fires the pending timer; the assertion below polls until the
+  // awaited status-fetch continuation observes the advanced frozen clock.
   await alice.clock.fastForward(15 * 60_000 + 1_000);
 
   await expect(alice.getByText(/It hasn't appeared in a block after 15 minutes/)).toBeVisible();
@@ -79,6 +82,9 @@ test("a deploy that ran and failed says its fee was still charged", async ({ bro
 
   await alice.getByRole("button", { name: "Start community" }).click();
   await expect(alice.getByText("Signed and sent. Waiting for a block…")).toBeVisible();
+
+  // fastForward fires the pending timer; the assertion below polls until the
+  // awaited status-fetch continuation observes the advanced frozen clock.
   await alice.clock.fastForward(1_000);
 
   await expect(alice.getByText(/its fee was still charged/)).toBeVisible();
