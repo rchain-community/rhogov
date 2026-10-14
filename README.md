@@ -84,9 +84,12 @@ design:
 
 - **Stakeholder groups.** Users, Developers, Validators, Token holders, Service providers,
   Governance stewards, or your own. Each is a full group with its own admins, trust,
-  delegation and censure. People join every group that describes them.
+  delegation and censure. People join every group that describes them. The facilitator
+  can add a stakeholder group to a council that's already running.
 - **Voting power** per stakeholder group is the **median of participants' estimates**
-  (each estimate normalised to 100%), so a few extreme estimates can't swing it. The design
+  (each estimate normalised to 100%), so a few extreme estimates can't swing it. An
+  estimate that doesn't name a group (one made before the group was added) doesn't count
+  for that group, rather than counting as 0. The design
   doc's footnote [c], that validators should weigh more, is decided here by the participants.
 - **A facilitated, phased process:** *Prepare* (question, background, options) →
   *Deliberate* (pros and cons per option, with endorsements, ConsiderIt-style) →
