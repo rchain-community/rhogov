@@ -7,6 +7,7 @@
 
 import { signal, computed, effect } from "@preact/signals";
 import { Gov, type Community, type InboxMessage } from "./chain/gov";
+import { exportInboxArchive, parseInboxArchive } from "./inbox-archive";
 import { isValidKey, revAddressOf } from "./chain/keys";
 import { RNode } from "./chain/node";
 import { nameSkeleton } from "./chain/people";
@@ -23,24 +24,57 @@ const LS = {
 };
 
 const load = <T,>(k: string, d: T): T => {
-  try { const v = localStorage.getItem(k); return v === null ? d : (JSON.parse(v) as T); } catch { return d; }
+  try {
+    const v = localStorage.getItem(k);
+    return v === null ? d : (JSON.parse(v) as T);
+  } catch {
+    return d;
+  }
 };
-const save = (k: string, v: unknown) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage refused */ } };
+
+const save = (k: string, v: unknown) => {
+  try {
+    localStorage.setItem(k, JSON.stringify(v));
+  } catch {
+    /* storage refused */
+  }
+};
 
 /** r-wallet: the RChain web wallet, whose faucet funds testnet addresses. */
 export const R_WALLET = "https://rhowallet.org";
 
 export const NETWORKS = [
-  { id: "playground", label: "Rholang playground", url: "https://playground.rhobot.net", note: "A public rchain-rust dev chain — the default. Free test REV from its faucet." },
-  { id: "testnet", label: "RChain testnet", url: "https://testnet.rhobot.net", note: "The public multi-validator rchain-rust testnet. Free test REV from its faucet — the same one r-wallet uses." },
-  { id: "local", label: "Local dev node", url: "http://127.0.0.1:40403", note: "A node on this computer (quantum-os scripts/localnet/run-node.sh, or rnode run -s)." },
+  {
+    id: "playground",
+    label: "Rholang playground",
+    url: "https://playground.rhobot.net",
+    note: "A public rchain-rust dev chain — the default. Free test REV from its faucet.",
+  },
+  {
+    id: "testnet",
+    label: "RChain testnet",
+    url: "https://testnet.rhobot.net",
+    note: "The public multi-validator rchain-rust testnet. Free test REV from its faucet — the same one r-wallet uses.",
+  },
+  {
+    id: "local",
+    label: "Local dev node",
+    url: "http://127.0.0.1:40403",
+    note: "A node on this computer (quantum-os scripts/localnet/run-node.sh, or rnode run -s).",
+  },
 ];
 
 // --- identity ----------------------------------------------------------------
 
-export const secretKey = signal<string | null>(load<string | null>(LS.key, null));
+export const secretKey = signal<string | null>(
+  load<string | null>(LS.key, null),
+);
 export const displayName = signal<string>(load(LS.name, ""));
-export const myAddr = computed(() => (secretKey.value && isValidKey(secretKey.value) ? revAddressOf(secretKey.value) : null));
+export const myAddr = computed(() =>
+  secretKey.value && isValidKey(secretKey.value)
+    ? revAddressOf(secretKey.value)
+    : null,
+);
 
 /**
  * A name belongs to a key. Switching keys (or removing one) drops the old key's
@@ -50,7 +84,10 @@ export const myAddr = computed(() => (secretKey.value && isValidKey(secretKey.va
 export function setKey(k: string | null, name?: string) {
   const changed = k !== secretKey.value;
   secretKey.value = k;
-  if (k) save(LS.key, k); else localStorage.removeItem(LS.key);
+
+  if (k) save(LS.key, k);
+  else localStorage.removeItem(LS.key);
+
   if (changed) setDisplayName(name?.trim() ?? "");
 }
 
@@ -58,60 +95,137 @@ export function setKey(k: string | null, name?: string) {
  * The name a key already has: in the chain's name directory, else on the name
  * list of any community joined in this browser. Null when it has none yet.
  */
-export async function keyName(node: string, addr: string): Promise<string | null> {
+export async function keyName(
+  node: string,
+  addr: string,
+): Promise<string | null> {
   const dir = await resolveNames(new RNode(node), [addr]).catch(() => null);
+
   if (dir?.[addr]) return dir[addr];
-  for (const c of [active.value, ...communities.value].filter((x): x is Community => !!x)) {
-    const n = (await new Gov(c, () => null).names().catch(() => ({} as Record<string, string>)))[addr];
+
+  for (
+    const c of [active.value, ...communities.value].filter(
+      (x): x is Community => !!x,
+    )
+  ) {
+    const n = (
+      await new Gov(c, () => null)
+        .names()
+        .catch(() => ({} as Record<string, string>))
+    )[addr];
+
     if (n) return n;
   }
+
   return null;
 }
-export function setDisplayName(n: string) { displayName.value = n; save(LS.name, n); }
+
+export function setDisplayName(n: string) {
+  displayName.value = n;
+  save(LS.name, n);
+}
 
 // --- communities -------------------------------------------------------------
 
-export const communities = signal<Community[]>(load<Community[]>(LS.communities, []));
-export const activeId = signal<string | null>(load<string | null>(LS.active, null));
+export const communities = signal<Community[]>(
+  load<Community[]>(LS.communities, []),
+);
+export const activeId = signal<string | null>(
+  load<string | null>(LS.active, null),
+);
 
 export const communityKey = (c: Community) => c.group;
-export const active = computed<Community | null>(() =>
-  communities.value.find((c) => communityKey(c) === activeId.value) ?? communities.value[0] ?? null);
-export const gov = computed<Gov | null>(() => (active.value ? new Gov(active.value, () => secretKey.value) : null));
+
+export const active = computed<Community | null>(
+  () =>
+    communities.value.find((c) => communityKey(c) === activeId.value) ??
+    communities.value[0] ??
+    null,
+);
+
+export const gov = computed<Gov | null>(() =>
+  active.value ? new Gov(active.value, () => secretKey.value) : null,
+);
 
 export function addCommunity(c: Community) {
-  const rest = communities.value.filter((x) => communityKey(x) !== communityKey(c));
+  const rest = communities.value.filter(
+    (x) => communityKey(x) !== communityKey(c),
+  );
+
   communities.value = [...rest, c];
   save(LS.communities, communities.value);
   setActive(communityKey(c));
 }
+
 export function removeCommunity(c: Community) {
-  communities.value = communities.value.filter((x) => communityKey(x) !== communityKey(c));
+  communities.value = communities.value.filter(
+    (x) => communityKey(x) !== communityKey(c),
+  );
+
   save(LS.communities, communities.value);
-  if (activeId.value === communityKey(c)) setActive(communities.value[0] ? communityKey(communities.value[0]) : null);
+
+  if (activeId.value === communityKey(c)) {
+    setActive(
+      communities.value[0] ? communityKey(communities.value[0]) : null,
+    );
+  }
 }
-export function setActive(id: string | null) { activeId.value = id; save(LS.active, id); }
+
+export function setActive(id: string | null) {
+  activeId.value = id;
+  save(LS.active, id);
+}
 
 /** An invite link carries the community (node + three contract addresses), nothing secret. */
 export function inviteLink(c: Community, extra = ""): string {
-  const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(c)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const b64 = btoa(
+    unescape(encodeURIComponent(JSON.stringify(c))),
+  )
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+
   return `${location.origin}${location.pathname}#/join?c=${b64}${extra}`;
 }
+
 export function parseInvite(s: string): Community | null {
   const m = /[?&]c=([A-Za-z0-9_-]+)/.exec(s);
   if (!m) return null;
+
   try {
-    const json = decodeURIComponent(escape(atob(m[1].replace(/-/g, "+").replace(/_/g, "/"))));
+    const json = decodeURIComponent(
+      escape(
+        atob(
+          m[1]
+            .replace(/-/g, "+")
+            .replace(/_/g, "/"),
+        ),
+      ),
+    );
+
     const c = JSON.parse(json) as Community;
-    const ok = [c.inbox, c.group, c.issue].every((u) => /^rho:id:[a-z0-9]+$/.test(u)) && /^https?:\/\//.test(c.node);
+
+    const ok =
+      [c.inbox, c.group, c.issue].every((u) =>
+        /^rho:id:[a-z0-9]+$/.test(u),
+      ) && /^https?:\/\//.test(c.node);
+
     return ok ? c : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 // --- preferences -------------------------------------------------------------
 
-export const reviewBeforeSign = signal<boolean>(load(LS.reviewBeforeSign, false));
-export function setReview(v: boolean) { reviewBeforeSign.value = v; save(LS.reviewBeforeSign, v); }
+export const reviewBeforeSign = signal<boolean>(
+  load(LS.reviewBeforeSign, false),
+);
+
+export function setReview(v: boolean) {
+  reviewBeforeSign.value = v;
+  save(LS.reviewBeforeSign, v);
+}
 
 // --- address book ------------------------------------------------------------
 // Names come from the labels members gave themselves when joining a group.
@@ -121,34 +235,56 @@ export function setReview(v: boolean) { reviewBeforeSign.value = v; save(LS.revi
 // labels members gave when joining a group (fallback).
 
 export const addressBook = signal<Record<string, string>>({});
-const published = new Map<string, string | null>(); // addr → published name, null = looked up, none
+const published = new Map<string, string | null>();
 let pending = new Set<string>();
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Everything here belongs to ONE community (and the directory to one network):
 // a label someone typed joining a group in community A says nothing about who
 // they are in B. Switching community starts the book afresh (#38).
-let scope = "", scopeNode = "";
+let scope = "";
+let scopeNode = "";
+
 function inScope() {
-  const c = active.value, here = c ? `${c.node}|${c.group}` : "", node = c?.node ?? "";
+  const c = active.value;
+  const here = c ? `${c.node}|${c.group}` : "";
+  const node = c?.node ?? "";
+
   if (here === scope) return;
+
   scope = here;
   raw = {};
   listed.clear();
-  if (node !== scopeNode) { scopeNode = node; published.clear(); pending = new Set(); }
+
+  if (node !== scopeNode) {
+    scopeNode = node;
+    published.clear();
+    pending = new Set();
+  }
+
   addressBook.value = {};
   nameNotes.value = {};
 }
 
 /** Names people put on their community's name list (Gov.names): over group labels, under the directory. */
 const listed = new Map<string, string>();
+
 /** The active community's whole list (replacing what was known), or `merge` one entry into it. */
-export function learnListed(names: Record<string, string>, merge = false) {
+export function learnListed(
+  names: Record<string, string>,
+  merge = false,
+) {
   inScope();
+
   if (!merge) listed.clear();
-  for (const [a, n] of Object.entries(names)) listed.set(a, n);
+
+  for (const [a, n] of Object.entries(names)) {
+    listed.set(a, n);
+  }
+
   rebuild({});
 }
+
 export const listedName = (addr: string) => listed.get(addr);
 
 /** Names as people gave them, before duplicates are told apart (addressBook is what to show). */
@@ -159,92 +295,281 @@ export const rawNames = () => raw;
 export const nameNotes = signal<Record<string, string>>({});
 
 // Switching community empties the book at once, not on the next name lookup.
-effect(() => { void active.value; inScope(); });
+effect(() => {
+  void active.value;
+  inScope();
+});
 
 function rebuild(labels: Record<string, string>) {
   inScope();
+
   const next = { ...raw, ...labels };
+
   for (const [a, n] of listed) next[a] = n;
   for (const [a, n] of published) if (n) next[a] = n;
+
   raw = { ...next };
+
   // Names are always shown, never an address. Names that LOOK alike (the same
   // letters, or look-alike letters from another alphabet: "Ada" / "Adα") are
   // one name here. A name someone CLAIMED (the community's name list, or the
   // directory) shows as itself; the same name merely typed as a group label by
   // someone else is marked "(unclaimed)".
-  const isClaim = (a: string) => listed.has(a) || !!published.get(a);
+  const isClaim = (a: string) =>
+    listed.has(a) || !!published.get(a);
+
   const notes: Record<string, string> = {};
   const byLook = new Map<string, string[]>();
-  for (const [a, n] of Object.entries(next)) { const k = nameSkeleton(n); byLook.set(k, [...(byLook.get(k) ?? []), a]); }
+
+  for (const [a, n] of Object.entries(next)) {
+    const k = nameSkeleton(n);
+    byLook.set(k, [...(byLook.get(k) ?? []), a]);
+  }
+
   for (const addrs of byLook.values()) {
     if (addrs.length < 2) continue;
+
     const claims = addrs.filter(isClaim).sort();
-    for (const a of addrs) if (!isClaim(a) && claims.length) {
-      next[a] = `${next[a]} (unclaimed)`;
-      notes[a] = "Someone else in this community has claimed this name; this person only typed it when joining a group.";
+
+    for (const a of addrs) {
+      if (!isClaim(a) && claims.length) {
+        next[a] = `${next[a]} (unclaimed)`;
+        notes[a] =
+          "Someone else in this community has claimed this name; this person only typed it when joining a group.";
+      }
     }
-    // Two claims, or two labels with no claim: who was first isn't recorded on
-    // chain, so neither is shown as the owner. Both are numbered, in a fixed
-    // order (by address) so everyone sees the same numbers.
-    const same = claims.length > 1 ? claims : claims.length ? [] : [...addrs].sort();
+
+    const same =
+      claims.length > 1
+        ? claims
+        : claims.length
+          ? []
+          : [...addrs].sort();
+
     same.forEach((a, i) => {
       next[a] = `${next[a]} (${i + 1})`;
-      notes[a] = `${same.length} people here go by this name (or one that looks the same). The numbers tell them apart; they don't say who had it first, which isn't recorded.`;
+      notes[a] =
+        `${same.length} people here go by this name (or one that looks the same). The numbers tell them apart; they don't say who had it first, which isn't recorded.`;
     });
   }
-  if (JSON.stringify(next) !== JSON.stringify(addressBook.value)) addressBook.value = next;
-  if (JSON.stringify(notes) !== JSON.stringify(nameNotes.value)) nameNotes.value = notes;
+
+  if (
+    JSON.stringify(next) !==
+    JSON.stringify(addressBook.value)
+  ) {
+    addressBook.value = next;
+  }
+
+  if (
+    JSON.stringify(notes) !==
+    JSON.stringify(nameNotes.value)
+  ) {
+    nameNotes.value = notes;
+  }
 }
 
-export function learnNames(pairs: { addr: string; label: string }[]) {
+export function learnNames(
+  pairs: { addr: string; label: string }[],
+) {
   inScope();
+
   const labels: Record<string, string> = {};
+
   for (const { addr, label } of pairs) {
-    if (label && !published.get(addr)) labels[addr] = label;
-    if (!published.has(addr)) pending.add(addr);
+    if (label && !published.get(addr)) {
+      labels[addr] = label;
+    }
+
+    if (!published.has(addr)) {
+      pending.add(addr);
+    }
   }
+
   rebuild(labels);
-  if (pending.size && !flushTimer) flushTimer = setTimeout(flushNames, 50);
+
+  if (pending.size && !flushTimer) {
+    flushTimer = setTimeout(flushNames, 50);
+  }
 }
 
 async function flushNames() {
   flushTimer = null;
+
   const c = active.value;
   const addrs = [...pending];
+
   pending = new Set();
+
   if (!c || !addrs.length) return;
-  for (const a of addrs) published.set(a, null);
+
+  for (const a of addrs) {
+    published.set(a, null);
+  }
+
   try {
-    const found = await resolveNames(new RNode(c.node), addrs);
-    for (const [a, n] of Object.entries(found)) published.set(a, n);
+    const found = await resolveNames(
+      new RNode(c.node),
+      addrs,
+    );
+
+    for (const [a, n] of Object.entries(found)) {
+      published.set(a, n);
+    }
+
     rebuild({});
-  } catch { /* a chain without the name directory: labels only */ }
+  } catch {
+    /* a chain without the name directory: labels only */
+  }
 }
 
 /** Has this address published a name? undefined = not looked up yet. */
-export const publishedName = (addr: string) => published.get(addr);
-export function notePublished(addr: string, name: string) { published.set(addr, name); rebuild({}); }
+export const publishedName = (addr: string) =>
+  published.get(addr);
+
+export function notePublished(
+  addr: string,
+  name: string,
+) {
+  published.set(addr, name);
+  rebuild({});
+}
 
 // --- inbox archive -----------------------------------------------------------
 
-export function archived(addr: string, c: Community): InboxMessage[] { return load(LS.inbox(addr, communityKey(c)), []); }
-export function archive(addr: string, c: Community, msgs: InboxMessage[]) {
-  save(LS.inbox(addr, communityKey(c)), [...archived(addr, c), ...msgs]);
+export function archived(
+  addr: string,
+  c: Community,
+): InboxMessage[] {
+  return load(
+    LS.inbox(addr, communityKey(c)),
+    [],
+  );
 }
-export function setArchive(addr: string, c: Community, msgs: InboxMessage[]) { save(LS.inbox(addr, communityKey(c)), msgs); }
 
-export const dismissed = signal<string[]>(load(LS.dismissed, []));
-export function dismiss(id: string) { dismissed.value = [...dismissed.value, id]; save(LS.dismissed, dismissed.value); }
+export function archive(
+  addr: string,
+  c: Community,
+  msgs: InboxMessage[],
+) {
+  save(
+    LS.inbox(addr, communityKey(c)),
+    [...archived(addr, c), ...msgs],
+  );
+}
+
+export function setArchive(
+  addr: string,
+  c: Community,
+  msgs: InboxMessage[],
+) {
+  save(
+    LS.inbox(addr, communityKey(c)),
+    msgs,
+  );
+}
+
+/** Transfers must not mistake unreadable/corrupt storage for an empty archive. */
+export function archiveForTransfer(
+  addr: string,
+  c: Community,
+): InboxMessage[] {
+  let text: string | null;
+
+  try {
+    text = localStorage.getItem(
+      LS.inbox(addr, communityKey(c)),
+    );
+  } catch {
+    throw new Error(
+      "This browser could not read its archive. Check its storage settings; existing messages were left untouched.",
+    );
+  }
+
+  if (text === null) return [];
+
+  let msgs: unknown;
+
+  try {
+    msgs = JSON.parse(text);
+  } catch {
+    throw new Error(
+      "This browser's stored archive is damaged. Existing messages were left untouched; keep this browser data and report the problem.",
+    );
+  }
+
+  if (!Array.isArray(msgs)) {
+    throw new Error(
+      "This browser's stored archive is damaged. Existing messages were left untouched; keep this browser data and report the problem.",
+    );
+  }
+
+  try {
+    return parseInboxArchive(
+      exportInboxArchive(addr, c, msgs),
+      addr,
+      c,
+    ).messages;
+  } catch {
+    throw new Error(
+      "This browser's stored archive contains older, invalid, or oversized message data that cannot be transferred safely. Existing messages were left untouched; keep this browser data and update rhogov or report the problem.",
+    );
+  }
+}
+
+/** An import must report a refused storage write rather than claim success. */
+export function importArchive(
+  addr: string,
+  c: Community,
+  msgs: InboxMessage[],
+) {
+  localStorage.setItem(
+    LS.inbox(addr, communityKey(c)),
+    JSON.stringify(msgs),
+  );
+}
+
+export const dismissed = signal<string[]>(
+  load(LS.dismissed, []),
+);
+
+export function dismiss(id: string) {
+  dismissed.value = [
+    ...dismissed.value,
+    id,
+  ];
+
+  save(
+    LS.dismissed,
+    dismissed.value,
+  );
+}
 
 /** Bumped after every write so screens re-read chain state. */
 export const refreshTick = signal(0);
+
 /** Bumped after the user's own writes: forces a re-read even if a poll is running. */
 export const forceTick = signal(0);
-export const refresh = (force = false) => { if (force) forceTick.value++; refreshTick.value++; };
+
+export const refresh = (force = false) => {
+  if (force) forceTick.value++;
+  refreshTick.value++;
+};
 
 // Other people act too: re-read quietly while the page is visible, and on return.
 // Screens keep showing what they have while a re-read is in flight.
 if (typeof window !== "undefined") {
-  setInterval(() => { if (document.visibilityState === "visible") refresh(); }, 15_000);
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refresh(); });
+  setInterval(() => {
+    if (document.visibilityState === "visible") {
+      refresh();
+    }
+  }, 15_000);
+
+  document.addEventListener(
+    "visibilitychange",
+    () => {
+      if (document.visibilityState === "visible") {
+        refresh();
+      }
+    },
+  );
 }
