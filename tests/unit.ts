@@ -1,6 +1,6 @@
 // unit.ts — offline checks (no node): decoding, keys, council arithmetic.
-import { approvalShare, approvals, chamberPower, combine, decodeArg, encodeArg, estimateBallot, parseEstimate } from "../src/chain/council";
-import { readRecord, toGroup } from "../src/chain/gov";
+import { approvalShare, approvals, asking, chamberPower, combine, decodeArg, encodeArg, estimateBallot, parseEstimate } from "../src/chain/council";
+import { pendingOf, readRecord, toGroup } from "../src/chain/gov";
 import { addCommunity, addressBook, learnNames, nameNotes, setActive } from "../src/state";
 import { filterPeople, looksLike, nameError, resolvePerson, suggestNames } from "../src/chain/people";
 import { revAddressOf } from "../src/chain/keys";
@@ -28,6 +28,13 @@ ok("rev address of alice", revAddressOf("0b60b3ffcc43a607e037c3da3c1ed366261d742
 // Group decoding.
 const g = toGroup("g", { name: "G", policy: "invite", admins: { a: true }, members: { a: { role: "admin", label: "G" }, b: { role: "member", label: "Bee" } }, invited: { c: true }, deleg: { b: "a" }, topic: {}, ratings: { a: { b: 3 } }, censures: { a: { b: true } } })!;
 ok("toGroup", g.policy === "invite" && g.members.length === 2 && eq(g.invited, ["c"]) && eq(g.censures, { a: ["b"] }) && g.ratings.a.b === 3, g);
+
+// Requests to join: pending until invited or a member; admins are prompted per group, or per council.
+const asked = { ...g, asked: ["b", "c", "d", "e"] };
+ok("pending = asked, not a member, not invited", eq(pendingOf(asked), ["d", "e"]), pendingOf(asked));
+const council = { ...g, id: "council-x", name: "X", asked: [] }, chamber = { ...asked, id: "council-x.val", name: "Validators" };
+ok("a chamber's requests point at its council", eq(asking([council, chamber, { ...asked, id: "plain" }], "a"), [{ name: "X", n: 2, to: "/c/council-x" }, { name: "G", n: 2, to: "/g/plain/members" }]), asking([council, chamber, { ...asked, id: "plain" }], "a"));
+ok("only admins are asked", asking([chamber], "b").length === 0);
 
 // Estimates and the median.
 ok("estimate round trip", eq(parseEstimate(estimateBallot({ "c.dev": 30, "c.val": 70 })), { "c.dev": 30, "c.val": 70 }));

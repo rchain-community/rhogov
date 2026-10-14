@@ -3,7 +3,7 @@
 // and where, without anyone having to ask.
 import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
-import { isAuxIssue, isCouncilId } from "../chain/council";
+import { asking, isAuxIssue, isCouncilId } from "../chain/council";
 import { RNode } from "../chain/node";
 import { active, communities, displayName, gov, listedName, myAddr, publishedName, reviewBeforeSign, secretKey } from "../state";
 import { Modal, nameOf, recentErrors, route } from "./kit";
@@ -29,7 +29,7 @@ function screenHelp(): { title: string; text: string; link: string } {
     case undefined: return { title: "Home", text: "What needs you now: votes waiting for your ballot, invitations, and new messages. A community with no groups yet offers the first thing to do instead, since there is nothing to catch up on.", link: section("4-voting") };
     case "groups": return { title: "Groups", text: "The groups in this community. Join an open one, or start your own and invite people.", link: section("3-groups") };
     case "g":
-      if (tab === "members") return { title: "Members", text: "Who is in the group, how much they're trusted, and who votes for whom. Rate trust, hand your vote to someone, or dispute someone's trust from here.", link: section("6-trust") };
+      if (tab === "members") return { title: "Members", text: "Who is in the group, how much they're trusted, and who votes for whom. Rate trust, hand your vote to someone, or dispute someone's trust from here. Admins approve requests to join here, each in one step: invite, and say how much they trust the person.", link: section("6-trust") };
       return { title: "A group", text: "Its votes, members and settings. Open a vote, or vote on one that's open.", link: section("3-groups") };
     case "v": return { title: "A vote", text: "Choose one or more options (or rank them) and press Vote. You can change your vote while it's open. The node counts it, with trust and delegation.", link: section("4-voting") };
     case "councils": case "c": return { title: "Councils", text: "Decisions across stakeholder groups: estimate each group's voting power, deliberate with pros and cons, then vote.", link: section("9-councils-decisions-across-stakeholder-groups") };
@@ -83,6 +83,8 @@ async function tipsFor(): Promise<Tip[]> {
   if (unread) tips.push({ text: `${unread} new message${unread > 1 ? "s are" : " is"} waiting for you.`, href: "#/inbox", label: "Open Inbox" });
   for (const g of groups.filter((g) => g.invited.includes(me) && !g.members.some((m) => m.addr === me)))
     tips.push({ text: <>You're invited to join <b>{g.name}</b>.</>, href: `#/g/${g.id}`, label: "Open group" });
+  for (const { name, n, to } of asking(groups, me))
+    tips.push({ text: <>{n} {n > 1 ? "people are" : "person is"} asking to join <b>{name}</b>. As an admin, you approve each one.</>, href: `#${to}`, label: "Review" });
   const mine = groups.filter((g) => g.members.some((m) => m.addr === me));
   // Wording kept as it was: cold-start.spec.ts asserts this string, and it is the
   // guard for "Help knows the right next step for a brand-new community". The
