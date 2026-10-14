@@ -6,9 +6,9 @@ import {
   chamberId, chamberPower, combine, councilsOf, decodeArg, encodeArg, estimateBallot, isAuxIssue, parseEstimate, weightsIssueId,
   approvals,
 } from "../chain/council";
-import { type Group, type Issue, makeId, q, qList, qSet } from "../chain/gov";
+import { Gov, type Group, type Issue, asksId, isPending, makeId, pendingOf, q, qList, qSet } from "../chain/gov";
 import { displayName, gov, myAddr } from "../state";
-import { DelegateModal, RateModal, learnFrom } from "./groups";
+import { ApproveModal, DelegateModal, learnFrom } from "./groups";
 import { Addr, Info, Loading, Modal, PersonField, act, go, nameOf, useAsync } from "./kit";
 import { Ballot } from "./votes";
 
@@ -157,6 +157,9 @@ export function CouncilScreen({ cid, tab = "decisions", sub }: { cid: string; ta
       const me = myAddr.value;
       const facilitator = d.weights?.by ?? d.group.admins[0];
       const newcomers = d.participants.filter((p) => !(d.weights?.voters ?? []).includes(p));
+      const asking = me ? askingIn(d, me) : [];
+      const approved = me ? d.chambers.filter((ch) => ch.invited.includes(me) && !isIn(ch, me)) : [];
+      const waitingOn = me ? d.chambers.filter((ch) => isPending(ch, me)) : [];
       const setTab = (t: string) => go(cHref(cid, t));
       return (
         <div>
@@ -167,8 +170,13 @@ export function CouncilScreen({ cid, tab = "decisions", sub }: { cid: string; ta
             <span>Facilitated by {nameOf(facilitator)}</span>
             <span>· {d.participants.length} participants in {d.chambers.length} stakeholder groups</span>
           </div>
-          {me === facilitator && newcomers.length > 0 && d.weights && <WaitingPanel d={d} issues={[d.weights]} what="the voting-power estimates" />}
-          {me && !d.chambers.some((ch) => isIn(ch, me)) && (
+          {me === facilitator && (newcomers.length > 0 || asking.length > 0) && <WaitingPanel d={d} issues={d.weights ? [d.weights] : []} what="the voting-power estimates" />}
+          {me !== facilitator && asking.length > 0 && <WaitingPanel d={d} issues={[]} what="" />}
+          {approved.length > 0 && <JoinApproved d={d} chambers={approved} />}
+          {waitingOn.length > 0 && !approved.length && (
+            <div class="callout small" style={{ marginTop: ".8rem" }}>You asked to join {waitingOn.map((c) => c.name).join(" and ")}. Waiting for {nameOf(facilitator)} or another admin to approve.</div>
+          )}
+          {me && !d.chambers.some((ch) => isIn(ch, me)) && !waitingOn.length && !approved.length && (
             <div class="callout row between" style={{ marginTop: ".8rem" }}>
               <span>You're not in any stakeholder group yet. Pick the ones you belong to.</span>
               <button class="primary" onClick={() => setTab("stakeholders")}>Choose</button>
@@ -186,24 +194,31 @@ export function CouncilScreen({ cid, tab = "decisions", sub }: { cid: string; ta
   );
 }
 
+/** Requests to join the council's invite-only stakeholder groups that `me` can approve (an admin of the group). */
+const askingIn = (d: CouncilData, me: string) =>
+  [...new Set(d.chambers.filter((ch) => ch.admins.includes(me)).flatMap(pendingOf))];
+
 /**
- * People waiting to take part (#83): in the council (or one of its stakeholder
- * groups) but not yet on the list for `issues`. The facilitator approves each
- * person one at a time, and can do the rest of bringing them in from the same
- * row: invite them into a stakeholder group if they're in none, and vouch for
- * them where both are members. Adding someone to a vote's list is a separate,
- * explicit act per person, not one "add everyone" button.
+ * People waiting to take part (#83), and people asking to join: in the council
+ * (or one of its stakeholder groups) but not yet on the list for `issues`, or
+ * asking to join an invite-only stakeholder group. The facilitator approves
+ * each person on their own, in one step (ApproveModal): invite them into the
+ * groups they asked for, say how much they trust them, and add them to the
+ * open votes. "Add all" is separate and only adds to the votes.
  */
 function WaitingPanel({ d, issues, what }: { d: CouncilData; issues: Issue[]; what: string }) {
   const G = gov.value!;
   const me = myAddr.value;
   const open = issues.filter((i) => i.status !== "closed");
-  const [rating, setRating] = useState<{ g: Group; addr: string; level: number } | null>(null);
+  const [approving, setApproving] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
-  if (!open.length) return null;
+  const asking = me ? askingIn(d, me) : [];
+  if (!open.length && !asking.length) return null;
   const onAll = (p: string) => open.every((i) => i.voters.includes(p));
-  const waiting = d.participants.filter((p) => !onAll(p));
+  const late = d.participants.filter((p) => open.length && !onAll(p));
+  const waiting = [...new Set([...asking, ...late])];
   const chambersOf = (p: string) => d.chambers.filter((ch) => isIn(ch, p));
+  const askedOf = (p: string) => d.chambers.filter((ch) => isPending(ch, p));
   const admins = d.chambers.filter((ch) => !!me && ch.admins.includes(me));
   const add = (people: string[]) => {
     const calls = open.map((i) => ["setRoll", [q(i.id), qSet([...new Set([...i.voters, ...people])])]] as [string, string[]]);
@@ -227,39 +242,52 @@ function WaitingPanel({ d, issues, what }: { d: CouncilData; issues: Issue[]; wh
     await act(`Telling ${nameOf(p)} about ${ch.name}`, (t) => G.send(p, "invite", { gid: ch.id, group: ch.name, body: `You're invited to join ${ch.name} in ${d.group.name}, so your voice counts in its decisions.` }, t),
       { risk: "routine", key: `send:${p}:invite:${ch.id}`, done: "Delivered to their inbox." });
   };
-  const vouch = async (ch: Group, p: string) => {
-    const st = await G.standing(ch.id).catch(() => null);
-    setRating({ g: ch, addr: p, level: (me && st?.levels[me]) || 0 });
-  };
+  const title = !open.length ? `Asking to join (${waiting.length})`
+    : waiting.length ? `Waiting to take part in ${what} (${waiting.length})` : `Everyone in ${d.group.name} can take part in ${what}`;
   return (
     <div class="card stack" style={{ marginTop: ".8rem" }}>
       <div class="row between">
-        <b>{waiting.length ? `Waiting to take part in ${what} (${waiting.length})` : `Everyone in ${d.group.name} can take part in ${what}`}</b>
-        <button class="small ghost" onClick={() => setInviting(true)}>Invite someone to a stakeholder group</button>
+        <b>{title}</b>
+        {admins.length > 0 && <button class="small ghost" onClick={() => setInviting(true)}>Invite someone to a stakeholder group</button>}
       </div>
-      {waiting.length > 0 && <p class="small muted">They joined after it opened. Add each person you recognise; they can then add points, endorse and vote. Their ballot counts in the stakeholder groups they're in.</p>}
+      {waiting.length > 0 && <p class="small muted">Approve each person you recognise. Approving lets them into the stakeholder groups they asked for, records how much you trust them, {open.length ? `and adds them to ${what}, ` : ""}in one step. Their ballot counts in the stakeholder groups they're in.</p>}
       {waiting.map((p) => {
         const mine = chambersOf(p);
-        const canVouch = mine.filter((ch) => !!me && isIn(ch, me));
+        const asked = askedOf(p);
         return (
           <div class="row between wrap" style={{ borderTop: "1px solid var(--line)", paddingTop: ".5rem" }}>
-            <span><Addr addr={p} /> <span class="small muted">{mine.length ? `in ${mine.map((c) => c.name).join(", ")}` : "in no stakeholder group yet"}</span></span>
-            <span class="row wrap">
-              {!mine.length && admins.length > 0 && (
-                <select class="small" style={{ width: "auto" }} value="" onChange={(e) => { const ch = d.chambers.find((c) => c.id === (e.target as HTMLSelectElement).value); if (ch) inviteTo(ch, p); }}>
-                  <option value="">Invite to a stakeholder group…</option>
-                  {admins.map((ch) => <option value={ch.id}>{ch.name}</option>)}
-                </select>
-              )}
-              {canVouch.map((ch) => <button class="small" onClick={() => vouch(ch, p)}>Trust in {ch.name}…</button>)}
-              <button class="small primary" onClick={() => add([p])}>Add to {what}</button>
-            </span>
+            <span><Addr addr={p} /> <span class="small muted">{[
+              mine.length ? `in ${mine.map((c) => c.name).join(", ")}` : "",
+              asked.length ? `asking to join ${asked.map((c) => c.name).join(", ")}` : "",
+            ].filter(Boolean).join(" · ") || "in no stakeholder group yet"}</span>
+              {asked.length > 0 && <> <span class="badge warn">Pending approval</span></>}</span>
+            {(admins.length > 0 || open.length > 0) && <button class="small primary" onClick={() => setApproving(p)}>Approve…</button>}
           </div>
         );
       })}
-      {waiting.length > 1 && <div><button class="small" onClick={() => { if (confirm(`Add all ${waiting.length} people to ${what}? Each can then take part.`)) add(waiting); }}>Add all {waiting.length}</button></div>}
-      {rating && <RateModal g={rating.g} addr={rating.addr} myLevel={rating.level} onClose={() => setRating(null)} />}
+      {late.length > 1 && <div><button class="small" onClick={() => { if (confirm(`Add all ${late.length} people to ${what}? Each can then take part.`)) add(late); }}>Add all {late.length} to {what}</button></div>}
+      {approving && <ApproveModal addr={approving} groups={d.chambers} rolls={open.length ? { issues: open, what } : undefined} onClose={() => setApproving(null)} />}
       {inviting && <InviteToChamber d={d} admins={admins} onClose={() => setInviting(false)} onInvite={inviteTo} />}
+    </div>
+  );
+}
+
+/** You've been let into stakeholder groups you asked for: join them (and the council) in one deploy. */
+function JoinApproved({ d, chambers }: { d: CouncilData; chambers: Group[] }) {
+  const G = gov.value!;
+  const me = myAddr.value!;
+  const label = displayName.value || "member";
+  const join = () => act(`Joining ${chambers.map((c) => c.name).join(" and ")}`, (t) => G.batch("group", [
+    ...(isIn(d.group, me) ? [] : [["join", [q(d.group.id), q(label)]] as [string, string[]]]),
+    ...chambers.flatMap((ch) => [
+      ["join", [q(ch.id), q(label)]] as [string, string[]],
+      ...(ch.asked.includes(me) ? [["leave", [q(asksId(ch.id))]] as [string, string[]]] : []),
+    ]),
+  ], t), { risk: "consequential", key: `joinApproved:${chambers.map((c) => c.id).join(",")}`, done: "You're in." });
+  return (
+    <div class="callout row between" style={{ marginTop: ".8rem" }}>
+      <span>You're approved for <b>{chambers.map((c) => c.name).join(" and ")}</b>. Join to take part.</span>
+      <button class="primary" onClick={join}>Join</button>
     </div>
   );
 }
@@ -291,14 +319,25 @@ function Stakeholders({ d }: { d: CouncilData }) {
   const me = myAddr.value;
   const [sel, setSel] = useState<string[]>([]);
   const joinable = d.chambers.filter((ch) => !isIn(ch, me) && (ch.policy === "open" || (!!me && ch.invited.includes(me))));
+  // Invite-only and no invitation: ask, and the group's admins approve (WaitingPanel).
+  const askable = d.chambers.filter((ch) => !isIn(ch, me) && !joinable.includes(ch) && !isPending(ch, me));
+  const label = displayName.value || "member";
+  const toJoin = sel.filter((id) => joinable.some((c) => c.id === id));
+  const toAsk = sel.filter((id) => askable.some((c) => c.id === id));
   const join = () => {
     const calls: [string, string[]][] = [
-      ...(isIn(d.group, me) ? [] : [["join", [q(d.group.id), q(displayName.value || "member")]] as [string, string[]]]),
-      ...sel.map((id) => ["join", [q(id), q(displayName.value || "member")]] as [string, string[]]),
+      ...(isIn(d.group, me) ? [] : [["join", [q(d.group.id), q(label)]] as [string, string[]]]),
+      ...toJoin.flatMap((id) => [["join", [q(id), q(label)]] as [string, string[]], ...(me && d.chambers.find((c) => c.id === id)?.asked.includes(me) ? [["leave", [q(asksId(id))]] as [string, string[]]] : [])]),
+      ...toAsk.flatMap((id) => Gov.askCalls(id, label)),
     ];
     setSel([]);
-    return act(`Joining ${sel.length} stakeholder group${sel.length > 1 ? "s" : ""}`, (t) => G.batch("group", calls, t), { risk: "consequential", key: `joinChambers:${sel.join(",")}`, done: "You're in. The facilitator adds you to open votes." });
+    const what = [toJoin.length ? `Joining ${toJoin.length} stakeholder group${toJoin.length > 1 ? "s" : ""}` : "", toAsk.length ? `asking to join ${toAsk.length}` : ""].filter(Boolean).join(", ");
+    return act(what.charAt(0).toUpperCase() + what.slice(1), (t) => G.batch("group", calls, t), {
+      risk: "consequential", key: `joinChambers:${sel.join(",")}`,
+      done: toAsk.length ? "Done. The facilitator sees your request and approves it; you'll then be asked to join." : "You're in. The facilitator adds you to open votes.",
+    });
   };
+  const button = [toJoin.length ? `Join ${toJoin.length} group${toJoin.length > 1 ? "s" : ""}` : "", toAsk.length ? `Ask to join ${toAsk.length}` : ""].filter(Boolean).join(" and ");
   return (
     <div class="stack">
       <p class="muted">Belong to every group that describes you — a developer who also holds tokens joins both, and has a voice in each.</p>
@@ -309,6 +348,7 @@ function Stakeholders({ d }: { d: CouncilData }) {
         {d.chambers.map((ch) => {
           const mine = isIn(ch, me);
           const can = joinable.includes(ch);
+          const ask = askable.includes(ch);
           const on = sel.includes(ch.id);
           return (
             <div class={`card ${on ? "click" : ""}`} style={on ? { borderColor: "var(--accent)" } : {}}>
@@ -323,7 +363,8 @@ function Stakeholders({ d }: { d: CouncilData }) {
                       : `Leave ${ch.name}? Your ballots on council decisions will no longer count for this group.`;
                     act(`Leaving ${ch.name}`, (t) => G.leave(ch.id, t), { risk: "irreversible", key: `leaveChamber:${ch.id}`, confirm: msg, done: `You left ${ch.name}.` });
                   }}>Leave</button></>
-                  : can ? <label class="row small"><input type="checkbox" style={{ width: "auto" }} checked={on} onChange={() => setSel(on ? sel.filter((x) => x !== ch.id) : [...sel, ch.id])} /> I belong here</label>
+                  : can || ask ? <label class="row small"><input type="checkbox" style={{ width: "auto" }} checked={on} onChange={() => setSel(on ? sel.filter((x) => x !== ch.id) : [...sel, ch.id])} /> {can ? "I belong here" : "I belong here (ask to join)"}</label>
+                  : isPending(ch, me) ? <span class="badge">Asked · pending approval</span>
                   : <span class="muted small">Ask an admin of this group to invite you</span>}
                 <a class="small" style={{ marginLeft: "auto" }} href={`#/g/${encodeURIComponent(ch.id)}/members`}>Members & trust →</a>
               </div>
@@ -331,9 +372,10 @@ function Stakeholders({ d }: { d: CouncilData }) {
           );
         })}
       </div>
-      {sel.length > 0 && <div><button class="primary" onClick={join}>Join {sel.length} group{sel.length > 1 ? "s" : ""}</button></div>}
+      {sel.length > 0 && <div><button class="primary" onClick={join}>{button}</button></div>}
+      {toAsk.length > 0 && <p class="small muted">Asking puts your address on the group's request list, which anyone can read. The facilitator approves each request.</p>}
       <Info title="What a stakeholder group is">
-        Each stakeholder group is an ordinary rhogov group: its admins invite, its members rate each other's trust, delegate and censure — and all of that applies <b>within</b> that group when a council decision is counted. Admins of invite-only groups (e.g. validators) invite people by address on the group's Members page.
+        Each stakeholder group is an ordinary rhogov group: its admins invite, its members rate each other's trust, delegate and censure — and all of that applies <b>within</b> that group when a council decision is counted. For an invite-only group (e.g. validators) you ask to join, and its admins approve each request; they can also invite people by name or address.
       </Info>
     </div>
   );

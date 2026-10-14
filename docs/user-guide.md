@@ -108,6 +108,7 @@ groups you're in and the others in the community.
 
 - **Open**: anyone in the community can join.
 - **Invite only**: an admin invites people, and they join when they're ready.
+  Anyone can also **Ask to join** from the group's page.
 
 ![Creating a group](images/new-group.png)
 
@@ -125,6 +126,16 @@ or paste their **REV address**. An address works even for someone who isn't in
 the community yet; a name must belong to exactly one person here. Admins have
 no extra say in votes, apart from the trust they start with
 ([section 6](#6-trust)).
+
+**Asking to join.** On an invite-only group you're not invited to, press **Ask
+to join**. Your address goes on the group's request list, which anyone can read,
+and the page then says you're waiting for an admin. Admins see "N people are
+asking to join" on Home and in Help, and on the **Members** tab each request is a
+row marked **Pending approval**. **Approve…** does everything in one step: it
+invites the person and, if you choose a level, records how much you trust them
+([section 6](#6-trust)). They then see "You're invited to join" on Home and join
+with one click. An approval writes their address into the group's public state
+and can't be withdrawn; a request you don't approve simply stays pending.
 
 A group's page has three tabs: **Votes**, **Members**, and **About** (its
 settings, and **Leave group**).
@@ -273,7 +284,10 @@ belong to** (Stakeholder groups tab).
 
 On the **Stakeholder groups** tab, tick every group that describes you and press
 **Join**. If you're both a developer and a token holder, join both; your ballot
-then counts in each. Each stakeholder group is a normal group, with its own
+then counts in each. For an invite-only group (validators, say) the tick reads
+"ask to join": the same press asks the facilitator to let you in, and the
+council's page says you're waiting. Once they approve, it says "You're approved
+for …" with a **Join** button. Each stakeholder group is a normal group, with its own
 members, trust, delegation and censure (**Members & trust →**).
 
 ### Voting power
@@ -324,13 +338,17 @@ read it, but can't add points, endorse or vote until the facilitator adds them.
 They see "You're waiting to be added to this decision", and who adds them.
 
 The facilitator sees them as **waiting**: on the council's list of decisions
-("2 waiting to take part"), and at the top of each decision, one row per person,
-with their stakeholder groups. From that row the facilitator can:
+("2 waiting to take part"), and at the top of the council and of each decision,
+one row per person, with their stakeholder groups. People asking to join an
+invite-only stakeholder group are on the same list, marked **Pending approval**,
+and Home tells the facilitator they're there.
 
-- **Add to this decision**, one person at a time, so each is approved
-  individually (there's an **Add all** for when that's what you want);
-- **Invite to a stakeholder group**, if they're in none yet;
-- **Trust in …**, to vouch for them in a stakeholder group you share.
+**Approve…** on a row brings that person in, one person at a time, in one step:
+it invites them into the stakeholder groups they asked for, records how much you
+trust them where you're a member too (pick "Don't rate them now" to skip it),
+and adds them to the open votes on that page. It's two deploys, one for the
+groups and one for the votes, from one press. There's an **Add all** for adding
+everyone waiting to the votes at once, when that's what you want.
 
 **Invite someone to a stakeholder group** on the same card brings in someone
 new: they get a message with a link, and show as waiting once they've joined.

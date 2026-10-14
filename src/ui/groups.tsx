@@ -1,6 +1,6 @@
 // groups.tsx — the groups directory and a group's page (members, trust, delegation, votes).
 import { useState } from "preact/hooks";
-import { type Group, type Issue, type Standing, makeId } from "../chain/gov";
+import { type Group, type Issue, type Standing, asksId, isPending, makeId, pendingOf, q, qSet } from "../chain/gov";
 import { displayName, gov, learnNames, myAddr } from "../state";
 import { Addr, Info, Loading, Modal, PLAIN, PersonField, Trust, act, go, href, nameOf, useAsync, usePeopleFilter } from "./kit";
 import { IssueCard, NewIssueModal } from "./votes";
@@ -62,6 +62,8 @@ function GroupCard({ g }: { g: Group }) {
       <div class="row between"><h3>{g.name}</h3>{g.policy === "invite" ? <span class="badge">Invite only</span> : <span class="badge accent">Open</span>}</div>
       <div class="muted small">{g.members.length} member{g.members.length === 1 ? "" : "s"}{g.admins.includes(me ?? "") ? " · you're an admin" : ""}</div>
       {invited && <div style={{ marginTop: ".5rem" }}><span class="badge warn">You're invited</span></div>}
+      {isPending(g, me) && <div style={{ marginTop: ".5rem" }}><span class="badge">You asked to join</span></div>}
+      {!!me && g.admins.includes(me) && pendingOf(g).length > 0 && <div style={{ marginTop: ".5rem" }}><span class="badge warn">{pendingOf(g).length} asking to join</span></div>}
     </div>
   );
 }
@@ -142,10 +144,23 @@ export function JoinButton({ g }: { g: Group }) {
   const G = gov.value!;
   const me = myAddr.value;
   const can = g.policy === "open" || (!!me && g.invited.includes(me));
-  if (!can) return <span class="badge">Invite only — ask an admin to invite you</span>;
+  if (!can) {
+    // Invite-only: ask, and the admins see the request (pendingOf) and approve it.
+    if (isPending(g, me)) return <span class="badge">You asked to join · waiting for an admin to approve</span>;
+    const ask = () => act(`Asking to join ${g.name}`, (t) => G.askToJoin(g.id, displayName.value, t), {
+      risk: "consequential",
+      key: `ask:${g.id}`,
+      done: `Asked. ${g.name}'s admins see your request and can let you in; you'll see “You're invited” here when they do.`,
+    });
+    return <button class="primary" onClick={ask} title="Your address goes on this group's request list, which anyone can read.">Ask to join</button>;
+  }
   const join = () => {
     const term = G.preview("group", "join", [JSON.stringify(g.id), JSON.stringify(displayName.value)]);
-    return act(`Joining ${g.name}`, (t) => G.join(g.id, displayName.value || "member", t),
+    // Joining takes you off the request list too, in the same deploy.
+    const asked = !!me && g.asked.includes(me);
+    return act(`Joining ${g.name}`, (t) => asked
+      ? G.batch("group", [["join", [q(g.id), q(displayName.value || "member")]], ["leave", [q(asksId(g.id))]]], t)
+      : G.join(g.id, displayName.value || "member", t),
       { risk: "consequential", key: term, done: `You're a member of ${g.name}.` });
   };
   return <button class="primary" onClick={join}>Join group</button>;
@@ -217,6 +232,7 @@ function Members({ g, st }: { g: Group; st: Standing }) {
           </div>
         </div>
       )}
+      <AskingToJoin g={g} admin={admin} />
       <div class="row between">
         <h2 style={{ margin: 0 }}>{g.members.length} member{g.members.length === 1 ? "" : "s"}</h2>
         {admin && <button onClick={() => setInviting(true)}>Invite someone</button>}
@@ -283,6 +299,112 @@ function Members({ g, st }: { g: Group; st: Standing }) {
       {delegating && <DelegateModal g={g} issueId={null} onClose={() => setDelegating(false)} />}
       {inviting && <InviteModal g={g} onClose={() => setInviting(false)} />}
     </div>
+  );
+}
+
+/** People who asked to join and wait for an admin (pendingOf). Admins approve each one. */
+function AskingToJoin({ g, admin }: { g: Group; admin: boolean }) {
+  const [approving, setApproving] = useState<string | null>(null);
+  const pending = pendingOf(g);
+  if (!pending.length) return null;
+  return (
+    <div class="card stack">
+      <b>Asking to join ({pending.length})</b>
+      <p class="small muted">{admin ? "Approve each person you recognise. Approving invites them and, if you choose, says how much you trust them, in one step; they then join." : "An admin of this group approves each request."}</p>
+      {pending.map((p) => (
+        <div class="row between wrap" style={{ borderTop: "1px solid var(--line)", paddingTop: ".5rem" }}>
+          <span><Addr addr={p} /> <span class="badge">Pending approval</span></span>
+          {admin && <button class="small primary" onClick={() => setApproving(p)}>Approve…</button>}
+        </div>
+      ))}
+      {approving && <ApproveModal addr={approving} groups={[g]} onClose={() => setApproving(null)} />}
+    </div>
+  );
+}
+
+/**
+ * Let someone in, in one step: for each chosen group, invite them where it's
+ * invite-only and you're an admin, and rate them where you're a member (both
+ * in ONE group deploy); then, optionally, put them on the open votes' rolls
+ * (one issue deploy). `rolls` names those votes, for a council.
+ */
+export function ApproveModal({ addr, groups, preselect, rolls, onClose }: {
+  addr: string; groups: Group[]; preselect?: string[]; onClose: () => void;
+  rolls?: { issues: Issue[]; what: string };
+}) {
+  const G = gov.value!;
+  const me = myAddr.value!;
+  const st = useAsync(async () => Object.fromEntries(await Promise.all(groups.filter((g) => isMember(g, me)).map(async (g) =>
+    [g.id, (await G.standing(g.id).catch(() => null))?.levels[me] ?? 0] as const))), [addr]);
+  const isIn = (g: Group) => isMember(g, addr);
+  const needsInvite = (g: Group) => g.policy === "invite" && !isIn(g) && !g.invited.includes(addr);
+  const canInvite = (g: Group) => g.admins.includes(me);
+  const usable = (g: Group) => !needsInvite(g) || canInvite(g);
+  const [sel, setSel] = useState<string[]>(() => groups.filter((g) => usable(g) && (isIn(g) || g.asked.includes(addr) || preselect?.includes(g.id))).map((g) => g.id));
+  const chosen = groups.filter((g) => sel.includes(g.id));
+  const ratable = chosen.filter((g) => isMember(g, me));
+  const myLevels = ratable.map((g) => st.data?.[g.id] ?? 0);
+  const cap = myLevels.length ? Math.max(0, Math.min(...myLevels) - 1) : 0;
+  const [level, setLevel] = useState<number | null>(null);
+  const lv = level ?? Math.min(3, cap);
+  const openRolls = (rolls?.issues ?? []).filter((i) => i.status !== "closed" && !i.voters.includes(addr));
+  const [addRolls, setAddRolls] = useState(true);
+  const inviting = chosen.filter(needsInvite);
+  const voted = openRolls.some((i) => Object.keys(i.ballots).length > 0);
+  const who = nameOf(addr);
+  const approve = async () => {
+    onClose();
+    const calls: [string, string[]][] = [
+      ...inviting.map((g) => ["invite", [q(g.id), q(addr)]] as [string, string[]]),
+      ...(lv > 0 ? ratable.map((g) => ["rate", [q(g.id), q(addr), String(lv)]] as [string, string[]]) : []),
+    ];
+    if (calls.length) {
+      const r = await act(`Approving ${who}`, (t) => G.batch("group", calls, t), {
+        risk: inviting.length ? "irreversible" : "consequential",
+        key: `approve:${addr}:${sel.join(",")}`,
+        done: inviting.length ? `${who} is approved: they'll see an invitation to join ${inviting.map((g) => g.name).join(", ")}.` : `${who} is approved.`,
+      });
+      if (r === undefined) return;
+    }
+    if (rolls && addRolls && openRolls.length) {
+      await act(`Adding ${who} to ${rolls.what}`, (t) => G.batch("issue", openRolls.map((i) => ["setRoll", [q(i.id), qSet([...i.voters, addr])]] as [string, string[]]), t), {
+        risk: "consequential", key: `addToRolls:${openRolls[0].id}:${addr}`, done: `${who} can now take part in ${rolls.what}.`,
+      });
+    }
+  };
+  const nothing = !inviting.length && !(lv > 0 && ratable.length) && !(rolls && addRolls && openRolls.length);
+  return (
+    <Modal title={`Approve ${who}`} onClose={onClose}
+      actions={<><button onClick={onClose}>Cancel</button><button class="primary" disabled={nothing} onClick={approve}>Approve</button></>}>
+      <div class="stack">
+        <div class="field"><b>{groups.length > 1 ? "Stakeholder groups" : "Group"}</b>
+          {groups.map((g) => {
+            const on = sel.includes(g.id);
+            const note = isIn(g) ? "already a member" : g.invited.includes(addr) ? "invited, not joined yet" : g.asked.includes(addr) ? "asked to join" : g.policy === "open" ? "open: they can join it themselves" : "";
+            return (
+              <label class={`choice ${on ? "on" : ""}`}>
+                <input type="checkbox" checked={on} disabled={!usable(g)} onChange={() => setSel(on ? sel.filter((x) => x !== g.id) : [...sel, g.id])} />
+                <div><b>{g.name}</b> {g.policy === "invite" && <span class="badge">invite only</span>}
+                  <div class="muted small">{!usable(g) ? "Invite-only, and you're not one of its admins." : note}</div></div>
+              </label>
+            );
+          })}
+        </div>
+        {ratable.length > 0 && (
+          <label class="field">How much you trust {who}{ratable.length > 1 ? ` (in ${ratable.map((g) => g.name).join(", ")})` : ""}
+            <select value={lv} onChange={(e) => setLevel(Number((e.target as HTMLSelectElement).value))}>
+              {LEVELS.map((l, i) => <option value={i}>{i === 0 ? "Don't rate them now" : `${i} — ${l}`}</option>)}
+            </select>
+            <span class="hint">{cap ? `You can confer up to level ${cap}, one below your own; a higher rating is recorded but capped by the node.` : "Your own trust level is too low to raise anyone, so a rating is recorded but has no effect yet."} A rating weighs every vote in the group, and you can change it later on Members.</span>
+          </label>
+        )}
+        {rolls && openRolls.length > 0 && (
+          <label class="row"><input type="checkbox" style={{ width: "auto" }} checked={addRolls} onChange={(e) => setAddRolls((e.target as HTMLInputElement).checked)} />
+            Add them to {rolls.what} too, so they can take part{voted ? ". People have already voted there: this changes who may vote while it's under way, and ballots already cast are not re-weighed." : ""}</label>
+        )}
+        {inviting.length > 0 && <p class="small muted">Inviting writes their address into {inviting.map((g) => g.name).join(" and ")}'s public state, where anyone can read it, and an invitation can't be withdrawn. They then join themselves; until they do, their ballot counts in no group.</p>}
+      </div>
+    </Modal>
   );
 }
 

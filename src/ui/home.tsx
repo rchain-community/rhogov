@@ -7,7 +7,7 @@ import { Balance, PURPOSE } from "./setup";
 import { JoinButton, learnFrom } from "./groups";
 import { Loading, go, useAsync } from "./kit";
 import { IssueCard } from "./votes";
-import { isAuxIssue, isChamberOf, isCouncilId } from "../chain/council";
+import { asking, isAuxIssue, isChamberOf, isCouncilId } from "../chain/council";
 
 export function HomeScreen() {
   const G = gov.value!;
@@ -62,6 +62,9 @@ export function HomeScreen() {
             )}
             {unread > 0 && <div class="callout row between"><span>You have <b>{unread} new message{unread > 1 ? "s" : ""}</b>.</span><button class="primary" onClick={() => go("/inbox")}>Open inbox</button></div>}
             {invites.map((g) => <div class="callout warn row between"><span>You're invited to join <b>{g.name}</b>.</span><JoinButton g={g} /></div>)}
+            {asking(groups, me).map(({ name, n, to }) => (
+              <div class="callout warn row between"><span><b>{n} {n > 1 ? "people are" : "person is"} asking to join {name}.</b> Approve each one you recognise.</span><button class="primary" onClick={() => go(to)}>Review</button></div>
+            ))}
 
             <div class="section">
               <h2>Needs your vote</h2>
@@ -93,3 +96,4 @@ export function HomeScreen() {
     </div>
   );
 }
+
