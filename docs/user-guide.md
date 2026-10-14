@@ -45,7 +45,7 @@ community told you to.
 **Continue**. rhogov creates a *key* for you in your browser. The key is your
 identity: it signs everything you do, and it never leaves your device. There's
 no account, no email and no password. (Already have an RChain key? Choose **I
-have a key** and paste it.)
+have a key** and paste it, or choose its keystore file and type its password.)
 
 Once your key exists you'll see your balance. On the playground or the testnet,
 press **Get test REV**. A moment later you'll have enough to act. (The testnet
@@ -53,9 +53,14 @@ faucet is the same one in [r-wallet](https://rhowallet.org), the RChain web
 wallet, so you can also use it from there.) Every action costs a tiny fee,
 paid in REV (see [section 11](#11-what-is-public-and-what-it-costs)).
 
-**Step 3: join or start a community.** If someone sent you an invite link,
-paste it and press **Join community**. Otherwise choose **Start a new community**
-(next section).
+**Step 3: join or start a community.** Open the invite link someone sent you.
+If you're new, press **Get started**; the link already supplies the network and
+community, so setup asks for your name and key. If the invite points to a network
+you have not chosen before, review its address and tick **I recognise this network
+and trust whoever sent the invite** before continuing. Otherwise choose
+**Start a new community** (next section). To resume an unconfirmed install, see
+[section 2](#2-communities-and-invitations). For waiting, retry and fee messages,
+see [Troubleshooting](#12-troubleshooting).
 
 Then you land on **Home**. It opens with what rhogov is for, and says what needs you
 now: votes waiting for your ballot, invitations, new messages. A community with
@@ -63,7 +68,7 @@ nothing in it yet says so, and offers the first thing to do — a group — rath
 telling you that you're all caught up. Everything in rhogov happens inside a group:
 who belongs, what they decide, and how much each vote weighs.
 
-> **Back up your key** (Account → Download backup) once you've set up. If you
+> **Back up your key** (Account → Save keystore file) once you've set up. If you
 > clear your browser's data without a backup, that identity is gone.
 
 ## 2. Communities and invitations
@@ -72,9 +77,24 @@ A **community** is everyone who uses the same set of governance contracts on the
 same network. A community can hold any number of groups and councils.
 
 **Starting one.** Give it a name and press **Start community**. rhogov installs
-three small contracts with your key (Inbox, Group and Issue), which takes a few
-seconds. Installing them gives you no special power: you're an ordinary member
+three small contracts with your key (Inbox, Group and Issue), in one deploy
+that needs a block and about 0.02 REV for its fee. A slow or stalled network can
+take longer. Installing them gives you no special power: you're an ordinary member
 like everyone else.
+
+**An install that has not confirmed.** rhogov remembers the submitted install
+signature and community name in this browser, for the network and your address.
+Even after closing the tab, return with the same key and network, choose
+**Start a new community**, and use **Look for “name”**. It checks whether that
+earlier deploy was carried; it does not submit another install or charge another
+install fee. When the install is confirmed, rhogov adds the community and opens
+its groups. If its outcome is still unknown, it stays remembered.
+
+**Forget it and start fresh** discards that local reminder; it does not cancel
+the earlier deploy. If you install again and both deploys land, you pay for both.
+The reminder stays only in this browser: clearing its data, using another
+browser, or choosing another key or network will not show the same reminder.
+For waiting, retry and fee messages, see [Troubleshooting](#12-troubleshooting).
 
 ![Starting a community](images/start-community.png)
 
@@ -319,8 +339,21 @@ So a missing voice shows up as missing support.
 
 ![The decision of record](images/council-record.png)
 
-**New participants.** As with ordinary votes, people who join a council later
-must be added to the open decisions. The facilitator sees an **Add them** button.
+**New participants.** People who join a council after a decision opened can
+read it, but can't add points, endorse or vote until the facilitator adds them.
+They see "You're waiting to be added to this decision", and who adds them.
+
+The facilitator sees them as **waiting**: on the council's list of decisions
+("2 waiting to take part"), and at the top of each decision, one row per person,
+with their stakeholder groups. From that row the facilitator can:
+
+- **Add to this decision**, one person at a time, so each is approved
+  individually (there's an **Add all** for when that's what you want);
+- **Invite to a stakeholder group**, if they're in none yet;
+- **Trust in …**, to vouch for them in a stakeholder group you share.
+
+**Invite someone to a stakeholder group** on the same card brings in someone
+new: they get a message with a link, and show as waiting once they've joined.
 
 ## 10. Your account and your key
 
@@ -339,8 +372,13 @@ On **Account** you can:
   whatever you typed there;
 - copy your **address**: give it to people who want to invite or message you;
 - check your **balance** and, on the playground or testnet, **Get test REV**;
-- **Download backup** of your key, or show it so you can paste it into another
-  browser or device;
+- **Save keystore file**: your key, encrypted with a password you choose, as the
+  standard JSON keystore file (Web3 Secret Storage v3, scrypt and AES) that geth,
+  MetaMask and other wallets read. To use it on another browser or device, choose
+  **I have a key**, pick the file and type its password. The password is checked in
+  the browser; rhogov can't recover a forgotten one. A **plain-text backup** is
+  there too, but it isn't encrypted. You can also show the key to paste it
+  elsewhere;
 - turn on **Show me the exact rholang before I sign each action**, to see precisely
   what you're signing. Anything that moves trust, membership, voting weight or money
   is shown and waits for you. Routine housekeeping — putting your name on the

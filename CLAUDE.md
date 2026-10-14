@@ -54,8 +54,11 @@ rchain-rust's `rho:gov:*` natives.
     an address. Every new person picker should use one of them.
   - Names come from the chain's name directory where one exists. Otherwise they come from
     the community's hidden `~names` group (`Gov.names` / `setName`).
-  - The address book is **per community** (`inScope` in `state.ts`): labels from another
-    community never show. Uniqueness uses `looksLike`/`nameSkeleton` (look-alikes collide).
+  - The address book combines **community-scoped labels and claims** with a
+    **network-scoped authoritative directory cache** (`inScope` in `state.ts`).
+    Labels and `~names` claims from another community never show, while authoritative
+    directory names survive switches between communities on the same network.
+    Uniqueness uses `looksLike`/`nameSkeleton` (look-alikes collide).
   - Names are unique **within a community**, case-sensitive, and never start with a digit
     (`nameError` in `people.ts`). Typed text starting with a digit is an address.
   - **A name belongs to its key.** Switching keys (`setKey`) drops the old name; the new
@@ -69,6 +72,7 @@ rchain-rust's `rho:gov:*` natives.
 src/chain/  node.ts (rnode HTTP: status/explore/deploy/outcome/balance/faucet, RhoExpr decode,
                      InsufficientFunds pre-check)
             keys.ts (identity, REV address, deploy signing)
+            keystore.ts (the key as a Web3 Secret Storage v3 file: scrypt + aes-128-ctr)
             gov.ts (typed Gov API over rgov-core + the native standing query; batch(); names)
             council.ts (multi-stakeholder conventions, median power, combination, approvals)
             people.ts (resolvePerson: name or address → person)

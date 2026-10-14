@@ -9,6 +9,7 @@ import { active, communities, displayName, gov, listedName, myAddr, publishedNam
 import { Modal, nameOf, recentErrors, route } from "./kit";
 import { nameProblem } from "./name-sync";
 import { newVersion } from "./update";
+import { setupNode } from "./setup";
 
 const REPO = "https://github.com/rchain-community/rhogov";
 export const GUIDE = `${REPO}/blob/main/docs/user-guide.md`;
@@ -34,7 +35,7 @@ function screenHelp(): { title: string; text: string; link: string } {
     case "councils": case "c": return { title: "Councils", text: "Decisions across stakeholder groups: estimate each group's voting power, deliberate with pros and cons, then vote.", link: section("9-councils-decisions-across-stakeholder-groups") };
     case "inbox": return { title: "Inbox", text: "Messages and invitations sent to you. Collect them to read them; they then live in this browser.", link: section("8-inbox") };
     case "community": return { title: "Community", text: "The invite link to share, and switching communities. The network address and the three contract addresses are under “Where it lives”, closed by default — you only need them to wire rhogov to a quantum-os room or a node.", link: section("2-communities-and-invitations") };
-    case "account": return { title: "Account", text: "Your name, your address, your balance, and backing up your key.", link: section("10-your-account-and-your-key") };
+    case "account": return { title: "Account", text: "Your name, your address, your balance, and saving your key as a password-protected keystore file.", link: section("10-your-account-and-your-key") };
     default: return { title: "rhogov", text: "", link: GUIDE };
   }
 }
@@ -49,6 +50,15 @@ async function tipsFor(): Promise<Tip[]> {
   const c = active.value, me = myAddr.value, G = gov.value;
   if (newVersion.value) tips.push({ text: "A newer version of rhogov is available.", href: "javascript:location.reload()", label: "Reload" });
   if (!me) return [...tips, { text: "Create or bring your key: it's your identity here, and it signs everything you do.", href: "#/welcome", label: "Set up" }];
+  // The install form scopes its reminder to the chosen network and identity.
+  const nodeUrl = route.value.parts[0] === "welcome" || !c ? setupNode.value : c.node;
+  try {
+    const pending = JSON.parse(localStorage.getItem(`rhogov:pending-install:${nodeUrl}:${me}`) ?? "null");
+    if (typeof pending?.name === "string" && pending.name.trim() && typeof pending?.sig === "string" && pending.sig) tips.push({
+      text: <>You started “{pending.name}” and it hasn't confirmed yet. On the same network, choose Start a new community → Look for “{pending.name}”; don't install again while its outcome is unknown.</>,
+      href: "#/welcome", label: "Continue setup",
+    });
+  } catch { /* An unreadable reminder must not hide the other Help tips. */ }
   if (!c || !G) return [...tips, { text: "Join a community with an invite link someone sent you, or start your own.", href: "#/welcome", label: "Continue setup" }];
   const node = new RNode(c.node);
   const [st, bal, groups, inbox] = await Promise.all([

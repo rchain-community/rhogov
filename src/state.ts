@@ -127,21 +127,37 @@ let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Everything here belongs to ONE community (and the directory to one network):
 // a label someone typed joining a group in community A says nothing about who
-// they are in B. Switching community starts the book afresh (#38).
+// they are in B. Switching communities drops their labels and claims;
+// directory names survive while the network stays the same (#38, #64).
 let scope = "", scopeNode = "";
+let directoryEpoch = 0;
+
 function inScope() {
   const c = active.value, here = c ? `${c.node}|${c.group}` : "", node = c?.node ?? "";
   if (here === scope) return;
+
+  // This assignment must stay before rebuild() below: rebuild() re-enters
+  // inScope(), and the updated scope makes that nested call return immediately.
   scope = here;
+
   raw = {};
   listed.clear();
-  if (node !== scopeNode) { scopeNode = node; published.clear(); pending = new Set(); }
-  addressBook.value = {};
-  nameNotes.value = {};
+
+  if (node !== scopeNode) {
+    scopeNode = node;
+    directoryEpoch++;
+    published.clear();
+    pending = new Set();
+  }
+
+  // Rebuild now: community labels and claims are gone, but directory names
+  // still belong to this network. Recalculate markers from those claims alone.
+  rebuild({});
 }
 
 /** Names people put on their community's name list (Gov.names): over group labels, under the directory. */
 const listed = new Map<string, string>();
+
 /** The active community's whole list (replacing what was known), or `merge` one entry into it. */
 export function learnListed(names: Record<string, string>, merge = false) {
   inScope();
@@ -158,7 +174,7 @@ export const rawNames = () => raw;
 /** Why a name is shown with a marker ("(unclaimed)", "(2)"), for its tooltip. */
 export const nameNotes = signal<Record<string, string>>({});
 
-// Switching community empties the book at once, not on the next name lookup.
+// Switching community removes its names at once, retaining this network's directory.
 effect(() => { void active.value; inScope(); });
 
 function rebuild(labels: Record<string, string>) {
@@ -167,6 +183,7 @@ function rebuild(labels: Record<string, string>) {
   for (const [a, n] of listed) next[a] = n;
   for (const [a, n] of published) if (n) next[a] = n;
   raw = { ...next };
+
   // Names are always shown, never an address. Names that LOOK alike (the same
   // letters, or look-alike letters from another alphabet: "Ada" / "Adα") are
   // one name here. A name someone CLAIMED (the community's name list, or the
@@ -175,23 +192,33 @@ function rebuild(labels: Record<string, string>) {
   const isClaim = (a: string) => listed.has(a) || !!published.get(a);
   const notes: Record<string, string> = {};
   const byLook = new Map<string, string[]>();
-  for (const [a, n] of Object.entries(next)) { const k = nameSkeleton(n); byLook.set(k, [...(byLook.get(k) ?? []), a]); }
+
+  for (const [a, n] of Object.entries(next)) {
+    const k = nameSkeleton(n);
+    byLook.set(k, [...(byLook.get(k) ?? []), a]);
+  }
+
   for (const addrs of byLook.values()) {
     if (addrs.length < 2) continue;
+
     const claims = addrs.filter(isClaim).sort();
+
     for (const a of addrs) if (!isClaim(a) && claims.length) {
       next[a] = `${next[a]} (unclaimed)`;
       notes[a] = "Someone else in this community has claimed this name; this person only typed it when joining a group.";
     }
+
     // Two claims, or two labels with no claim: who was first isn't recorded on
     // chain, so neither is shown as the owner. Both are numbered, in a fixed
     // order (by address) so everyone sees the same numbers.
     const same = claims.length > 1 ? claims : claims.length ? [] : [...addrs].sort();
+
     same.forEach((a, i) => {
       next[a] = `${next[a]} (${i + 1})`;
       notes[a] = `${same.length} people here go by this name (or one that looks the same). The numbers tell them apart; they don't say who had it first, which isn't recorded.`;
     });
   }
+
   if (JSON.stringify(next) !== JSON.stringify(addressBook.value)) addressBook.value = next;
   if (JSON.stringify(notes) !== JSON.stringify(nameNotes.value)) nameNotes.value = notes;
 }
@@ -199,10 +226,12 @@ function rebuild(labels: Record<string, string>) {
 export function learnNames(pairs: { addr: string; label: string }[]) {
   inScope();
   const labels: Record<string, string> = {};
+
   for (const { addr, label } of pairs) {
     if (label && !published.get(addr)) labels[addr] = label;
     if (!published.has(addr)) pending.add(addr);
   }
+
   rebuild(labels);
   if (pending.size && !flushTimer) flushTimer = setTimeout(flushNames, 50);
 }
@@ -210,12 +239,24 @@ export function learnNames(pairs: { addr: string; label: string }[]) {
 async function flushNames() {
   flushTimer = null;
   const c = active.value;
+  const epoch = directoryEpoch;
   const addrs = [...pending];
   pending = new Set();
+
   if (!c || !addrs.length) return;
+
   for (const a of addrs) published.set(a, null);
+
   try {
     const found = await resolveNames(new RNode(c.node), addrs);
+
+    // A lookup may finish after we leave its network, even if we return to the
+    // same URL before it answers. It must not refill a newer directory cache.
+    // We deliberately do not requeue old-scope addresses here: a screen that
+    // still needs them calls learnNames in its current scope, which queues only
+    // addresses relevant after the switch.
+    if (epoch !== directoryEpoch) return;
+
     for (const [a, n] of Object.entries(found)) published.set(a, n);
     rebuild({});
   } catch { /* a chain without the name directory: labels only */ }
@@ -238,9 +279,14 @@ export function dismiss(id: string) { dismissed.value = [...dismissed.value, id]
 
 /** Bumped after every write so screens re-read chain state. */
 export const refreshTick = signal(0);
+
 /** Bumped after the user's own writes: forces a re-read even if a poll is running. */
 export const forceTick = signal(0);
-export const refresh = (force = false) => { if (force) forceTick.value++; refreshTick.value++; };
+
+export const refresh = (force = false) => {
+  if (force) forceTick.value++;
+  refreshTick.value++;
+};
 
 // Other people act too: re-read quietly while the page is visible, and on return.
 // Screens keep showing what they have while a re-read is in flight.

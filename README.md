@@ -30,7 +30,9 @@ network peer is the **rnode HTTP API** you point it at, which answers CORS with 
 no backend, no relay, no database and no account:
 
 - your **key** is generated in, and never leaves, the browser; it signs deploys locally
-  (secp256k1 over blake2b256 of `DeployDataProto`, as rnode verifies);
+  (secp256k1 over blake2b256 of `DeployDataProto`, as rnode verifies). You can save it as
+  a password-protected keystore file (Web3 Secret Storage v3, which geth and MetaMask
+  read) and bring it back from one;
 - **reads** are `explore-deploy` against the newest block; **writes** are signed deploys whose
   answers come back through `deploy-status`;
 - an **invite link** carries only the node URL and the three contract addresses.
@@ -42,6 +44,7 @@ no backend, no relay, no database and no account:
 
 - **Communities.** Start one (installs the three contracts with your key, in one deploy; Start stays disabled until your balance covers its fee, about 0.02 REV)
   or join one with an invite link. Every community is independent.
+  An install that hasn't confirmed is remembered, and setup offers to look for it rather than install twice.
 - **Groups.** Open or invite-only. Admins invite by address (with an inbox notification)
   and promote admins; anyone can join an open group.
 - **A first run that says what to do.** Home opens with what rhogov is for, and a
