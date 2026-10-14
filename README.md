@@ -44,6 +44,7 @@ no backend, no relay, no database and no account:
 
 - **Communities.** Start one (installs the three contracts with your key, in one deploy; Start stays disabled until your balance covers its fee, about 0.02 REV)
   or join one with an invite link. Every community is independent.
+  An install that hasn't confirmed is remembered, and setup offers to look for it rather than install twice.
 - **Groups.** Open or invite-only. Admins invite by address (with an inbox notification)
   and promote admins; anyone can join an open group.
 - **A first run that says what to do.** Home opens with what rhogov is for, and a

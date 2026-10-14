@@ -9,6 +9,7 @@ import { active, communities, displayName, gov, listedName, myAddr, publishedNam
 import { Modal, nameOf, recentErrors, route } from "./kit";
 import { nameProblem } from "./name-sync";
 import { newVersion } from "./update";
+import { setupNode } from "./setup";
 
 const REPO = "https://github.com/rchain-community/rhogov";
 export const GUIDE = `${REPO}/blob/main/docs/user-guide.md`;
@@ -49,6 +50,15 @@ async function tipsFor(): Promise<Tip[]> {
   const c = active.value, me = myAddr.value, G = gov.value;
   if (newVersion.value) tips.push({ text: "A newer version of rhogov is available.", href: "javascript:location.reload()", label: "Reload" });
   if (!me) return [...tips, { text: "Create or bring your key: it's your identity here, and it signs everything you do.", href: "#/welcome", label: "Set up" }];
+  // The install form scopes its reminder to the chosen network and identity.
+  const nodeUrl = route.value.parts[0] === "welcome" || !c ? setupNode.value : c.node;
+  try {
+    const pending = JSON.parse(localStorage.getItem(`rhogov:pending-install:${nodeUrl}:${me}`) ?? "null");
+    if (typeof pending?.name === "string" && pending.name.trim() && typeof pending?.sig === "string" && pending.sig) tips.push({
+      text: <>You started “{pending.name}” and it hasn't confirmed yet. On the same network, choose Start a new community → Look for “{pending.name}”; don't install again while its outcome is unknown.</>,
+      href: "#/welcome", label: "Continue setup",
+    });
+  } catch { /* An unreadable reminder must not hide the other Help tips. */ }
   if (!c || !G) return [...tips, { text: "Join a community with an invite link someone sent you, or start your own.", href: "#/welcome", label: "Continue setup" }];
   const node = new RNode(c.node);
   const [st, bal, groups, inbox] = await Promise.all([
