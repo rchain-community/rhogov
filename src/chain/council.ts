@@ -93,6 +93,8 @@ export interface Power {
   /** Raw median estimate per chamber. */
   median: Record<string, number>;
   estimators: number;
+  /** How many estimates cover each chamber. Fewer than `estimators` for a chamber added after some people estimated. */
+  coveredBy: Record<string, number>;
 }
 
 /**
@@ -100,18 +102,26 @@ export interface Power {
  * few extreme estimates — a whale cannot drag it), then normalised so the
  * shares sum to 1. Each estimator's own numbers are first normalised to 100 so
  * an estimate's scale does not matter, only its proportions.
+ *
+ * A ballot that doesn't name a chamber at all says nothing about it: an estimate
+ * made before a stakeholder group was added is not an estimate of 0 for it. Such
+ * a ballot still counts for the chambers it names, and the chamber's median is
+ * taken over the ballots that do name it. An explicit "<id>=0" is a 0.
  */
 export function chamberPower(chambers: string[], weightsIssue: Issue | null): Power {
   const ballots = Object.values(weightsIssue?.ballots ?? {}).map(parseEstimate)
     .map((e) => {
-      const tot = chambers.reduce((s, c) => s + (e[c] ?? 0), 0);
-      return tot > 0 ? Object.fromEntries(chambers.map((c) => [c, (100 * (e[c] ?? 0)) / tot])) : null;
+      const named = chambers.filter((c) => c in e);
+      const tot = named.reduce((s, c) => s + e[c], 0);
+      return tot > 0 ? Object.fromEntries(named.map((c) => [c, (100 * e[c]) / tot])) : null;
     })
     .filter((e): e is Record<string, number> => !!e);
-  const med = Object.fromEntries(chambers.map((c) => [c, median(ballots.map((b) => b[c] ?? 0))]));
+  const of = (c: string) => ballots.filter((b) => c in b).map((b) => b[c]);
+  const med = Object.fromEntries(chambers.map((c) => [c, median(of(c))]));
+  const coveredBy = Object.fromEntries(chambers.map((c) => [c, of(c).length]));
   const tot = Object.values(med).reduce((s, x) => s + x, 0);
   const share = Object.fromEntries(chambers.map((c) => [c, tot > 0 ? med[c] / tot : 1 / Math.max(1, chambers.length)]));
-  return { share, median: med, estimators: ballots.length };
+  return { share, median: med, estimators: ballots.length, coveredBy };
 }
 
 // --- the combined tally --------------------------------------------------------

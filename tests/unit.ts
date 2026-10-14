@@ -44,6 +44,14 @@ p = chamberPower(["a", "b", "c"], issue({ v1: ["a=60", "b=20", "c=20"], v2: ["a=
 ok("median resists one extreme estimate", Math.abs(p.share.c - 1 / 3) < 1e-9 && p.estimators === 3, p);
 p = chamberPower(["a", "b"], issue({ v1: ["a=3", "b=1"] }));
 ok("only proportions matter", p.share.a === 0.75, p);
+// A stakeholder group added after people estimated: older ballots don't name it.
+p = chamberPower(["a", "b", "n"], issue({ v1: ["a=50", "b=50"], v2: ["a=30", "b=70"], v3: ["a=20", "b=40", "n=40"] }));
+// a: 50, 30, 20 → 30; b: 50, 70, 40 → 50; n: only v3 names it → 40; shares 30/120, 50/120, 40/120
+ok("a ballot that doesn't name a group isn't a 0 for it", Math.abs(p.share.n - 40 / 120) < 1e-9 && p.coveredBy.n === 1 && p.coveredBy.a === 3 && p.estimators === 3, p);
+p = chamberPower(["a", "b", "n"], issue({ v1: ["a=50", "b=50"] }));
+ok("a group nobody has estimated yet has no power", p.share.n === 0 && p.share.a === 0.5 && p.coveredBy.n === 0, p);
+p = chamberPower(["a", "b"], issue({ v1: ["a=1", "b=0"], v2: ["a=1", "b=0"], v3: ["a=1", "b=1"] }));
+ok("an explicit 0 still counts", p.share.b === 0, p);
 
 // Combination across stakeholder groups.
 const out = (weights: Record<string, number>, ballots: Record<string, string[]>) => ({ weights, ballots, levels: {}, discredited: [], trustActive: false, winner: null, mode: "approval" });
@@ -52,9 +60,9 @@ ok("weighted approval share", sA.x === 0.75 && sA.y === 0.25, sA);
 const sB = approvalShare(["x", "y"], out({ v3: 1 }, { v3: ["y", "y"] }));
 ok("duplicate approvals count once", sB.y === 1, sB);
 const groups = [{ chamber: { id: "A" }, share: sA }, { chamber: { id: "B" }, share: sB }, { chamber: { id: "C" }, share: { x: 0, y: 0 } }] as any;
-const c = combine(["x", "y"], groups, { share: { A: 0.5, B: 0.3, C: 0.2 }, median: {}, estimators: 0 });
+const c = combine(["x", "y"], groups, { share: { A: 0.5, B: 0.3, C: 0.2 }, median: {}, estimators: 0, coveredBy: {} });
 ok("Σ power × share", Math.abs(c.score.x - 0.375) < 1e-9 && Math.abs(c.score.y - 0.425) < 1e-9 && c.winner === "y", c);
-const t = combine(["x", "y"], [{ chamber: { id: "A" }, share: { x: 0.5, y: 0.5 } }] as any, { share: { A: 1 }, median: {}, estimators: 0 });
+const t = combine(["x", "y"], [{ chamber: { id: "A" }, share: { x: 0.5, y: 0.5 } }] as any, { share: { A: 1 }, median: {}, estimators: 0, coveredBy: {} });
 ok("a tie names no winner", t.winner === null && eq(t.tie.sort(), ["x", "y"]), t);
 ok("vote counts: one per person per option, unknown options ignored",
   eq(approvals(["x", "y", "z"], { a: ["x", "y"], b: ["x", "x"], c: ["w"] }), { x: 2, y: 1, z: 0 }));

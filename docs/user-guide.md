@@ -305,6 +305,21 @@ estimates can't swing it.
 
 ![Voting power](images/council-power.png)
 
+### Adding a stakeholder group later
+
+A council can grow. The facilitator opens the **Stakeholder groups** tab and
+presses **＋ Add a stakeholder group**, then picks one of the suggested groups
+the council doesn't have yet, or names their own, and chooses whether it's
+invite only. The facilitator becomes its first admin and member, so they should
+leave it if they don't belong to it.
+
+Estimates made before the group existed don't mention it. They still count for
+the other groups, but not for the new one, so its power is the median of the
+estimates that do include it. Until someone includes it, it has 0%. The
+**Voting power** tab says which groups were added after estimates were made;
+update your estimate to include them. Open decisions count the new group as soon
+as the facilitator adds its members to them.
+
 ### A decision, step by step
 
 The facilitator starts a decision with **＋ New decision**: the question, the
