@@ -87,6 +87,10 @@ no backend, no relay, no database and no account:
   opens a GitHub issue pre-filled with your version, network, community, balance, those
   suggestions and recent errors, never your key.
 - **Review before signing.** An Account setting shows the exact rholang before each signature.
+  Each action reviews its own term, so two at once can't answer for each other.
+- **Writes that may still land are remembered.** A signed action whose outcome is still
+  unknown is kept, by its signature, across a reload; the same action isn't started again
+  until Account's **Check it** finds out what happened.
 
 ### Multi-stakeholder councils
 

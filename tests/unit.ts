@@ -2,7 +2,7 @@
 import { ARCHIVE_MAX_BYTES, exportInboxArchive, mergeInboxArchive, parseInboxArchive } from "../src/inbox-archive";
 import { archived, archiveForTransfer, importArchive } from "../src/state";
 import { approvalShare, approvals, asking, chamberPower, combine, decodeArg, encodeArg, estimateBallot, parseEstimate } from "../src/chain/council";
-import { pendingOf, readRecord, toGroup } from "../src/chain/gov";
+import { Gov, pendingOf, readRecord, ReviewDeclined, toGroup } from "../src/chain/gov";
 import {
   active, chainIdOf, chainReset, displayName, earlier, fromEarlierChain, knownGenesis, liveGenesis, myAddr, ownKeyHere,
   setDisplayName, setKey, setSetupNode, UNKNOWN_CHAIN, usable,
@@ -11,7 +11,8 @@ import { addCommunity, addressBook, learnListed, learnNames, nameNotes, setActiv
 import { filterPeople, looksLike, nameError, resolvePerson, suggestNames } from "../src/chain/people";
 import { revAddressOf } from "../src/chain/keys";
 import { decryptKeystore, encryptKeystore, ethAddressOf, keystoreFileName, looksLikeKeystore } from "../src/chain/keystore";
-import { decode, NotCarried, RNode } from "../src/chain/node";
+import { decode, NotCarried, RNode, type Tick } from "../src/chain/node";
+import { forgetPending, keepPending, pendingFor, pendingWrites, ReceiptRefused, writeId } from "../src/ui/pending-writes";
 
 let pass = 0, fail = 0;
 const ok = (label: string, cond: boolean, got?: unknown) => {
@@ -144,6 +145,9 @@ ok("vote counts: one per person per option, unknown options ignored",
   const g = globalThis as any;
   g.location ??= { hash: "", origin: "http://unit", pathname: "/" };
   g.window ??= { addEventListener() {}, removeEventListener() {}, scrollTo() {}, innerWidth: 1024, innerHeight: 768 };
+  // act() refuses a write when it can't read its record of pending writes, so give it storage.
+  const hadStorage = "localStorage" in g, mem = new Map<string, string>();
+  if (!hadStorage) g.localStorage = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => mem.set(k, v), removeItem: (k: string) => mem.delete(k), key: (i: number) => [...mem.keys()][i] ?? null, get length() { return mem.size; } };
   const { act } = await import("../src/ui/kit");
   let finish!: (value: number) => void;
   let secondRan = false;
@@ -153,6 +157,7 @@ ok("vote counts: one per person per option, unknown options ignored",
   ok("an in-flight write rejects a duplicate identity even if its title changes", second === undefined && !secondRan, { second, secondRan });
   finish(1);
   await first;
+  if (!hadStorage) delete g.localStorage;
 }
 
 // Arguments.
@@ -840,6 +845,79 @@ ok("non-argument rejected", decodeArg("hello") === null);
   ok("renaming on one chain doesn't rename a chain with its own key", displayName.value === "Bea");
   setKey(null);
   ok("removing a chain's own key goes back to the main key and name", !ownKeyHere.value && myAddr.value === addr && displayName.value === "Ada2");
+}
+
+// Each write's review rides on its own progress callback: two writes running at
+// once each review their own term, and one declining never signs the other's.
+{
+  const G = new Gov({ name: "R", node: "http://127.0.0.1:1", inbox: "rho:id:i", group: "rho:id:g", issue: "rho:id:s" }, () => "0b60b3ffcc43a607e037c3da3c1ed366261d742288abdf92d53cf80b9e3cf98f");
+  const signedTerms: string[] = [];
+  (G as unknown as { node: unknown }).node = { deploy: async (term: string) => { signedTerms.push(term); return []; } };
+  const seen: Record<string, string[]> = { a: [], b: [] };
+  let letA!: (ok: boolean) => void;
+  const tickA: Tick = Object.assign(() => {}, { review: (term: string) => { seen.a.push(term); return new Promise<boolean>((r) => { letA = r; }); } });
+  const tickB: Tick = Object.assign(() => {}, { review: async (term: string) => { seen.b.push(term); return true; } });
+  const a = G.join("ga", "A", tickA).then(() => "signed", (e) => e instanceof ReviewDeclined ? "declined" : String(e));
+  await new Promise((r) => setTimeout(r, 0));
+  await G.join("gb", "B", tickB); // B is reviewed and signed while A is still waiting for its answer
+  letA(false);
+  ok("each write reviews its own term", seen.a.length === 1 && seen.a[0].includes('"ga"') && seen.b.length === 1 && seen.b[0].includes('"gb"'), seen);
+  ok("a declined review signs nothing, and doesn't stop the other", (await a) === "declined" && signedTerms.length === 1 && signedTerms[0].includes('"gb"'), signedTerms);
+  await G.join("gc", "C");
+  ok("a write with no review step attached signs without asking", signedTerms.length === 2);
+}
+
+// Pending writes: one record per network, signer and action; storage that refuses
+// or a record that can't be read never passes for "nothing pending".
+{
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  const mem = new Map<string, string>();
+  let refuseWrite = false, refuseRead = false;
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (k: string) => { if (refuseRead) throw new Error("denied"); return mem.has(k) ? mem.get(k)! : null; },
+      setItem: (k: string, v: string) => { if (refuseWrite) throw new Error("quota"); mem.set(k, String(v)); },
+      removeItem: (k: string) => { mem.delete(k); },
+      key: (i: number) => [...mem.keys()][i] ?? null,
+      get length() { return mem.size; },
+    },
+  });
+  try {
+    const id = writeId("leave:club"), at = 1;
+    const a = { id, title: "Leaving Club", node: "http://a:40403", addr: "1111A", sig: "sigA", at };
+    const b = { ...a, node: "http://b:40403", sig: "sigB" };
+    const c = { ...a, addr: "1111C", sig: "sigC" };
+    keepPending(a); keepPending(b); keepPending(c);
+    const sigOf = (n: string, ad: string) => { const p = pendingFor(id, n, ad); return p && p !== "unreadable" ? p.sig : p; };
+    ok("the same action pending on two networks and under two keys keeps three records",
+      sigOf(a.node, a.addr) === "sigA" && sigOf(b.node, b.addr) === "sigB" && sigOf(c.node, c.addr) === "sigC" && pendingWrites.value.length === 3,
+      [sigOf(a.node, a.addr), sigOf(b.node, b.addr), sigOf(c.node, c.addr)]);
+    forgetPending(b);
+    ok("forgetting one leaves the others", sigOf(b.node, b.addr) === null && sigOf(a.node, a.addr) === "sigA" && sigOf(c.node, c.addr) === "sigC");
+
+    const slotA = [...mem.keys()].find((k) => mem.get(k)!.includes("sigA"))!;
+    mem.set(slotA, "{not json");
+    const dam = pendingFor(id, a.node, a.addr);
+    ok("a record that can't be read blocks its action and is listed", dam !== null && dam !== "unreadable" && dam.damaged === true && pendingWrites.value.length >= 1);
+    mem.delete(slotA);
+
+    refuseWrite = true;
+    let threw: unknown = null;
+    try { keepPending({ ...a, sig: "sigA2" }); } catch (e) { threw = e; }
+    ok("storage that refuses the write throws before anything is sent", threw instanceof ReceiptRefused && sigOf(a.node, a.addr) === null);
+    refuseWrite = false;
+    refuseRead = true;
+    ok("storage that refuses the read is not 'nothing pending'", pendingFor(id, a.node, a.addr) === "unreadable");
+    refuseRead = false;
+
+    // A record kept before records were scoped (one per action) moves into its slot.
+    mem.set("rhogov:pending-write:" + id, JSON.stringify({ id, title: "Old", node: a.node, addr: a.addr, sig: "sigOld", at }));
+    ok("an unscoped record is found and moved", sigOf(a.node, a.addr) === "sigOld" && !mem.has("rhogov:pending-write:" + id) && sigOf(a.node, a.addr) === "sigOld");
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis, "localStorage", descriptor);
+    else delete (globalThis as { localStorage?: Storage }).localStorage;
+  }
 }
 
 console.log(`unit: ${pass}/${pass + fail} passed`);

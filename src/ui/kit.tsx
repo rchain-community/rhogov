@@ -2,11 +2,11 @@
 import { signal } from "@preact/signals";
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { blake2b } from "@noble/hashes/blake2.js";
 import { filterPeople, resolvePerson, suggestNames } from "../chain/people";
-import { Gov, ReviewDeclined, setReviewGate, type Community } from "../chain/gov";
-import { hex } from "../chain/keys";
-import { RNode } from "../chain/node";
+import { Gov, GovError, ReviewDeclined, type Community } from "../chain/gov";
+import { NodeError, RNode, StillUnknown, type Tick } from "../chain/node";
+import { REFUSED, ReceiptRefused, forgetPending, keepPending, pendingFor, pendingWrites, writeId, type PendingWrite } from "./pending-writes";
+export { forgetPending, pendingWrites, type PendingWrite } from "./pending-writes";
 import { active, addCommunity, addressBook, communities, forceTick, gov, removeCommunity, setActive, nameNotes, learnListed, learnNames, myAddr, refresh, refreshTick, reviewBeforeSign } from "../state";
 
 // --- routing (hash) ------------------------------------------------------------
@@ -173,15 +173,6 @@ const TICK: Record<string, string> = {
 export type Risk = "routine" | "consequential" | "irreversible";
 
 /**
- * A write's identity: its stable action key, hashed. The key names the target
- * action — never the visible title — so two clicks on the same action give one
- * id, and two different targets give two. Keying this on the title would collide
- * across targets and be defeated by a label that varies (§ the in-flight lock,
- * docs/audit/remediation.md).
- */
-const writeId = (key: string) => hex(blake2b(new TextEncoder().encode(key), { dkLen: 16 }));
-
-/**
  * Writes in flight *now*, by their identity. In memory only.
  *
  * A durable version of this was tried and retracted: it kept a reload from
@@ -197,13 +188,34 @@ const locked = (id: string) => inFlight.has(id);
 const acquire = (id: string) => { inFlight.add(id); };
 const release = (id: string) => { inFlight.delete(id); };
 
+/** Did this error leave the write's outcome unknown? Anything the node or a block answered is known. */
+const stillUnknown = (e: unknown) => e instanceof StillUnknown || !(e instanceof NodeError || e instanceof GovError || e instanceof ReviewDeclined || e instanceof ReceiptRefused);
+
+/**
+ * Look a pending write up once. Once the node has an answer, it is forgotten and
+ * the answer is a card (the list it was in is gone); until then, the text is returned.
+ */
+export async function checkPending(p: PendingWrite): Promise<string> {
+  const st = await new RNode(p.node).deployStatus(p.sig);
+  if (st === "waiting") return "Not in a block yet. It may still be carried, so don't repeat it yet.";
+  forgetPending(p);
+  refresh(true);
+  if (st === "landed") notify(`It landed: ${p.title}`, "It was recorded on chain.", "info");
+  else notify(`It failed: ${p.title}`, "It ran in a block and failed, so nothing changed; its fee was charged. You can do it again.", "info");
+  return "";
+}
+
 // --- review-before-sign ---------------------------------------------------------
 
-const review = signal<{ title: string; term: string; resolve: (ok: boolean) => void } | null>(null);
+/**
+ * Reviews waiting for an answer, first one shown. A queue, because two writes can
+ * reach their review step at once and each one's answer belongs to that write.
+ */
+const reviews = signal<{ title: string; term: string; resolve: (ok: boolean) => void }[]>([]);
 export function ReviewModal() {
-  const r = review.value;
+  const r = reviews.value[0];
   if (!r) return null;
-  const done = (ok: boolean) => { review.value = null; r.resolve(ok); };
+  const done = (ok: boolean) => { reviews.value = reviews.value.filter((x) => x !== r); r.resolve(ok); };
   return (
     <Modal title={`Sign: ${r.title}`} onClose={() => done(false)}
       actions={<><button onClick={() => done(false)}>Cancel</button><button class="primary" onClick={() => done(true)}>Sign and send</button></>}>
@@ -232,9 +244,23 @@ export function ReviewModal() {
 export async function act<T>(
   title: string,
   run: (onTick: (s: string) => void) => Promise<T>,
-  opts: { risk: Risk; key: string; done?: string; confirm?: string | false },
+  opts: { risk: Risk; key: string; done?: string; confirm?: string | false; receipt?: false },
 ): Promise<T | undefined> {
   const id = writeId(opts.key);
+  const node = gov.value?.c.node ?? "", addr = myAddr.value ?? "";
+  const earlier = opts.receipt !== false ? pendingFor(id, node, addr) : null;
+  if (earlier === "unreadable") {
+    notify(`Not sent: ${title}`, REFUSED, "error");
+    return undefined;
+  }
+  if (earlier?.damaged) {
+    notify(`Not repeated: ${title}`, "rhogov kept a note that this action was signed and may still land, but the note can't be read back, so doing it again could do it twice. Account lists it.", "info", { label: "Check it", href: "#/account" });
+    return undefined;
+  }
+  if (earlier) {
+    notify(`Not repeated: ${title}`, `You signed this on ${new Date(earlier.at).toLocaleString()} and it may still land, so doing it again could do it twice. Account lists it, to check it first.`, "info", { label: "Check it", href: "#/account" });
+    return undefined;
+  }
   if (locked(id)) {
     notify(`Already in progress: ${title}`, "It's still waiting for a block (see the card). Pressing again would do it twice.", "info");
     return undefined;
@@ -245,10 +271,6 @@ export async function act<T>(
   // the community's list, sending a message — signs without asking, so it can happen
   // quietly while you are doing something else; anything that moves trust, membership,
   // weight or money is shown before it goes.
-  setReviewGate(async (term) => {
-    if (!reviewBeforeSign.value || opts.risk === "routine") return true;
-    return await new Promise<boolean>((resolve) => { review.value = { title, term, resolve }; });
-  });
   let t: ReturnType<typeof pushToast> | undefined;
   // With no review to do, the progress card goes up the moment the action is taken: it is
   // the feedback that something is happening, and (see tests/e2e/helpers.ts settle()) the
@@ -265,14 +287,30 @@ export async function act<T>(
     // The progress card appears when the write actually starts, not while the person is
     // still deciding at the review step.
     const show = () => (t ??= pushToast({ title, detail: "Signing…", kind: "busy", since: Date.now() }));
+    // This write's own review and receipt ride on its progress callback (see Tick in
+    // node.ts), so a second write running at the same time cannot answer for it.
+    let signed: PendingWrite | null = null;
+    const tick: Tick = Object.assign((s: string) => { show().update({ detail: TICK[s] ?? s }); }, {
+      review: async (term: string) => {
+        if (!reviewBeforeSign.value || opts.risk === "routine") return true;
+        return await new Promise<boolean>((resolve) => { reviews.value = [...reviews.value, { title, term, resolve }]; });
+      },
+      signed: (sig: string) => {
+        signed = { id, title, node, addr, sig, at: Date.now() };
+        if (opts.receipt !== false) keepPending(signed);
+      },
+    });
     try {
-      const out = await run((s) => show().update({ detail: TICK[s] ?? s }));
+      const out = await run(tick);
+      if (signed) forgetPending(signed);
       const done = show();
       done.update({ kind: "done", detail: opts.done ?? "Recorded on chain." });
       done.close(3500);
       refresh(true);
       return out;
     } catch (e) {
+      // Known outcome (it ran, failed, or was never carried): nothing is left to look for.
+      if (signed && !stillUnknown(e)) forgetPending(signed);
       // Declined at the review step: nothing was signed, so nothing went wrong.
       if (e instanceof ReviewDeclined) { t?.close(0); return undefined; }
       logError(title, (e as Error).message);
@@ -281,7 +319,6 @@ export async function act<T>(
       return undefined;
     }
   } finally {
-    setReviewGate(null);
     release(id);
   }
 }

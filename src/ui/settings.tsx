@@ -5,7 +5,7 @@ import {
   NETWORKS, active, addCommunity, communities, communityKey, displayName, earlier, ownKeyHere, usable, inviteLink, myAddr, parseInvite, removeCommunity,
   reviewBeforeSign, secretKey, setActive, setDisplayName, setKey, setReview,
 } from "../state";
-import { Copy, Modal, go, short } from "./kit";
+import { Copy, Modal, checkPending, forgetPending, go, pendingWrites, short, type PendingWrite } from "./kit";
 import { encryptKeystore, keystoreFileName } from "../chain/keystore";
 import { Balance, setSetupNode, setupNode } from "./setup";
 import { sameName } from "../chain/gov";
@@ -66,6 +66,7 @@ export function AccountScreen() {
           Show me the exact rholang before I sign each action</label>
         <p class="small muted">Anything that moves trust, membership, voting weight or money is shown before it is signed. Routine housekeeping — putting your name on the community's list, sending a message — signs without asking, so it can happen quietly in the background.</p>
       </div>
+      {pendingWrites.value.some((p) => p.addr === addr || p.damaged) && <PendingWrites addr={addr} />}
       {notificationAvailable() && backgroundNotificationChoice.value === "declined" && (
         <div class="card stack">
           <h2>Inbox notifications</h2>
@@ -73,6 +74,36 @@ export function AccountScreen() {
           <div><button onClick={() => { reconsiderBackgroundNotifications(); go("/inbox"); }}>Reconsider in Inbox</button></div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Signed writes whose outcome is still unknown (kit.tsx), each one checkable by its signature. */
+function PendingWrites({ addr }: { addr: string }) {
+  const [said, setSaid] = useState<Record<string, string>>({});
+  const check = async (p: PendingWrite) => {
+    setSaid((s) => ({ ...s, [p.key!]: "Looking it up…" }));
+    const text = await checkPending(p).catch((e) => `Couldn't ask the node: ${(e as Error).message}. Try again later.`);
+    setSaid((s) => ({ ...s, [p.key!]: text }));
+  };
+  return (
+    <div class="card stack">
+      <h2>Waiting to hear about</h2>
+      <p class="small muted">You signed these, and the network hadn't put them in a block when rhogov stopped watching. They may still land, so rhogov won't start the same action again until you know. Checking asks the node for each one's signature; it signs nothing and costs nothing.</p>
+      {pendingWrites.value.filter((p) => p.addr === addr || p.damaged).map((p) => (
+        <div class="stack" style={{ gap: ".3rem" }}>
+          <div class="row between">
+            {p.damaged
+              ? <span><b>{p.title}</b> <span class="muted small">Its signature can't be read, so it can't be looked up. Until you stop waiting for it, rhogov won't repeat the action it was for.</span></span>
+              : <span><b>{p.title}</b> <span class="muted small">signed {new Date(p.at).toLocaleString()} · <span class="mono">{short(p.sig)}</span></span></span>}
+            <div class="row">
+              {!p.damaged && <button class="small" onClick={() => check(p)}>Check it</button>}
+              <button class="small ghost" onClick={() => { if (confirm(`Stop waiting for “${p.title}”? If it still lands later and you do it again, it will happen twice.`)) forgetPending(p); }}>Stop waiting</button>
+            </div>
+          </div>
+          {said[p.key!] && <p role="status" class="small muted">{said[p.key!]}</p>}
+        </div>
+      ))}
     </div>
   );
 }

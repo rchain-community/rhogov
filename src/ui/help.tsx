@@ -6,7 +6,7 @@ import { useEffect, useState } from "preact/hooks";
 import { asking, isAuxIssue, isCouncilId } from "../chain/council";
 import { RNode } from "../chain/node";
 import { active, chainReset, communities, displayName, gov, listedName, myAddr, publishedName, reviewBeforeSign, secretKey } from "../state";
-import { Modal, nameOf, recentErrors, route } from "./kit";
+import { Modal, nameOf, pendingWrites, recentErrors, route } from "./kit";
 import { nameProblem } from "./name-sync";
 import { newVersion } from "./update";
 import { backgroundNotificationChoice, notificationAvailable } from "./inbox-watch";
@@ -38,7 +38,7 @@ function screenHelp(): { title: string; text: string; link: string } {
     case "councils": case "c": return { title: "Councils", text: "Decisions across stakeholder groups: estimate each group's voting power, deliberate with pros and cons, then vote. The facilitator can add a stakeholder group later.", link: section("9-councils-decisions-across-stakeholder-groups") };
     case "inbox": return { title: "Inbox", text: "Messages and invitations sent to you. Collect them to read them; they then live in this browser. Export archive saves the collected messages to a readable JSON file, without your key. Import it in another browser with the same key and community; existing messages stay and repeated imports add no extra copies. This costs no fee and does not restore messages on chain. Files can be edited, so imported messages are not proof of their sender. Background system notifications are optional: rhogov asks only after you press Enable notifications, then a hidden tab checks about every five minutes.", link: section("8-inbox") };
     case "community": return { title: "Community", text: "The invite link to share, switching communities, and communities kept from a network's earlier chain. The network address and the three contract addresses are under “Where it lives”, closed by default — you only need them to wire rhogov to a quantum-os room or a node.", link: section("2-communities-and-invitations") };
-    case "account": return { title: "Account", text: "Your name, your address, your balance, saving your key as a password-protected keystore file, and recovering a remembered decline of background Inbox notifications without prompting automatically.", link: section("10-your-account-and-your-key") };
+    case "account": return { title: "Account", text: "Your name, your address, your balance, saving your key as a password-protected keystore file, signed actions rhogov is still waiting to hear about (Check it looks one up), and recovering a remembered decline of background Inbox notifications without prompting automatically.", link: section("10-your-account-and-your-key") };
     default: return { title: "rhogov", text: "", link: GUIDE };
   }
 }
@@ -93,6 +93,11 @@ async function tipsFor(): Promise<Tip[]> {
   if (route.value.parts[0] === "account" && notificationAvailable() && backgroundNotificationChoice.value === "declined") tips.push({
     text: "Background Inbox notifications are off. You can deliberately reconsider them here; rhogov still will not request browser permission until you press Enable notifications in Inbox.",
     href: "#/account", label: "Notification choice",
+  });
+  const waitingOn = pendingWrites.value.filter((p) => p.addr === me).length;
+  if (waitingOn) tips.push({
+    text: `${waitingOn} action${waitingOn > 1 ? "s you signed haven't" : " you signed hasn't"} reached a block yet and may still land. Check before doing ${waitingOn > 1 ? "them" : "it"} again.`,
+    href: "#/account", label: "Waiting to hear about",
   });
   const unread = Object.values(inbox).reduce((a, b) => a + b, 0);
   if (unread) tips.push({ text: `${unread} new message${unread > 1 ? "s are" : " is"} waiting for you.`, href: "#/inbox", label: "Open Inbox" });
