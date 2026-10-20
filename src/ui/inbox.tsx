@@ -3,7 +3,7 @@ import { useState } from "preact/hooks";
 import type { InboxMessage } from "../chain/gov";
 import { active, archive, archived, gov, learnNames, myAddr, setArchive } from "../state";
 import { learnFrom } from "./groups";
-import { checkInbox } from "./inbox-watch";
+import { backgroundNotificationChoice, declineBackgroundNotifications, enableBackgroundNotifications, notificationAvailable, checkInbox } from "./inbox-watch";
 import { Addr, Info, Loading, Modal, PersonField, act, go, nameOf, useAsync } from "./kit";
 
 export function InboxScreen() {
@@ -15,6 +15,7 @@ export function InboxScreen() {
   useAsync(async () => { learnFrom(await G.groups()); learnNames(archived(me, c).map((m) => ({ addr: m.from, label: "" }))); return true; }, [c.group, me]);
   const [msgs, setMsgs] = useState<InboxMessage[]>(() => archived(me, c));
   const [composing, setComposing] = useState<{ to?: string; subject?: string } | null>(null);
+  const [notificationNote, setNotificationNote] = useState("");
   const n = Object.values(waiting.data ?? {}).reduce((x, y) => x + y, 0);
 
   const collect = async () => {
@@ -38,6 +39,19 @@ export function InboxScreen() {
           </div>
         ) : <p class="muted">No new messages on chain.</p>
       )}</Loading>
+      {notificationAvailable() && backgroundNotificationChoice.value === "unset" && (
+        <div class="callout row between" style={{ margin: ".6rem 0 1rem" }}>
+          <span><b>Background message alerts</b><br /><span class="small">If you choose this, a hidden tab checks about every five minutes and can show a system notification. Nothing is requested on first load.</span></span>
+          <div class="row">
+            <button class="ghost" onClick={() => { declineBackgroundNotifications(); setNotificationNote(""); }}>No thanks</button>
+            <button class="primary" onClick={async () => {
+              const ok = await enableBackgroundNotifications();
+              setNotificationNote(ok ? "Background notifications are on." : "Background notifications are off; your browser did not grant permission.");
+            }}>Enable notifications</button>
+          </div>
+        </div>
+      )}
+      {notificationNote && <p role="status" class="small muted">{notificationNote}</p>}
       {!msgs.length ? <div class="card soft empty">Nothing here yet.</div> : (
         <div class="stack">
           {[...msgs].reverse().map((m) => (
