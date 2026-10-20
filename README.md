@@ -49,10 +49,11 @@ no backend, no relay, no database and no account:
 - **Communities.** Start one (installs the three contracts with your key, in one deploy; Start stays disabled until your balance covers its fee, about 0.02 REV)
   or join one with an invite link. Every community is independent.
   An install that hasn't confirmed is remembered, and setup offers to look for it rather than install twice.
-- **Groups.** Open or invite-only. Admins invite by address (with an inbox notification)
-  and promote admins; anyone can join an open group. Anyone can ask to join an
+- **Groups.** Open or invite-only. Admins invite by name or address (with an optional inbox
+  notification) and promote admins; anyone can join an open group. Anyone can ask to join an
   invite-only one: the request shows as pending, and an admin approves it in one step
-  (invite, plus a trust rating, plus a council's open votes).
+  (invite, plus a trust rating, plus a council's open votes). Invitations are recorded on
+  chain, so they follow the key to any browser; the notification is a separate message.
 - **A first run that says what to do.** Home opens with what rhogov is for, and a
   community with nothing in it yet offers the first group to make rather than an
   empty "all caught up". Everything happens inside a group, so that is the first step.
@@ -75,6 +76,9 @@ no backend, no relay, no database and no account:
   actually be saved is limited by the browser's local-storage quota and may be much
   smaller. The readable JSON contains no identity key and is not proof of sender.
   Messages are not encrypted.
+  Invitations are shown from each group's on-chain `invited` set (and requests to join from
+  its `asked` set), so they appear in any browser with the key even when no note was
+  collected there; a note itself stays in the browser that collected it.
   New arrivals raise an alert, a count on Inbox and one in the tab title (one free read
   a minute while visible). Background system notifications are explicit opt-in only: the
   browser permission is requested from the Inbox button, never on first load; if enabled,
@@ -214,6 +218,13 @@ tests/       chain-check.ts (live API)   unit.ts   e2e/ (Playwright)
   contract itself only knows open, locked and closed.
 - **Reads use the newest block**, not the last finalized one, so you see your own vote
   immediately; on a multi-validator net a very recent block can still be orphaned.
+- **The list of communities you use is browser-local.** A community is a set of contract
+  addresses, and there is no on-chain registry of them. The invite link is the portable
+  artifact: open it (or enter the addresses) on another device. Group membership,
+  invitations and council seats themselves are on chain.
+- **An invitation cannot be withdrawn.** The Group contract has no `uninvite`; an invitation
+  stays published until the invitee joins (quantum-os#246). The invite dialog says so before
+  the write. Declining is not a chain state, so rhogov does not pretend to remember one.
 
 ## License
 

@@ -1,6 +1,6 @@
 // votes.tsx — issues: create, cast (approval or ranked), and see the node's weighted result.
 import { useState } from "preact/hooks";
-import { type Group, type Issue, type Outcome, makeId, q, readRecord } from "../chain/gov";
+import { type Group, type Issue, type Outcome, isMemberOf, makeId, q, readRecord } from "../chain/gov";
 import { gov, myAddr } from "../state";
 import { DelegateModal, learnFrom } from "./groups";
 import { isCouncilId } from "../chain/council";
@@ -85,7 +85,7 @@ export function IssueScreen({ gid, iid }: { gid: string; iid: string }) {
   const G = gov.value!;
   const a = useAsync(async () => {
     const [i, g, out] = await Promise.all([G.issue(iid), G.group(gid), G.outcome(gid, iid)]);
-    if (g) learnFrom([g]);
+    if (g) learnFrom([g], { community: G.c, addr: myAddr.value ?? "" });
     return { i, g, out };
   }, [G.c.issue, gid, iid]);
   return (
@@ -102,7 +102,7 @@ function IssueView({ i, g, out }: { i: Issue; g: Group; out: Outcome }) {
   const me = myAddr.value;
   const onRoll = !!me && (i.voters.includes(me) || i.guests.includes(me));
   const isOpener = me === i.by;
-  const member = !!me && g.members.some((m) => m.addr === me);
+  const member = isMemberOf(g, me);
   const missing = g.members.map((m) => m.addr).filter((a) => !i.voters.includes(a));
   const [delegating, setDelegating] = useState(false);
   const [adding, setAdding] = useState("");

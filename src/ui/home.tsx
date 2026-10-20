@@ -1,11 +1,12 @@
 // home.tsx — what needs you now.
-import { type Group, type Issue } from "../chain/gov";
+import { type Group, type Issue, isMemberOf, membershipStatus } from "../chain/gov";
 import { resolveNames } from "../chain/profile";
 import { active, displayName, gov, learnListed, listedName, myAddr, notePublished } from "../state";
 import { NAME_NEEDS, nameProblem } from "./name-sync";
 import { Balance, PURPOSE } from "./setup";
 import { JoinButton, learnFrom } from "./groups";
 import { Loading, go, useAsync } from "./kit";
+import { LastKnownMemberships } from "./membership";
 import { IssueCard } from "./votes";
 import { asking, isAuxIssue, isChamberOf, isCouncilId } from "../chain/council";
 
@@ -13,10 +14,11 @@ export function HomeScreen() {
   const G = gov.value!;
   const me = myAddr.value!;
   const a = useAsync(async () => {
-    const groups = await G.groups();
-    learnFrom(groups);
+    const read = await G.groupsRead();
+    const groups = read.groups;
+    learnFrom(groups, { community: G.c, addr: me }, read);
     // Chambers carry no decisions of their own; a council's are listed under the council.
-    const mine = groups.filter((g) => g.members.some((m) => m.addr === me) && !groups.some((c) => isCouncilId(c.id) && isChamberOf(c.id, g.id)));
+    const mine = groups.filter((g) => isMemberOf(g, me) && !groups.some((c) => isCouncilId(c.id) && isChamberOf(c.id, g.id)));
     const issues = (await Promise.all(mine.map((g) => G.issues(g.id).then((is) => is.filter((i) => !isAuxIssue(i.id)).map((i) => [i, g] as [Issue, Group]))))).flat();
     const inbox = await G.inboxCounts(me).catch(() => ({} as Record<string, number>));
     // Is my name on chain yet? (The "can't find you by name" note depends on it.)
@@ -32,11 +34,13 @@ export function HomeScreen() {
     <div>
       <h1>Hello{displayName.value ? `, ${displayName.value}` : ""}</h1>
       <p class="muted">{active.value!.name}</p>
+      {!a.data && <LastKnownMemberships />}
       <Loading a={a}>{() => {
         const { groups, mine, issues, inbox, bal } = a.data!;
         const needs = issues.filter(([i]) => i.status === "open" && (i.voters.includes(me) || i.guests.includes(me)) && !i.ballots[me]);
         const openOthers = issues.filter(([i]) => i.status === "open" && !needs.some(([x]) => x.id === i.id));
-        const invites = groups.filter((g) => g.invited.includes(me) && !g.members.some((m) => m.addr === me));
+        const invites = groups.filter((g) => membershipStatus(g, me) === "invited");
+        const asks = groups.filter((g) => membershipStatus(g, me) === "asked");
         const unread = Object.values(inbox).reduce((x, y) => x + y, 0);
         // Nothing has ever happened here: no group has been made, so there is
         // nothing to be caught up on and the first action is the only one (CS-002, CS-003).
@@ -62,6 +66,7 @@ export function HomeScreen() {
             )}
             {unread > 0 && <div class="callout row between"><span>You have <b>{unread} new message{unread > 1 ? "s" : ""}</b>.</span><button class="primary" onClick={() => go("/inbox")}>Open inbox</button></div>}
             {invites.map((g) => <div class="callout warn row between"><span>You're invited to join <b>{g.name}</b>.</span><JoinButton g={g} /></div>)}
+            {asks.map((g) => <div class="callout row between"><span>You asked to join <b>{g.name}</b>; waiting for an admin to approve.</span><a href={`#/g/${encodeURIComponent(g.id)}`}>Open group →</a></div>)}
             {asking(groups, me).map(({ name, n, to }) => (
               <div class="callout warn row between"><span><b>{n} {n > 1 ? "people are" : "person is"} asking to join {name}.</b> Approve each one you recognise.</span><button class="primary" onClick={() => go(to)}>Review</button></div>
             ))}

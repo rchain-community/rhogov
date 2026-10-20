@@ -105,6 +105,36 @@ export interface Group {
   censures: Record<string, string[]>;
 }
 
+/** What one address's standing in a group is, from chain facts alone. */
+export type MembershipStatus = "admin" | "member" | "invited" | "asked" | "none";
+
+/**
+ * A person's status in one group, from the group's own state. Admin outranks
+ * member, then an invitation, then a request to join; an address the group has
+ * never heard of is "none".
+ */
+export function membershipStatus(g: Group, addr: string | null): MembershipStatus {
+  if (!addr) return "none";
+  if (g.admins.includes(addr) || g.members.some((m) => m.addr === addr && m.role === "admin")) return "admin";
+  if (g.members.some((m) => m.addr === addr)) return "member";
+  if (g.invited.includes(addr)) return "invited";
+  if (g.asked.includes(addr)) return "asked";
+  return "none";
+}
+
+export const isMemberOf = (g: Group, addr: string | null) => {
+  const s = membershipStatus(g, addr);
+  return s === "admin" || s === "member";
+};
+
+/**
+ * A full group read. `ids` is every group id the contract listed (excluding the
+ * hidden name list), `groups` those that decoded, and `unreadable` those whose
+ * own read failed — so a caller can tell "the group is gone" from "I couldn't
+ * read it this time".
+ */
+export interface GroupsRead { ids: string[]; groups: Group[]; unreadable: string[]; }
+
 export interface Issue {
   id: string;
   gid: string;
@@ -329,7 +359,6 @@ export const NAMES_GID = "~names";
 export const ASKS_PREFIX = "~asks:";
 export const asksId = (gid: string) => ASKS_PREFIX + gid;
 
-const isMemberOf = (g: Group, a: string) => g.members.some((m) => m.addr === a);
 /** Asked to join and not yet let in: not a member, and (invite-only) not yet invited. */
 export const pendingOf = (g: Group) => g.asked.filter((a) => !isMemberOf(g, a) && !g.invited.includes(a));
 /** Whether this person is waiting on an admin of `g`. */
@@ -379,14 +408,25 @@ export class Gov {
     return g && { ...g, asked: (asks?.members ?? []).map((m) => m.addr) };
   }
 
-  /** Every visible group (not the hidden "~" ones), each with its request list attached. */
-  async groups(): Promise<Group[]> {
+  /**
+   * Every visible group (not the hidden "~" ones), each with its request list
+   * attached. `unreadable` lists visible groups whose own read failed, so a
+   * caller can tell "the group is gone" from "I couldn't read it this time".
+   */
+  async groupsRead(): Promise<GroupsRead> {
     const ids = await this.groupIds();
-    const load = (xs: string[]) => Promise.all(xs.map((id) => this.rawGroup(id).catch(() => null)));
-    const [all, asks] = await Promise.all([load(ids.filter((id) => !id.startsWith("~"))), load(ids.filter((id) => id.startsWith(ASKS_PREFIX)))]);
-    const asked = new Map(asks.filter((a): a is Group => !!a).map((a) => [a.id.slice(ASKS_PREFIX.length), a.members.map((m) => m.addr)]));
-    return all.filter((g): g is Group => !!g).map((g) => ({ ...g, asked: asked.get(g.id) ?? [] }));
+    const visible = ids.filter((id) => !id.startsWith("~"));
+    const load = (xs: string[]) => Promise.all(xs.map(async (id) => ({ id, g: await this.rawGroup(id).catch(() => null) })));
+    const [all, asks] = await Promise.all([load(visible), load(ids.filter((id) => id.startsWith(ASKS_PREFIX)))]);
+    const asked = new Map(asks.filter((x): x is { id: string; g: Group } => !!x.g).map(({ id, g }) => [id.slice(ASKS_PREFIX.length), g.members.map((m) => m.addr)]));
+    return {
+      ids: visible,
+      groups: all.filter((x): x is { id: string; g: Group } => !!x.g).map(({ g }) => ({ ...g, asked: asked.get(g.id) ?? [] })),
+      unreadable: all.filter((x) => !x.g).map((x) => x.id),
+    };
   }
+
+  async groups(): Promise<Group[]> { return (await this.groupsRead()).groups; }
 
   /**
    * Ask to join an invite-only group. The contract has no "request" verb, so

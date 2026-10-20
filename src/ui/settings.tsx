@@ -46,7 +46,7 @@ export function AccountScreen() {
       </div>
       <div class="card stack">
         <h2>Your key</h2>
-        <p class="muted small">Your private key is stored only in this browser. It signs every action you take. If you clear site data without a backup, it's gone — and so is this identity.</p>
+        <p class="muted small">Your private key is stored only in this browser. It signs every action you take. If you clear site data without a backup, it's gone — and so is this identity. Your group membership, invitations and council seats are on chain and follow the key to any device; the list of communities you've joined is kept in this browser.</p>
         {ownKeyHere.value
           ? <div class="callout small row between wrap"><span>This network uses a key of its own; your other networks use your main key.</span><button class="small" onClick={() => { if (confirm("Stop using this network's own key, and use your main key here? Back this one up first if it holds anything.")) setKey(null); }}>Use my main key here</button></div>
           : <p class="muted small">The same key is your identity on every network, and stays yours if a network is restarted.</p>}
@@ -154,6 +154,7 @@ export function CommunityScreen() {
       <div class="card stack">
         <h2>Invite people</h2>
         <p class="muted small">Send this link. It tells their browser which network and which governance contracts {c.name} uses — nothing secret is in it. They create their own key when they open it.</p>
+        <p class="muted small">This browser remembers which communities you've joined; that list isn't on chain. On another device, open a community's invite link (or enter its addresses under “Where it lives”). Your groups, invitations and council seats are on chain and follow your key.</p>
         <div class="row"><input class="mono grow" readOnly value={link} onFocus={(e) => (e.target as HTMLInputElement).select()} /><Copy text={link} label="Copy invite link" /></div>
       </div>
       {/* Contract addresses and the raw node URL are for someone wiring rhogov to a room
@@ -177,6 +178,7 @@ export function CommunityScreen() {
               <span><b>{x.name}</b> <span class="muted small mono">{short(x.group)}</span></span>
               <div class="row">
                 {communityKey(x) === communityKey(c) ? <span class="badge accent">current</span> : <button class="small" onClick={() => { setActive(communityKey(x)); go("/"); }}>Switch</button>}
+                <Copy text={inviteLink(x)} label={`Copy ${x.name}'s invite link`} />
                 <button class="small ghost danger" onClick={() => confirm(`Forget ${x.name} in this browser? Nothing on chain changes.`) && removeCommunity(x)}>Forget</button>
               </div>
             </div>

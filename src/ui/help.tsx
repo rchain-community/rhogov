@@ -4,6 +4,7 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { asking, isAuxIssue, isCouncilId } from "../chain/council";
+import { isMemberOf, membershipStatus } from "../chain/gov";
 import { RNode } from "../chain/node";
 import { active, chainReset, communities, displayName, gov, listedName, myAddr, publishedName, reviewBeforeSign, secretKey } from "../state";
 import { Modal, nameOf, pendingWrites, recentErrors, route } from "./kit";
@@ -30,14 +31,14 @@ function screenHelp(): { title: string; text: string; link: string } {
     return { title: "Getting started", text: "Three steps: choose a network, create (or bring) your key, then join a community with an invite link or start your own. If a button is greyed out, the screen says why — a name is missing, there is no key yet, or the fee is not covered.", link: section("1-getting-started") };
   switch (head) {
     case undefined: return { title: "Home", text: "What needs you now: votes waiting for your ballot, invitations, and new messages. A community with no groups yet offers the first thing to do instead, since there is nothing to catch up on.", link: section("4-voting") };
-    case "groups": return { title: "Groups", text: "The groups in this community. Join an open one, or start your own and invite people.", link: section("3-groups") };
+    case "groups": return { title: "Groups", text: "The groups in this community. Join an open one, or start your own and invite people. Invitations are recorded on chain, so they follow your key to any browser.", link: section("3-groups") };
     case "g":
       if (tab === "members") return { title: "Members", text: "Who is in the group, how much they're trusted, and who votes for whom. Rate trust, hand your vote to someone, or dispute someone's trust from here. Admins approve requests to join here, each in one step: invite, and say how much they trust the person.", link: section("6-trust") };
       return { title: "A group", text: "Its votes, members and settings. Open a vote, or vote on one that's open.", link: section("3-groups") };
     case "v": return { title: "A vote", text: "Choose one or more options (or rank them) and press Vote. You can change your vote while it's open. The node counts it, with trust and delegation.", link: section("4-voting") };
     case "councils": case "c": return { title: "Councils", text: "Decisions across stakeholder groups: estimate each group's voting power, deliberate with pros and cons, then vote. The facilitator can add a stakeholder group later.", link: section("9-councils-decisions-across-stakeholder-groups") };
-    case "inbox": return { title: "Inbox", text: "Messages and invitations sent to you. Collect them to read them; they then live in this browser. Export archive saves the collected messages to a readable JSON file, without your key. Import it in another browser with the same key and community; existing messages stay and repeated imports add no extra copies. This costs no fee and does not restore messages on chain. Files can be edited, so imported messages are not proof of their sender. Background system notifications are optional: rhogov asks only after you press Enable notifications, then a hidden tab checks about every five minutes.", link: section("8-inbox") };
-    case "community": return { title: "Community", text: "The invite link to share, switching communities, and communities kept from a network's earlier chain. The network address and the three contract addresses are under “Where it lives”, closed by default — you only need them to wire rhogov to a quantum-os room or a node.", link: section("2-communities-and-invitations") };
+    case "inbox": return { title: "Inbox", text: "Messages and invitations. Invitations come from the group's on-chain state and follow your key; collected notes and messages live in this browser. Export archive saves the collected messages to a readable JSON file, without your key. Import it in another browser with the same key and community; existing messages stay and repeated imports add no extra copies. This costs no fee and does not restore messages on chain. Files can be edited, so imported messages are not proof of their sender. Background system notifications are optional: rhogov asks only after you press Enable notifications, then a hidden tab checks about every five minutes.", link: section("8-inbox") };
+    case "community": return { title: "Community", text: "The invite link to share, switching communities, and communities kept from a network's earlier chain. This browser remembers which communities you've joined; use a community's invite link to open it on another device. The network address and the three contract addresses are under “Where it lives”, closed by default — you only need them to wire rhogov to a quantum-os room or a node.", link: section("2-communities-and-invitations") };
     case "account": return { title: "Account", text: "Your name, your address, your balance, saving your key as a password-protected keystore file, signed actions rhogov is still waiting to hear about (Check it looks one up), and recovering a remembered decline of background Inbox notifications without prompting automatically.", link: section("10-your-account-and-your-key") };
     default: return { title: "rhogov", text: "", link: GUIDE };
   }
@@ -101,11 +102,13 @@ async function tipsFor(): Promise<Tip[]> {
   });
   const unread = Object.values(inbox).reduce((a, b) => a + b, 0);
   if (unread) tips.push({ text: `${unread} new message${unread > 1 ? "s are" : " is"} waiting for you.`, href: "#/inbox", label: "Open Inbox" });
-  for (const g of groups.filter((g) => g.invited.includes(me) && !g.members.some((m) => m.addr === me)))
+  for (const g of groups.filter((g) => membershipStatus(g, me) === "invited"))
     tips.push({ text: <>You're invited to join <b>{g.name}</b>.</>, href: `#/g/${g.id}`, label: "Open group" });
+  for (const g of groups.filter((g) => membershipStatus(g, me) === "asked"))
+    tips.push({ text: <>You asked to join <b>{g.name}</b>; waiting for an admin to approve.</>, href: `#/g/${g.id}`, label: "Open group" });
   for (const { name, n, to } of asking(groups, me))
     tips.push({ text: <>{n} {n > 1 ? "people are" : "person is"} asking to join <b>{name}</b>. As an admin, you approve each one.</>, href: `#${to}`, label: "Review" });
-  const mine = groups.filter((g) => g.members.some((m) => m.addr === me));
+  const mine = groups.filter((g) => isMemberOf(g, me));
   // Wording kept as it was: cold-start.spec.ts asserts this string, and it is the
   // guard for "Help knows the right next step for a brand-new community". The
   // first-run case is carried by Home's own callout instead (RC-01).

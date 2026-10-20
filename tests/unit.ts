@@ -1,18 +1,28 @@
 // unit.ts — offline checks (no node): decoding, keys, council arithmetic.
 import { ARCHIVE_MAX_BYTES, exportInboxArchive, mergeInboxArchive, parseInboxArchive } from "../src/inbox-archive";
-import { archived, archiveForTransfer, importArchive } from "../src/state";
 import { approvalShare, approvals, asking, chamberPower, combine, decodeArg, encodeArg, estimateBallot, parseEstimate } from "../src/chain/council";
-import { Gov, pendingOf, readRecord, ReviewDeclined, toGroup } from "../src/chain/gov";
+import { Gov, type Group, type GroupsRead, type InboxMessage, membershipStatus, pendingOf, readRecord, ReviewDeclined, toGroup } from "../src/chain/gov";
 import {
-  active, chainIdOf, chainReset, displayName, earlier, fromEarlierChain, knownGenesis, liveGenesis, myAddr, ownKeyHere,
-  setDisplayName, setKey, setSetupNode, UNKNOWN_CHAIN, usable,
+  active, addCommunity, addressBook, archived, archiveForTransfer, chainIdOf, chainReset, displayName, earlier, fromEarlierChain,
+  importArchive, knownGenesis, learnGroups, learnListed, learnNames, liveGenesis, memberships, membershipKey, membershipOf, myAddr,
+  nameNotes, ownKeyHere, readMembershipCache, setActive, setDisplayName, setKey, setSetupNode, UNKNOWN_CHAIN, usable,
+  type MembershipEntry,
 } from "../src/state";
-import { addCommunity, addressBook, learnListed, learnNames, nameNotes, setActive } from "../src/state";
+import { inviteRows } from "../src/ui/invitations";
 import { filterPeople, looksLike, nameError, resolvePerson, suggestNames } from "../src/chain/people";
 import { revAddressOf } from "../src/chain/keys";
 import { decryptKeystore, encryptKeystore, ethAddressOf, keystoreFileName, looksLikeKeystore } from "../src/chain/keystore";
 import { decode, NotCarried, RNode, type Tick } from "../src/chain/node";
 import { forgetPending, keepPending, pendingFor, pendingWrites, ReceiptRefused, writeId } from "../src/ui/pending-writes";
+
+// Node has no localStorage. The app's storage helpers tolerate that, but
+// setKey's remove path and the membership cache need one for these checks.
+const store = new Map<string, string>();
+(globalThis as any).localStorage = {
+  getItem: (k: string) => (store.has(k) ? store.get(k)! : null),
+  setItem: (k: string, v: string) => { store.set(k, v); },
+  removeItem: (k: string) => { store.delete(k); },
+};
 
 let pass = 0, fail = 0;
 const ok = (label: string, cond: boolean, got?: unknown) => {
@@ -158,6 +168,119 @@ ok("vote counts: one per person per option, unknown options ignored",
   finish(1);
   await first;
   if (!hadStorage) delete g.localStorage;
+}
+
+// Membership: one chain-derived status, a scoped last-known cache, and the
+// Inbox rows built from chain state plus the local note archive.
+{
+  const ALICE_KEY = "0b60b3ffcc43a607e037c3da3c1ed366261d742288abdf92d53cf80b9e3cf98f";
+  const BOB_KEY = "13487106542b1c1472c4af4bf29031ecbad42464a82e38b6f0e18a09bbf54f12";
+  const alice = revAddressOf(ALICE_KEY), bob = revAddressOf(BOB_KEY);
+  const A = { name: "A", node: "http://n", inbox: "rho:id:a1", group: "rho:id:a2", issue: "rho:id:a3" };
+  const B = { name: "B", node: "http://n", inbox: "rho:id:b1", group: "rho:id:b2", issue: "rho:id:b3" };
+  const grp = (id: string, o: Partial<Group> = {}): Group => ({
+    id, name: o.name ?? id, policy: o.policy ?? "invite",
+    admins: o.admins ?? [], members: o.members ?? [], invited: o.invited ?? [], asked: o.asked ?? [],
+    deleg: {}, topic: {}, ratings: {}, censures: {},
+  });
+  const read = (ids: string[], groups: Group[], unreadable: string[] = []): GroupsRead => ({ ids, groups, unreadable });
+
+  addCommunity(A); addCommunity(B);
+  setActive(A.group); setKey(ALICE_KEY);
+
+  const sg = grp("s", { admins: ["a"], members: [
+    { addr: "a", role: "admin", label: "" }, { addr: "b", role: "member", label: "" },
+  ], invited: ["c"], asked: ["c", "e"] });
+  ok("admin outranks member, invited, asked and none",
+    membershipStatus(sg, "a") === "admin" && membershipStatus(sg, "b") === "member" &&
+    membershipStatus(sg, "c") === "invited" && membershipStatus(sg, "e") === "asked" &&
+    membershipStatus(sg, "d") === "none");
+
+  const g1 = grp("g1", { name: "G1", members: [{ addr: alice, role: "member", label: "" }] });
+  const g2 = grp("g2", { name: "G2", invited: [alice] });
+  learnGroups([g1], { community: A, addr: alice }, read(["g1"], [g1]));
+  ok("a member is learned", membershipOf("g1")?.status === "member");
+  learnGroups([g2], { community: A, addr: alice }, read(["g1", "g2"], [g2]));
+  ok("a partial read merges and keeps the other group", membershipOf("g1")?.status === "member" && membershipOf("g2")?.status === "invited");
+  learnGroups([grp("g1", { name: "G1" })], { community: A, addr: alice }, read(["g1", "g2"], [grp("g1", { name: "G1" })]));
+  ok("leaving deletes the entry", membershipOf("g1") === undefined && membershipOf("g2")?.status === "invited");
+  learnGroups([], { community: A, addr: alice }, read(["g2"], [], []));
+  ok("a full read prunes groups no longer listed", membershipOf("g1") === undefined);
+  learnGroups([g2], { community: A, addr: alice }, read(["g2"], [g2]));
+  learnGroups([], { community: A, addr: alice }, read(["g1", "g2"], [], ["g1"]));
+  ok("an unreadable group keeps its last-known status", membershipOf("g2")?.status === "invited");
+
+  setActive(B.group);
+  learnGroups([], { community: B, addr: alice }, read([], []));
+  ok("switching community clears the snapshot", membershipOf("g2") === undefined);
+  learnGroups([g2], { community: A, addr: alice }, read(["g2"], [g2]));
+  ok("a late read from another community is ignored", membershipOf("g2") === undefined);
+
+  setActive(A.group);
+  learnGroups([g2], { community: A, addr: alice }, read(["g2"], [g2]));
+  setKey(BOB_KEY);
+  learnGroups([], { community: A, addr: bob }, read([], []));
+  ok("switching key clears the snapshot", membershipOf("g2") === undefined);
+  learnGroups([g2], { community: A, addr: alice }, read(["g2"], [g2]));
+  ok("a late read for the old key is ignored", membershipOf("g2") === undefined);
+
+  const valid = { v: 1, at: 123, entries: [{ gid: "g1", name: "G1", policy: "invite", status: "invited", at: 100 }] };
+  ok("a valid membership cache is read", readMembershipCache(valid)?.entries.length === 1);
+  ok("an old cache version is dropped", readMembershipCache({ ...valid, v: 2 }) === null);
+  ok("a bad status is dropped",
+    readMembershipCache({ ...valid, entries: [{ ...valid.entries[0], status: "maybe" }] })?.entries.length === 0);
+  ok("membership keys are scoped by community and key",
+    membershipKey(alice, A.group) !== membershipKey(bob, A.group) &&
+    membershipKey(alice, A.group) !== membershipKey(alice, B.group));
+
+  // Inbox invitation rows: chain state first, notes second.
+  const note = (gid: string, at = 1, group = "G"): InboxMessage =>
+    ({ from: "b", type: "invite", at, fields: { gid, group, body: "hello" } });
+  const cachedInvite: MembershipEntry = { gid: "c1", name: "C1", policy: "invite", status: "invited", at: 50 };
+  const cachedMember: MembershipEntry = { gid: "c2", name: "C2", policy: "invite", status: "member", at: 50 };
+  const cachedAsk: MembershipEntry = { gid: "c3", name: "C3", policy: "invite", status: "asked", at: 50 };
+
+  const pending = read(["g1"], [grp("g1", { name: "G1", invited: ["a"] })]);
+  const pendingRows = inviteRows({ read: pending, cached: {}, archive: [], me: "a" });
+  ok("a chain invitation needs no note", pendingRows.length === 1 && pendingRows[0].state === "pending" &&
+    !!pendingRows[0].group && !pendingRows[0].note);
+  const askedRows = inviteRows({ read: read(["g1"], [grp("g1", { name: "G1", asked: ["a"] })]), cached: {}, archive: [], me: "a" });
+  ok("a request to join needs no note", askedRows.length === 1 && askedRows[0].state === "asked" && !!askedRows[0].group);
+
+  const member = read(["g1"], [grp("g1", { name: "G1", members: [{ addr: "a", role: "member", label: "" }] })]);
+  const memberRows = inviteRows({ read: member, cached: {}, archive: [note("g1")], me: "a" });
+  ok("an old note follows the live membership", memberRows.length === 1 && memberRows[0].state === "member" && !!memberRows[0].note);
+
+  const open = read(["g1"], [grp("g1", { policy: "open" })]);
+  ok("a note for an open group reads as open",
+    inviteRows({ read: open, cached: {}, archive: [note("g1")], me: "a" })[0].state === "open");
+  const closed = read(["g1"], [grp("g1", { policy: "invite" })]);
+  ok("a note for an invite-only group with no invitation reads as closed",
+    inviteRows({ read: closed, cached: {}, archive: [note("g1")], me: "a" })[0].state === "closed");
+  ok("a note for a group not in the community reads as missing",
+    inviteRows({ read: read([], []), cached: {}, archive: [note("g1")], me: "a" })[0].state === "missing");
+  ok("an unreadable group reads as unknown",
+    inviteRows({ read: read(["g1"], [], ["g1"]), cached: {}, archive: [note("g1")], me: "a" })[0].state === "unknown");
+
+  const cachedRows = inviteRows({ read: undefined, cached: { c1: cachedInvite }, archive: [], me: "a" });
+  ok("the last-known cache can show a pending invitation",
+    cachedRows.length === 1 && cachedRows[0].state === "pending" && !cachedRows[0].group && cachedRows[0].lastKnown === 50);
+  ok("a cached membership with no note is not listed",
+    inviteRows({ read: undefined, cached: { c2: cachedMember }, archive: [], me: "a" }).length === 0);
+  const cachedAskRows = inviteRows({ read: undefined, cached: { c3: cachedAsk }, archive: [], me: "a" });
+  ok("the last-known cache can show a join request",
+    cachedAskRows.length === 1 && cachedAskRows[0].state === "asked" && cachedAskRows[0].lastKnown === 50);
+  const dup = inviteRows({ read: pending, cached: {}, archive: [note("g1", 1), note("g1", 2)], me: "a" });
+  ok("duplicate notes make one row, newest first",
+    dup.length === 1 && dup[0].notes.length === 2 && dup[0].note?.at === 2);
+  const forged = inviteRows({ read: closed, cached: {}, archive: [note("g1")], me: "a" });
+  ok("a message cannot make a group an invitation", forged[0].state === "closed");
+  const lastKnown = inviteRows({ read: read(["c1"], [], ["c1"]), cached: { c1: cachedInvite }, archive: [note("c1")], me: "a" });
+  ok("last-known status fills an unreadable group",
+    lastKnown[0].state === "pending" && lastKnown[0].lastKnown === 50);
+
+  setKey(null);
+  setActive(null);
 }
 
 // Arguments.

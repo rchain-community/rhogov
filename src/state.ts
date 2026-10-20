@@ -2,11 +2,14 @@
 //
 // Everything durable about governance lives on chain. What lives here is only
 // what a browser must hold to act: the signing key, which network and which
-// community you use, and the inbox messages you have already received (receive
-// consumes them on chain, so this browser is where they live afterwards).
+// community you use, the inbox messages you have already received (receive
+// consumes them on chain, so this browser is where they live afterwards), and a
+// last-known membership cache for first paint and an unreachable node.
 
 import { signal, computed, effect } from "@preact/signals";
-import { Gov, type Community, type InboxMessage } from "./chain/gov";
+import {
+  Gov, membershipStatus, type Community, type Group, type InboxMessage, type MembershipStatus,
+} from "./chain/gov";
 import { exportInboxArchive, parseInboxArchive } from "./inbox-archive";
 import { isValidKey, revAddressOf } from "./chain/keys";
 import { RNode } from "./chain/node";
@@ -20,6 +23,7 @@ const LS = {
   active: "rhogov:active",
   reviewBeforeSign: "rhogov:review",
   inbox: (addr: string, c: string) => `rhogov:inbox:${c}:${addr}`,
+  membership: (addr: string, c: string) => `rhogov:membership:${c}:${addr}`,
   dismissed: "rhogov:dismissed",
   setupNode: "rhogov:setupNode",
   genesis: "rhogov:genesis",
@@ -430,7 +434,6 @@ export function archive(addr: string, c: Community, msgs: InboxMessage[]) {
 }
 export function setArchive(addr: string, c: Community, msgs: InboxMessage[]) { save(LS.inbox(addr, communityKey(c)), msgs); }
 
-
 /** Transfers must not mistake unreadable/corrupt storage for an empty archive. */
 export function archiveForTransfer(addr: string, c: Community): InboxMessage[] {
   let text: string | null;
@@ -448,6 +451,143 @@ export function archiveForTransfer(addr: string, c: Community): InboxMessage[] {
 /** An import must report a refused storage write rather than claim success. */
 export function importArchive(addr: string, c: Community, msgs: InboxMessage[]) {
   localStorage.setItem(LS.inbox(addr, communityKey(c)), JSON.stringify(msgs));
+}
+
+// --- membership --------------------------------------------------------------
+// The authoritative status is always on chain (Group.members / admins / invited
+// / asked). This is a last-known copy per (community, key), so a reload or an
+// unreachable node can still say what the chain said last time. It NEVER decides
+// a write: Join, Leave, Invite and setRole all read the live Group they were given.
+
+export interface MembershipEntry {
+  gid: string;
+  name: string;
+  policy: "open" | "invite";
+  status: Exclude<MembershipStatus, "none">;
+  /** When this entry was last read from chain (or loaded from the cache). */
+  at: number;
+}
+
+interface MembershipCache { v: 1; at: number; entries: MembershipEntry[] }
+
+export const memberships = signal<Record<string, MembershipEntry>>({});
+/** When the current scope's membership was last read from chain. */
+export const membershipAt = signal(0);
+
+/** The per-(community, key) cache key. Exported so tests and seeds agree on the shape. */
+export const membershipKey = (addr: string, group: string) => LS.membership(addr, group);
+
+const MEMBER_STATUSES = new Set(["admin", "member", "invited", "asked"]);
+
+/** Parse a stored snapshot, dropping anything that does not look like one. */
+export function readMembershipCache(raw: unknown): MembershipCache | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const o = raw as Record<string, any>;
+  if (o.v !== 1 || !Number.isFinite(o.at) || !Array.isArray(o.entries)) return null;
+  const entries: MembershipEntry[] = [];
+  for (const e of o.entries) {
+    if (!e || typeof e !== "object") continue;
+    if (typeof e.gid !== "string" || !e.gid) continue;
+    if (typeof e.name !== "string" || !e.name) continue;
+    if (e.policy !== "open" && e.policy !== "invite") continue;
+    if (!MEMBER_STATUSES.has(e.status)) continue;
+    entries.push({
+      gid: e.gid,
+      name: e.name,
+      policy: e.policy,
+      status: e.status as MembershipEntry["status"],
+      at: Number.isFinite(e.at) ? e.at : Number(o.at),
+    });
+  }
+  return { v: 1, at: Number(o.at), entries };
+}
+
+let memberScope = "";
+let memberSavedAt = 0;
+
+function hydrateMemberships() {
+  const c = active.value, me = myAddr.value;
+  const next = c && me ? `${communityKey(c)}|${me}` : "";
+  if (next === memberScope) return;
+  memberScope = next;
+  const cached = c && me ? readMembershipCache(load<unknown>(membershipKey(me, communityKey(c)), null)) : null;
+  memberships.value = cached ? Object.fromEntries(cached.entries.map((e) => [e.gid, e])) : {};
+  membershipAt.value = cached?.at ?? 0;
+  memberSavedAt = cached?.at ?? 0;
+}
+
+// Switching community or key switches the whole snapshot at once.
+effect(() => { void active.value; void myAddr.value; hydrateMemberships(); });
+
+function saveMemberships() {
+  const c = active.value, me = myAddr.value;
+  if (!c || !me) return;
+  const at = Date.now();
+  save(membershipKey(me, communityKey(c)), { v: 1, at, entries: Object.values(memberships.value) });
+  memberSavedAt = at;
+}
+
+/**
+ * Learn the status of `gs` for the signed-in key. `scope` is captured when the
+ * read starts, so an answer that arrives after a community or key switch is
+ * ignored rather than written into the new scope. `all` is the full id list of
+ * a complete read: entries absent from it are pruned, but ids the node could not
+ * read (`unreadable`) are kept as last-known.
+ */
+export function learnGroups(
+  gs: Group[],
+  scope?: { community: Community; addr: string },
+  all?: { ids: string[]; unreadable?: string[] },
+) {
+  hydrateMemberships();
+  const c = active.value, me = myAddr.value;
+  if (!c || !me) return;
+  const read = scope ?? { community: c, addr: me };
+  if (read.community.group !== c.group || read.addr !== me) return;
+  const now = Date.now();
+  const next = { ...memberships.value };
+  let changed = false;
+  for (const g of gs) {
+    const status = membershipStatus(g, me);
+    if (status === "none") {
+      if (next[g.id]) { delete next[g.id]; changed = true; }
+    } else {
+      const prev = next[g.id];
+      if (!prev || prev.status !== status || prev.name !== g.name || prev.policy !== g.policy) changed = true;
+      next[g.id] = { gid: g.id, name: g.name, policy: g.policy, status, at: now };
+    }
+  }
+  if (all) {
+    const keep = new Set([...all.ids, ...(all.unreadable ?? [])]);
+    for (const gid of Object.keys(next)) if (!keep.has(gid)) { delete next[gid]; changed = true; }
+  }
+  memberships.value = next;
+  membershipAt.value = now;
+  // Refresh the chain-read marker even when nothing changed, but only rewrite
+  // localStorage when the facts changed or the stored copy is getting old.
+  if (changed || now - memberSavedAt > 60_000) saveMemberships();
+}
+
+/** The last-known status of one group for the current key, if any. */
+export const membershipOf = (gid: string) => memberships.value[gid];
+
+/** Groups this key is a member or admin of, from the last-known snapshot. */
+export const myGroups = computed(() =>
+  Object.values(memberships.value).filter((m) => m.status === "admin" || m.status === "member"));
+/** Invitations still pending for this key, from the last-known snapshot. */
+export const myInvitations = computed(() =>
+  Object.values(memberships.value).filter((m) => m.status === "invited"));
+/** Join requests this key is still waiting on, from the last-known snapshot. */
+export const myAsks = computed(() =>
+  Object.values(memberships.value).filter((m) => m.status === "asked"));
+
+/** Drop one group's last-known entry (e.g. the group no longer exists). */
+export function forgetMembership(gid: string) {
+  if (!memberships.value[gid]) return;
+  const next = { ...memberships.value };
+  delete next[gid];
+  memberships.value = next;
+  saveMemberships();
 }
 
 export const dismissed = signal<string[]>(load(LS.dismissed, []));
