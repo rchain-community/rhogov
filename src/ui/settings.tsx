@@ -2,15 +2,17 @@
 import { useEffect, useState } from "preact/hooks";
 import { generateKey } from "../chain/keys";
 import {
-  NETWORKS, active, addCommunity, communities, communityKey, displayName, inviteLink, myAddr, parseInvite, removeCommunity,
+  NETWORKS, active, addCommunity, communities, communityKey, displayName, earlier, ownKeyHere, usable, inviteLink, myAddr, parseInvite, removeCommunity,
   reviewBeforeSign, secretKey, setActive, setDisplayName, setKey, setReview,
 } from "../state";
 import { Copy, Modal, go, short } from "./kit";
+import { encryptKeystore, keystoreFileName } from "../chain/keystore";
 import { Balance, setSetupNode, setupNode } from "./setup";
 import { sameName } from "../chain/gov";
 import { nameError } from "../chain/people";
 import { GUIDE } from "./help";
 import { nameProblem, syncMyName } from "./name-sync";
+import { backgroundNotificationChoice, notificationAvailable, reconsiderBackgroundNotifications } from "./inbox-watch";
 
 export function AccountScreen() {
   const [reveal, setReveal] = useState(false);
@@ -20,13 +22,8 @@ export function AccountScreen() {
   const bad = name.trim() ? nameError(name) : "";
   const addr = myAddr.value;
   const c = active.value;
-  const backup = () => {
-    const blob = new Blob([`rhogov key backup\naddress: ${addr}\nprivate key: ${secretKey.value}\n\nAnyone with this key can act as you. Keep it offline.\n`], { type: "text/plain" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `rhogov-key-${addr?.slice(0, 10)}.txt`;
-    a.click();
-  };
+  const [saving, setSaving] = useState(false);
+  const backup = () => save(`rhogov key backup\naddress: ${addr}\nprivate key: ${secretKey.value}\n\nThis file is NOT encrypted. Anyone with this key can act as you. Keep it offline.\n`, "text/plain", `rhogov-key-${addr?.slice(0, 10)}.txt`);
   if (!addr) return <div class="empty">No identity yet. <a href="#/welcome">Set one up</a></div>;
   return (
     <div class="stack" style={{ maxWidth: 720 }}>
@@ -50,11 +47,17 @@ export function AccountScreen() {
       <div class="card stack">
         <h2>Your key</h2>
         <p class="muted small">Your private key is stored only in this browser. It signs every action you take. If you clear site data without a backup, it's gone — and so is this identity.</p>
+        {ownKeyHere.value
+          ? <div class="callout small row between wrap"><span>This network uses a key of its own; your other networks use your main key.</span><button class="small" onClick={() => { if (confirm("Stop using this network's own key, and use your main key here? Back this one up first if it holds anything.")) setKey(null); }}>Use my main key here</button></div>
+          : <p class="muted small">The same key is your identity on every network, and stays yours if a network is restarted.</p>}
+        <p class="muted small"><b>Save keystore file</b> encrypts the key with a password you choose, as the standard JSON keystore file (Web3 Secret Storage v3) that geth, MetaMask and other wallets read; rhogov reads it back under <b>I have a key</b>. The <b>plain-text backup</b> is not encrypted.</p>
         <div class="row">
-          <button onClick={backup}>Download backup</button>
+          <button onClick={() => setSaving(true)}>Save keystore file</button>
+          <button class="ghost" onClick={backup}>Plain-text backup</button>
           <button onClick={() => setReveal(!reveal)}>{reveal ? "Hide key" : "Show key"}</button>
           <button class="danger" onClick={() => { if (confirm("Remove this key from this browser? Without a backup you lose this identity.")) { setKey(null); go("/welcome"); } }}>Remove from this browser</button>
         </div>
+        {saving && <KeystoreModal secret={secretKey.value!} onClose={() => setSaving(false)} />}
         {reveal && <div class="callout warn small"><b>Anyone with this key can act as you.</b><div class="row"><span class="mono">{secretKey.value}</span><Copy text={secretKey.value!} /></div></div>}
       </div>
       <div class="card stack">
@@ -63,7 +66,49 @@ export function AccountScreen() {
           Show me the exact rholang before I sign each action</label>
         <p class="small muted">Anything that moves trust, membership, voting weight or money is shown before it is signed. Routine housekeeping — putting your name on the community's list, sending a message — signs without asking, so it can happen quietly in the background.</p>
       </div>
+      {notificationAvailable() && backgroundNotificationChoice.value === "declined" && (
+        <div class="card stack">
+          <h2>Inbox notifications</h2>
+          <p class="small muted">rhogov is remembering your earlier choice not to ask for background notifications. Reconsidering only restores the choice in Inbox; it does not open the browser permission prompt.</p>
+          <div><button onClick={() => { reconsiderBackgroundNotifications(); go("/inbox"); }}>Reconsider in Inbox</button></div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function save(text: string, type: string, name: string) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name;
+  a.click();
+}
+
+/** Ask for a password (twice), then save the key as an encrypted keystore file. */
+function KeystoreModal({ secret, onClose }: { secret: string; onClose: () => void }) {
+  const [pw, setPw] = useState("");
+  const [again, setAgain] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const problem = pw.length < 8 ? "Use at least 8 characters." : pw !== again ? "The two passwords don't match." : "";
+  const submit = async () => {
+    if (problem || busy) return;
+    setBusy(true); setErr("");
+    try {
+      const ks = await encryptKeystore(secret, pw);
+      save(JSON.stringify(ks), "application/json", keystoreFileName(ks));
+      onClose();
+    } catch (e) { setErr(String((e as Error)?.message ?? e)); setBusy(false); }
+  };
+  return (
+    <Modal title="Save keystore file" onClose={onClose}
+      actions={<><button onClick={onClose}>Cancel</button><button class="primary" disabled={!!problem || busy} onClick={submit}>{busy ? "Encrypting…" : "Save file"}</button></>}>
+      <p class="small">The file holds your key encrypted with this password. You need both to bring the key back; rhogov can't recover a forgotten password. Anyone who gets the file can try to guess the password, so make it long.</p>
+      <label class="field">Password<input type="password" autocomplete="new-password" value={pw} onInput={(e) => setPw((e.target as HTMLInputElement).value)} /></label>
+      <label class="field">Password again<input type="password" autocomplete="new-password" value={again} onInput={(e) => setAgain((e.target as HTMLInputElement).value)} onKeyDown={(e) => e.key === "Enter" && submit()} /></label>
+      {pw && again && problem && <span class="badge danger">{problem}</span>}
+      {err && <div class="callout warn small">{err}</div>}
+    </Modal>
   );
 }
 
@@ -93,16 +138,28 @@ export function CommunityScreen() {
           <div><button class="small" onClick={() => setPaste(true)}>Enter contract addresses by hand</button></div>
         </div>
       </details>
-      {communities.value.length > 1 && (
+      {usable.value.length > 1 && (
         <div class="card stack">
           <h2>Switch community</h2>
-          {communities.value.map((x) => (
+          {usable.value.map((x) => (
             <div class="row between">
               <span><b>{x.name}</b> <span class="muted small mono">{short(x.group)}</span></span>
               <div class="row">
                 {communityKey(x) === communityKey(c) ? <span class="badge accent">current</span> : <button class="small" onClick={() => { setActive(communityKey(x)); go("/"); }}>Switch</button>}
                 <button class="small ghost danger" onClick={() => confirm(`Forget ${x.name} in this browser? Nothing on chain changes.`) && removeCommunity(x)}>Forget</button>
               </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {earlier.value.length > 0 && (
+        <div class="card stack">
+          <h2 id="earlier">Earlier chains</h2>
+          <p class="muted small">Communities from a chain their network no longer runs: it was restarted from a new genesis, so their groups, votes, trust and decisions are gone from it. This browser still holds what it kept from them, including messages you collected, but they can't be opened on the new chain.</p>
+          {earlier.value.map((x) => (
+            <div class="row between">
+              <span><b>{x.name}</b> <span class="muted small mono">{x.node}</span></span>
+              <button class="small ghost danger" onClick={() => confirm(`Forget ${x.name} in this browser? Its chain is gone, so it can't come back.`) && removeCommunity(x)}>Forget</button>
             </div>
           ))}
         </div>

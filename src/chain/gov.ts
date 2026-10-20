@@ -75,6 +75,8 @@ export interface Community {
   /** What people call it. Local label; not on chain. */
   name: string;
   node: string;
+  /** The genesis block hash of the chain it was installed on, once known (#89). */
+  chain?: string;
   inbox: string;
   group: string;
   issue: string;

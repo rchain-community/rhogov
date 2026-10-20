@@ -173,13 +173,13 @@ const TICK: Record<string, string> = {
 export type Risk = "routine" | "consequential" | "irreversible";
 
 /**
- * A write's identity: its deploy term, hashed. The term carries the contract, the
- * verb and the arguments — and never a name shown to a person — so two clicks on
- * the same action give one id, and two different targets give two. Keying this on
- * the visible title instead would collide across targets and be defeated by a
- * title that varies (§ the in-flight lock, docs/audit/remediation.md).
+ * A write's identity: its stable action key, hashed. The key names the target
+ * action — never the visible title — so two clicks on the same action give one
+ * id, and two different targets give two. Keying this on the title would collide
+ * across targets and be defeated by a label that varies (§ the in-flight lock,
+ * docs/audit/remediation.md).
  */
-const writeId = (term: string) => hex(blake2b(new TextEncoder().encode(term), { dkLen: 16 }));
+const writeId = (key: string) => hex(blake2b(new TextEncoder().encode(key), { dkLen: 16 }));
 
 /**
  * Writes in flight *now*, by their identity. In memory only.
@@ -396,7 +396,7 @@ function MoveNode({ c, onClose, onMoved }: { c: Community; onClose: () => void; 
   };
   return (
     <Modal title={`Change ${c.name}'s network address`} onClose={onClose}
-      actions={<><button onClick={onClose}>Cancel</button><button class="primary" disabled={!ok} onClick={() => { addCommunity({ ...c, node: url.trim().replace(/\/+$/, "") }); onClose(); onMoved(); }}>Use this address</button></>}>
+      actions={<><button onClick={onClose}>Cancel</button><button class="primary" disabled={!ok} onClick={() => { addCommunity({ ...c, node: url.trim().replace(/\/+$/, ""), chain: undefined }); onClose(); onMoved(); }}>Use this address</button></>}>
       <div class="stack">
         <p class="small muted">Use this when the same network is reachable at a different address. The community's contracts must answer there; rhogov checks before switching.</p>
         <label class="field">Node address

@@ -187,7 +187,7 @@ export function CouncilScreen({ cid, tab = "decisions", sub }: { cid: string; ta
               <button role="tab" class={tab === k ? "on" : ""} onClick={() => setTab(k)}>{l}</button>
             ))}
           </div>
-          {tab === "stakeholders" ? <Stakeholders d={d} /> : tab === "power" ? <PowerPanel d={d} /> : <Decisions d={d} />}
+          {tab === "stakeholders" ? <><Stakeholders d={d} /><AddStakeholderGroup d={d} /></> : tab === "power" ? <PowerPanel d={d} /> : <Decisions d={d} />}
         </div>
       );
     }}</Loading>
@@ -399,6 +399,9 @@ function PowerPanel({ d }: { d: CouncilData }) {
         {d.chambers.map((ch) => (
           <div class="result"><span class="opt">{ch.name}</span><div class="bar"><span style={{ width: pct(power.share[ch.id]) }} /></div><b class="small">{pct(power.share[ch.id])}</b></div>
         ))}
+        {d.chambers.some((ch) => power.coveredBy[ch.id] < power.estimators) && (
+          <p class="muted small">Added after estimates were made: {d.chambers.filter((ch) => power.coveredBy[ch.id] < power.estimators).map((ch) => `${ch.name} (in ${power.coveredBy[ch.id]} of ${power.estimators})`).join(", ")}. An estimate that leaves a group out doesn't count for it; update yours to include it.</p>
+        )}
       </div>
       <div class="card stack">
         <h2>Your estimate</h2>
@@ -753,5 +756,79 @@ function RecordView({ i, rec, args }: { i: Issue; rec: ReturnType<typeof recordO
       {dissent.length > 0 && <><h3>Recorded dissent</h3><ul class="small">{dissent.map((x) => <li>{x.text} <span class="muted">({endorse(x.raw)} endorsed)</span></li>)}</ul></>}
       <p class="small muted">Recorded on chain by <Addr addr={i.by} avatar={false} /> from the voting power as it stood then. The combination is recomputed from live ratings and delegations, so it can read differently later with the record untouched — this is what the council decided. Ballots and arguments stay public for review.</p>
     </div>
+  );
+}
+
+// --- adding a stakeholder group to a council that already exists ------------------------
+
+/**
+ * The facilitator adds a chamber after the council started: one group deploy
+ * creates `<councilId>.<slug>`, one issue deploy names it among the estimate's
+ * options, the same two writes "New council" makes. Estimates already cast don't
+ * name it, so its power comes from the estimates that do (chamberPower).
+ */
+function AddStakeholderGroup({ d }: { d: CouncilData }) {
+  const me = myAddr.value;
+  const [adding, setAdding] = useState(false);
+  if (!me || me !== (d.weights?.by ?? d.group.admins[0])) return null;
+  return (
+    <div style={{ marginTop: ".8rem" }}>
+      <button onClick={() => setAdding(true)}>＋ Add a stakeholder group</button>
+      {adding && <AddStakeholderGroupModal d={d} onClose={() => setAdding(false)} />}
+    </div>
+  );
+}
+
+function AddStakeholderGroupModal({ d, onClose }: { d: CouncilData; onClose: () => void }) {
+  const G = gov.value!;
+  const cid = d.group.id;
+  const taken = new Set(d.chambers.map((ch) => ch.id));
+  const takenName = new Set(d.chambers.map((ch) => ch.name.trim().toLowerCase()));
+  const suggested = STAKEHOLDERS.filter((s) => !taken.has(chamberId(cid, s.slug)) && !takenName.has(s.name.toLowerCase()));
+  const [pick, setPick] = useState(suggested[0]?.slug ?? "");
+  const [cname, setCname] = useState("");
+  const [policy, setPolicy] = useState<"open" | "invite">(suggested[0]?.policy ?? "open");
+  const custom = pick === "";
+  const name = custom ? cname.trim() : suggested.find((s) => s.slug === pick)!.name;
+  const dup = !!name && takenName.has(name.toLowerCase());
+  const ok = !!name && !dup;
+  const estimated = d.weights ? Object.keys(d.weights.ballots).length : 0;
+  const add = async () => {
+    const slug = custom ? makeId(name).replace(/[^a-z0-9-]/g, "") : pick;
+    const gid = chamberId(cid, slug);
+    onClose();
+    const made = await act(`Adding ${name} to ${d.group.name}`, (t) => G.batch("group", [["create", [q(gid), q(name), q(policy)]]], t),
+      { risk: "consequential", key: `addChamber:${gid}`, done: `${name} is a stakeholder group of ${d.group.name}.` });
+    if (!made || d.weights?.status !== "open") return;
+    await act(`Adding ${name} to the voting-power estimates`, (t) => G.addOption(d.weights!.id, gid, t),
+      { risk: "consequential", key: `addOption:${d.weights.id}:${gid}`, done: "Participants can now estimate its voting power." });
+  };
+  return (
+    <Modal title={`Add a stakeholder group to ${d.group.name}`} onClose={onClose}
+      actions={<><button onClick={onClose}>Cancel</button><button class="primary" disabled={!ok} onClick={add}>Add group</button></>}>
+      <div class="stack">
+        <div class="field"><b>Which group</b>
+          {suggested.map((s) => (
+            <label class={`choice ${pick === s.slug ? "on" : ""}`}>
+              <input type="radio" name="chamber" checked={pick === s.slug} onChange={() => { setPick(s.slug); setPolicy(s.policy); }} />
+              <div><b>{s.name}</b><div class="muted small">{s.blurb}</div></div>
+            </label>
+          ))}
+          <label class={`choice ${custom ? "on" : ""}`}>
+            <input type="radio" name="chamber" checked={custom} onChange={() => { setPick(""); setPolicy("open"); }} />
+            <input class="grow" placeholder="Another stakeholder group" value={cname} onFocus={() => setPick("")} onInput={(e) => setCname((e.target as HTMLInputElement).value)} />
+          </label>
+          {dup && <span class="badge warn">{d.group.name} already has a group called {name}.</span>}
+        </div>
+        <label class="row small"><input type="checkbox" style={{ width: "auto" }} checked={policy === "invite"} onChange={() => setPolicy(policy === "invite" ? "open" : "invite")} /> Invite only (for stakeholders whose standing should be checked, e.g. validators)</label>
+        <p class="muted small">You become its first admin and member. If you don't belong to it, leave it once someone else can admin it, or your ballot counts there too.</p>
+        <p class="muted small">
+          {estimated
+            ? `The ${estimated} voting-power estimate${estimated > 1 ? "s" : ""} already made don't include it, so until people update theirs its power is the median of the estimates that do — none at first, so it starts at 0%. Its members can vote in open decisions once you add them, but their group's votes carry no weight until someone estimates its power.`
+            : "Nobody has estimated voting power yet, so it starts with an equal share like the others."}
+          {" "}Two deploys: one creates the group, one adds it to the voting-power estimates.
+        </p>
+      </div>
+    </Modal>
   );
 }

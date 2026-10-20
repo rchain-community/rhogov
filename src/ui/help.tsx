@@ -5,10 +5,12 @@ import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { asking, isAuxIssue, isCouncilId } from "../chain/council";
 import { RNode } from "../chain/node";
-import { active, communities, displayName, gov, listedName, myAddr, publishedName, reviewBeforeSign, secretKey } from "../state";
+import { active, chainReset, communities, displayName, gov, listedName, myAddr, publishedName, reviewBeforeSign, secretKey } from "../state";
 import { Modal, nameOf, recentErrors, route } from "./kit";
 import { nameProblem } from "./name-sync";
 import { newVersion } from "./update";
+import { backgroundNotificationChoice, notificationAvailable } from "./inbox-watch";
+import { readPendingInstall, setupNode } from "./setup";
 
 const REPO = "https://github.com/rchain-community/rhogov";
 export const GUIDE = `${REPO}/blob/main/docs/user-guide.md`;
@@ -22,6 +24,8 @@ const section = (n: string) => `${GUIDE}#${n}`;
 /** The screen you're on: what it's for, and the guide section that explains it. */
 function screenHelp(): { title: string; text: string; link: string } {
   const [head, , tab] = route.value.parts;
+  if (chainReset.value && head !== "join")
+    return { title: "A reset network", text: "The network was restarted from a new genesis, so everything on its old chain is gone. Your key is in this browser: keep it and you keep your address and name, or use a new key on this network only. Then join or start a community again; the old ones stay under Community → Earlier chains.", link: section("more-than-one-network-and-a-network-that-is-reset") };
   if (head === "welcome" || !myAddr.value || !active.value)
     return { title: "Getting started", text: "Three steps: choose a network, create (or bring) your key, then join a community with an invite link or start your own. If a button is greyed out, the screen says why — a name is missing, there is no key yet, or the fee is not covered.", link: section("1-getting-started") };
   switch (head) {
@@ -31,10 +35,10 @@ function screenHelp(): { title: string; text: string; link: string } {
       if (tab === "members") return { title: "Members", text: "Who is in the group, how much they're trusted, and who votes for whom. Rate trust, hand your vote to someone, or dispute someone's trust from here. Admins approve requests to join here, each in one step: invite, and say how much they trust the person.", link: section("6-trust") };
       return { title: "A group", text: "Its votes, members and settings. Open a vote, or vote on one that's open.", link: section("3-groups") };
     case "v": return { title: "A vote", text: "Choose one or more options (or rank them) and press Vote. You can change your vote while it's open. The node counts it, with trust and delegation.", link: section("4-voting") };
-    case "councils": case "c": return { title: "Councils", text: "Decisions across stakeholder groups: estimate each group's voting power, deliberate with pros and cons, then vote.", link: section("9-councils-decisions-across-stakeholder-groups") };
-    case "inbox": return { title: "Inbox", text: "Messages and invitations sent to you. Collect them to read them; they then live in this browser.", link: section("8-inbox") };
-    case "community": return { title: "Community", text: "The invite link to share, and switching communities. The network address and the three contract addresses are under “Where it lives”, closed by default — you only need them to wire rhogov to a quantum-os room or a node.", link: section("2-communities-and-invitations") };
-    case "account": return { title: "Account", text: "Your name, your address, your balance, and backing up your key.", link: section("10-your-account-and-your-key") };
+    case "councils": case "c": return { title: "Councils", text: "Decisions across stakeholder groups: estimate each group's voting power, deliberate with pros and cons, then vote. The facilitator can add a stakeholder group later.", link: section("9-councils-decisions-across-stakeholder-groups") };
+    case "inbox": return { title: "Inbox", text: "Messages and invitations sent to you. Collect them to read them; they then live in this browser. Export archive saves the collected messages to a readable JSON file, without your key. Import it in another browser with the same key and community; existing messages stay and repeated imports add no extra copies. This costs no fee and does not restore messages on chain. Files can be edited, so imported messages are not proof of their sender. Background system notifications are optional: rhogov asks only after you press Enable notifications, then a hidden tab checks about every five minutes.", link: section("8-inbox") };
+    case "community": return { title: "Community", text: "The invite link to share, switching communities, and communities kept from a network's earlier chain. The network address and the three contract addresses are under “Where it lives”, closed by default — you only need them to wire rhogov to a quantum-os room or a node.", link: section("2-communities-and-invitations") };
+    case "account": return { title: "Account", text: "Your name, your address, your balance, saving your key as a password-protected keystore file, and recovering a remembered decline of background Inbox notifications without prompting automatically.", link: section("10-your-account-and-your-key") };
     default: return { title: "rhogov", text: "", link: GUIDE };
   }
 }
@@ -49,6 +53,15 @@ async function tipsFor(): Promise<Tip[]> {
   const c = active.value, me = myAddr.value, G = gov.value;
   if (newVersion.value) tips.push({ text: "A newer version of rhogov is available.", href: "javascript:location.reload()", label: "Reload" });
   if (!me) return [...tips, { text: "Create or bring your key: it's your identity here, and it signs everything you do.", href: "#/welcome", label: "Set up" }];
+  // The install form scopes its reminder to the chosen network and identity.
+  const nodeUrl = route.value.parts[0] === "welcome" || !c ? setupNode.value : c.node;
+  try {
+    const pending = readPendingInstall(nodeUrl, me) as { name?: unknown; sig?: unknown } | null;
+    if (typeof pending?.name === "string" && pending.name.trim() && typeof pending?.sig === "string" && pending.sig) tips.push({
+      text: <>You started “{pending.name}” and it hasn't confirmed yet. On the same network, choose Start a new community → Look for “{pending.name}”; don't install again while its outcome is unknown.</>,
+      href: "#/welcome", label: "Continue setup",
+    });
+  } catch { /* An unreadable reminder must not hide the other Help tips. */ }
   if (!c || !G) return [...tips, { text: "Join a community with an invite link someone sent you, or start your own.", href: "#/welcome", label: "Continue setup" }];
   const node = new RNode(c.node);
   const [st, bal, groups, inbox] = await Promise.all([
@@ -68,6 +81,18 @@ async function tipsFor(): Promise<Tip[]> {
       ? <>Your name “{displayName.value}” isn't claimed in this community yet, so others may see “No name yet” for you. It goes on the community's list by itself once you have a little REV.</>
       : "Others see “No name yet” for you, because you haven't chosen a name.",
     href: "#/account", label: "Your name",
+  });
+  if (route.value.parts[0] === "inbox") tips.push({
+    text: "To move collected messages to another browser, export the archive here, then use the same key and community there to import it. Keep the readable file private; it does not include your key.",
+    href: "#/inbox", label: "Your archive",
+  });
+  if (route.value.parts[0] === "inbox" && notificationAvailable() && backgroundNotificationChoice.value === "unset") tips.push({
+    text: "Want message alerts while this tab is hidden? Enable them from Inbox. Permission is requested only after you choose to enable them.",
+    href: "#/inbox", label: "Inbox notifications",
+  });
+  if (route.value.parts[0] === "account" && notificationAvailable() && backgroundNotificationChoice.value === "declined") tips.push({
+    text: "Background Inbox notifications are off. You can deliberately reconsider them here; rhogov still will not request browser permission until you press Enable notifications in Inbox.",
+    href: "#/account", label: "Notification choice",
   });
   const unread = Object.values(inbox).reduce((a, b) => a + b, 0);
   if (unread) tips.push({ text: `${unread} new message${unread > 1 ? "s are" : " is"} waiting for you.`, href: "#/inbox", label: "Open Inbox" });

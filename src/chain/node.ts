@@ -149,6 +149,16 @@ export class RNode {
     return hash;
   }
 
+  /**
+   * The hash of this node's genesis block: what tells one chain from another at
+   * the same URL. A network restarted from a new genesis answers a different hash.
+   */
+  async genesis(): Promise<string | null> {
+    const blocks = (await this.request("/api/blocks/0/0")) as { blockHash?: string; blockNumber?: number }[];
+    const b = Array.isArray(blocks) ? blocks.find((x) => x.blockNumber === 0) ?? blocks[0] : null;
+    return b?.blockHash ?? null;
+  }
+
   /** Forget the cached tip — after a write, so the next read sees it. */
   invalidate() { tips.delete(this.base); }
 

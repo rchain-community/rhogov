@@ -30,7 +30,13 @@ network peer is the **rnode HTTP API** you point it at, which answers CORS with 
 no backend, no relay, no database and no account:
 
 - your **key** is generated in, and never leaves, the browser; it signs deploys locally
-  (secp256k1 over blake2b256 of `DeployDataProto`, as rnode verifies);
+  (secp256k1 over blake2b256 of `DeployDataProto`, as rnode verifies). You can save it as
+  a password-protected keystore file (Web3 Secret Storage v3, which geth and MetaMask
+  read) and bring it back from one;
+- what the browser remembers is kept **per chain** (node URL + genesis block hash). The
+  same key is your identity on every network. When a network is restarted from a new
+  genesis, rhogov says so, keeps your identity (or uses a new key there only, if you
+  choose) and lists the old chain's communities apart, as from an earlier chain;
 - **reads** are `explore-deploy` against the newest block; **writes** are signed deploys whose
   answers come back through `deploy-status`;
 - an **invite link** carries only the node URL and the three contract addresses.
@@ -42,6 +48,7 @@ no backend, no relay, no database and no account:
 
 - **Communities.** Start one (installs the three contracts with your key, in one deploy; Start stays disabled until your balance covers its fee, about 0.02 REV)
   or join one with an invite link. Every community is independent.
+  An install that hasn't confirmed is remembered, and setup offers to look for it rather than install twice.
 - **Groups.** Open or invite-only. Admins invite by address (with an inbox notification)
   and promote admins; anyone can join an open group. Anyone can ask to join an
   invite-only one: the request shows as pending, and an admin approves it in one step
@@ -61,9 +68,19 @@ no backend, no relay, no database and no account:
   censure them, their trust drops to 0 and their vouchers are slashed by what they staked.
 - **Inbox.** Anyone can message anyone; the sender is stamped on chain from the key, so it
   can't be forged. Counts are public and contents are not served by the read API.
-  **Collect** consumes the messages into this browser. Messages are not encrypted.
+  **Collect** consumes the messages into this browser. **Export archive / Import archive**
+  moves collected messages between browsers with the same key and community, without
+  a deploy or fee. Imports keep existing messages and do not add extra copies on repeat.
+  rhogov refuses archive files over 20 MiB to bound parsing, but the amount that can
+  actually be saved is limited by the browser's local-storage quota and may be much
+  smaller. The readable JSON contains no identity key and is not proof of sender.
+  Messages are not encrypted.
   New arrivals raise an alert, a count on Inbox and one in the tab title (one free read
-  a minute).
+  a minute while visible). Background system notifications are explicit opt-in only: the
+  browser permission is requested from the Inbox button, never on first load; if enabled,
+  a hidden tab checks about every five minutes. A decline is remembered and not asked again.
+  Account offers **Reconsider in Inbox** for a remembered decline; that reset itself never
+  opens the browser permission prompt.
 - **Multi-stakeholder councils**: see below.
 - **Help that knows where you are.** Help in the menu explains the current screen and lists
   next steps from your state (setup, funds, name, groups, votes, inbox). **Report a problem**
@@ -79,9 +96,12 @@ design:
 
 - **Stakeholder groups.** Users, Developers, Validators, Token holders, Service providers,
   Governance stewards, or your own. Each is a full group with its own admins, trust,
-  delegation and censure. People join every group that describes them.
+  delegation and censure. People join every group that describes them. The facilitator
+  can add a stakeholder group to a council that's already running.
 - **Voting power** per stakeholder group is the **median of participants' estimates**
-  (each estimate normalised to 100%), so a few extreme estimates can't swing it. The design
+  (each estimate normalised to 100%), so a few extreme estimates can't swing it. An
+  estimate that doesn't name a group (one made before the group was added) doesn't count
+  for that group, rather than counting as 0. The design
   doc's footnote [c], that validators should weigh more, is decided here by the participants.
 - **A facilitated, phased process:** *Prepare* (question, background, options) →
   *Deliberate* (pros and cons per option, with endorsements, ConsiderIt-style) →

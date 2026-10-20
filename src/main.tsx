@@ -3,15 +3,15 @@ import { useEffect } from "preact/hooks";
 import { syncMyName } from "./ui/name-sync";
 import { Help } from "./ui/help";
 import { UpdateBanner, watchForUpdates } from "./ui/update";
-import { checkInbox, titleWithCount, waitingCount } from "./ui/inbox-watch";
+import { checkInbox, startInboxWatch, titleWithCount, waitingCount } from "./ui/inbox-watch";
 import "./styles.css";
-import { active, displayName, myAddr, refreshTick } from "./state";
+import { active, chainChecked, chainReset, checkChain, currentNode, displayName, myAddr, refreshTick } from "./state";
 import { AccountScreen, CommunityScreen, JoinScreen } from "./ui/settings";
 import { GroupScreen, GroupsScreen } from "./ui/groups";
 import { HomeScreen } from "./ui/home";
 import { InboxScreen } from "./ui/inbox";
 import { ReviewModal, Toasts, route, short } from "./ui/kit";
-import { Welcome } from "./ui/setup";
+import { ChainReset, Welcome } from "./ui/setup";
 import { IssueScreen } from "./ui/votes";
 import { CouncilScreen, CouncilsScreen } from "./ui/council";
 
@@ -29,6 +29,7 @@ function Page() {
   const { parts, query } = route.value;
   const [head, a, b] = parts;
   if (head === "join") return <JoinScreen query={query} />;
+  if (chainReset.value) return <ChainReset node={chainReset.value.node} />;
   if (head === "welcome" || !myAddr.value || !active.value) return <Welcome />;
   switch (head) {
     case undefined: return <HomeScreen />;
@@ -45,7 +46,10 @@ function Page() {
 }
 
 function App() {
-  const ready = !!myAddr.value && !!active.value;
+  const ready = !!myAddr.value && !!active.value && chainChecked.value && !chainReset.value;
+  // Which chain the node serves: on arrival, on switching networks, and about once
+  // a minute after that, so a network reset while the page is open is noticed (#89).
+  useEffect(() => { void checkChain(currentNode.value); }, [currentNode.value, Math.floor(refreshTick.value / 4)]);
   // Re-checked with every refresh, so a newcomer's name goes on the list as soon
   // as they have the REV for it, and everyone's names stay current.
   useEffect(() => { if (ready) syncMyName(); }, [ready, active.value?.group, myAddr.value, refreshTick.value]);
@@ -58,12 +62,18 @@ function App() {
     <div class="app">
       <nav class="side">
         <div class="brand"><span class="logo">ρ</span> rhogov</div>
+        {ready && <a class="side-community" href="#/community" title={`${active.value!.name}: invite people, switch communities`}>{active.value!.name}</a>}
         {ready && <div class="nav">{NAV.map(([p, icon, label]) => <a href={`#${p}`} class={on(p) ? "on" : ""}><span aria-hidden="true">{icon}</span> {label}{p === "/inbox" && (waitingCount.value ?? 0) > 0 && <span class="count" aria-label={`${waitingCount.value} new`}>{waitingCount.value}</span>}</a>)}</div>}
         <Help />
         <div class="build muted" title="The version of rhogov this page is running">version {__BUILD__}</div>
-        {ready && <div class="foot"><div><b>{active.value!.name}</b></div><div>{displayName.value} · <span class="mono">{short(myAddr.value!)}</span></div></div>}
+        {ready && <div class="foot"><div>{displayName.value} · <span class="mono">{short(myAddr.value!)}</span></div></div>}
       </nav>
-      <main><UpdateBanner /><Page /></main>
+      <main>
+        <UpdateBanner />
+        {/* On phones the side bar is a tab bar with no room for the community, so it heads the page. */}
+        {ready && <a class="community-bar" href="#/community">{active.value!.name}</a>}
+        <Page />
+      </main>
       <Toasts />
       <ReviewModal />
     </div>
@@ -72,3 +82,4 @@ function App() {
 
 render(<App />, document.getElementById("app")!);
 watchForUpdates();
+startInboxWatch();
