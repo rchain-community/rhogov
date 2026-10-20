@@ -57,6 +57,36 @@ test("a write still unknown is remembered across a reload, not repeated, and che
   await expect(alice.getByRole("heading", { name: "Waiting to hear about" })).toHaveCount(0);
 });
 
+test("when the browser can't keep a note of the signature, nothing is sent", async ({ browser }) => {
+  const alice = await person(browser, "Alice");
+  await onboard(alice, "Alice");
+  await startCommunity(alice, `Refused ${Date.now()}`);
+  await settle(alice);
+  await open(alice, "#/groups");
+  await alice.getByRole("button", { name: "＋ New group" }).click();
+  await alice.getByPlaceholder("e.g. Budget committee").fill("Refused club");
+  await alice.getByRole("button", { name: "Create group" }).click();
+  await settle(alice);
+  const groupHash = (await alice.evaluate(() => location.hash)).replace(/\/?$/, "") + "/about";
+  alice.on("dialog", (d) => d.accept());
+
+  // From here on, this browser refuses to store a pending-write record.
+  await alice.addInitScript(() => {
+    const set = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (k: string, v: string) {
+      if (k.startsWith("rhogov:pending-write:")) throw new DOMException("quota", "QuotaExceededError");
+      return set.call(this, k, v);
+    };
+  });
+  await open(alice, groupHash);
+  let deploys = 0;
+  await alice.route("**/api/deploy", async (route) => { deploys++; await route.continue(); });
+  await alice.getByRole("button", { name: "Leave group" }).click();
+  await expect(alice.getByText(/couldn't keep a note of the signature, so nothing was sent/)).toBeVisible();
+  expect(deploys, "nothing sent").toBe(0);
+  await expect(alice.getByRole("button", { name: "Leave group" })).toBeVisible();
+});
+
 test("with review on, the exact rholang is shown, and Cancel signs nothing", async ({ browser }) => {
   const alice = await person(browser, "Alice");
   await onboard(alice, "Alice");

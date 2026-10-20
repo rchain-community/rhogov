@@ -469,7 +469,9 @@ On **Account** you can:
   could happen twice. **Check it** asks the node about its signature, which signs
   nothing and costs nothing; once the node knows, rhogov says whether it landed or
   failed and stops listing it. **Stop waiting** drops it from the list if you've
-  decided for yourself.
+  decided for yourself. The note is kept per network and per key, and is saved
+  before anything is sent: if this browser won't store it (some private windows
+  refuse site data), rhogov sends nothing and says so.
 
 Your key **is** you. Anyone who has it can act as you, so keep backups private
 and offline. If it's lost, that identity can't be recovered.

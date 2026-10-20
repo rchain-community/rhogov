@@ -2,11 +2,11 @@
 import { signal } from "@preact/signals";
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { blake2b } from "@noble/hashes/blake2.js";
 import { filterPeople, resolvePerson, suggestNames } from "../chain/people";
 import { Gov, GovError, ReviewDeclined, type Community } from "../chain/gov";
-import { hex } from "../chain/keys";
 import { NodeError, RNode, StillUnknown, type Tick } from "../chain/node";
+import { REFUSED, ReceiptRefused, forgetPending, keepPending, pendingFor, pendingWrites, writeId, type PendingWrite } from "./pending-writes";
+export { forgetPending, pendingWrites, type PendingWrite } from "./pending-writes";
 import { active, addCommunity, addressBook, communities, forceTick, gov, removeCommunity, setActive, nameNotes, learnListed, learnNames, myAddr, refresh, refreshTick, reviewBeforeSign } from "../state";
 
 // --- routing (hash) ------------------------------------------------------------
@@ -173,15 +173,6 @@ const TICK: Record<string, string> = {
 export type Risk = "routine" | "consequential" | "irreversible";
 
 /**
- * A write's identity: its stable action key, hashed. The key names the target
- * action — never the visible title — so two clicks on the same action give one
- * id, and two different targets give two. Keying this on the title would collide
- * across targets and be defeated by a label that varies (§ the in-flight lock,
- * docs/audit/remediation.md).
- */
-const writeId = (key: string) => hex(blake2b(new TextEncoder().encode(key), { dkLen: 16 }));
-
-/**
  * Writes in flight *now*, by their identity. In memory only.
  *
  * A durable version of this was tried and retracted: it kept a reload from
@@ -197,43 +188,8 @@ const locked = (id: string) => inFlight.has(id);
 const acquire = (id: string) => { inFlight.add(id); };
 const release = (id: string) => { inFlight.delete(id); };
 
-/**
- * Writes that were signed and may still land, kept across a reload.
- *
- * Only a write whose outcome is still unknown stays here: one that landed, ran and
- * failed, or was definitely not carried is forgotten as soon as that is known. While
- * one is here, the same action is not started again — that is how it would happen
- * twice — and Account lists it so its signature can be looked up. The record holds
- * the title, the network, the signer and the signature: never the key or the term.
- *
- * Unlike the durable lock that was retracted (above), this does not hold every
- * write in flight, and the community install keeps its own resume (setup.tsx),
- * which `act(…, { receipt: false })` leaves to it.
- */
-export interface PendingWrite { id: string; title: string; node: string; addr: string; sig: string; at: number }
-const PENDING = "rhogov:pending-write:";
-const readPending = (): PendingWrite[] => {
-  const out: PendingWrite[] = [];
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (!k?.startsWith(PENDING)) continue;
-      try { const p = JSON.parse(localStorage.getItem(k) ?? "null"); if (p?.sig) out.push(p); } catch { /* unreadable: skip */ }
-    }
-  } catch { /* storage refused */ }
-  return out.sort((a, b) => a.at - b.at);
-};
-export const pendingWrites = signal<PendingWrite[]>(readPending());
-const keepPending = (p: PendingWrite) => {
-  try { localStorage.setItem(PENDING + p.id, JSON.stringify(p)); } catch { /* storage refused: the card still says not to repeat it */ }
-  pendingWrites.value = readPending();
-};
-export const forgetPending = (id: string) => {
-  try { localStorage.removeItem(PENDING + id); } catch { /* storage refused */ }
-  pendingWrites.value = readPending();
-};
 /** Did this error leave the write's outcome unknown? Anything the node or a block answered is known. */
-const stillUnknown = (e: unknown) => e instanceof StillUnknown || !(e instanceof NodeError || e instanceof GovError || e instanceof ReviewDeclined);
+const stillUnknown = (e: unknown) => e instanceof StillUnknown || !(e instanceof NodeError || e instanceof GovError || e instanceof ReviewDeclined || e instanceof ReceiptRefused);
 
 /**
  * Look a pending write up once. Once the node has an answer, it is forgotten and
@@ -242,7 +198,7 @@ const stillUnknown = (e: unknown) => e instanceof StillUnknown || !(e instanceof
 export async function checkPending(p: PendingWrite): Promise<string> {
   const st = await new RNode(p.node).deployStatus(p.sig);
   if (st === "waiting") return "Not in a block yet. It may still be carried, so don't repeat it yet.";
-  forgetPending(p.id);
+  forgetPending(p);
   refresh(true);
   if (st === "landed") notify(`It landed: ${p.title}`, "It was recorded on chain.", "info");
   else notify(`It failed: ${p.title}`, "It ran in a block and failed, so nothing changed; its fee was charged. You can do it again.", "info");
@@ -292,7 +248,15 @@ export async function act<T>(
 ): Promise<T | undefined> {
   const id = writeId(opts.key);
   const node = gov.value?.c.node ?? "", addr = myAddr.value ?? "";
-  const earlier = opts.receipt !== false && pendingWrites.value.find((p) => p.id === id && p.node === node && p.addr === addr);
+  const earlier = opts.receipt !== false ? pendingFor(id, node, addr) : null;
+  if (earlier === "unreadable") {
+    notify(`Not sent: ${title}`, REFUSED, "error");
+    return undefined;
+  }
+  if (earlier?.damaged) {
+    notify(`Not repeated: ${title}`, "rhogov kept a note that this action was signed and may still land, but the note can't be read back, so doing it again could do it twice. Account lists it.", "info", { label: "Check it", href: "#/account" });
+    return undefined;
+  }
   if (earlier) {
     notify(`Not repeated: ${title}`, `You signed this on ${new Date(earlier.at).toLocaleString()} and it may still land, so doing it again could do it twice. Account lists it, to check it first.`, "info", { label: "Check it", href: "#/account" });
     return undefined;
@@ -338,7 +302,7 @@ export async function act<T>(
     });
     try {
       const out = await run(tick);
-      if (signed) forgetPending(id);
+      if (signed) forgetPending(signed);
       const done = show();
       done.update({ kind: "done", detail: opts.done ?? "Recorded on chain." });
       done.close(3500);
@@ -346,7 +310,7 @@ export async function act<T>(
       return out;
     } catch (e) {
       // Known outcome (it ran, failed, or was never carried): nothing is left to look for.
-      if (signed && !stillUnknown(e)) forgetPending(id);
+      if (signed && !stillUnknown(e)) forgetPending(signed);
       // Declined at the review step: nothing was signed, so nothing went wrong.
       if (e instanceof ReviewDeclined) { t?.close(0); return undefined; }
       logError(title, (e as Error).message);

@@ -66,7 +66,7 @@ export function AccountScreen() {
           Show me the exact rholang before I sign each action</label>
         <p class="small muted">Anything that moves trust, membership, voting weight or money is shown before it is signed. Routine housekeeping — putting your name on the community's list, sending a message — signs without asking, so it can happen quietly in the background.</p>
       </div>
-      {pendingWrites.value.some((p) => p.addr === addr) && <PendingWrites addr={addr} />}
+      {pendingWrites.value.some((p) => p.addr === addr || p.damaged) && <PendingWrites addr={addr} />}
       {notificationAvailable() && backgroundNotificationChoice.value === "declined" && (
         <div class="card stack">
           <h2>Inbox notifications</h2>
@@ -82,24 +82,26 @@ export function AccountScreen() {
 function PendingWrites({ addr }: { addr: string }) {
   const [said, setSaid] = useState<Record<string, string>>({});
   const check = async (p: PendingWrite) => {
-    setSaid((s) => ({ ...s, [p.id]: "Looking it up…" }));
+    setSaid((s) => ({ ...s, [p.key!]: "Looking it up…" }));
     const text = await checkPending(p).catch((e) => `Couldn't ask the node: ${(e as Error).message}. Try again later.`);
-    setSaid((s) => ({ ...s, [p.id]: text }));
+    setSaid((s) => ({ ...s, [p.key!]: text }));
   };
   return (
     <div class="card stack">
       <h2>Waiting to hear about</h2>
       <p class="small muted">You signed these, and the network hadn't put them in a block when rhogov stopped watching. They may still land, so rhogov won't start the same action again until you know. Checking asks the node for each one's signature; it signs nothing and costs nothing.</p>
-      {pendingWrites.value.filter((p) => p.addr === addr).map((p) => (
+      {pendingWrites.value.filter((p) => p.addr === addr || p.damaged).map((p) => (
         <div class="stack" style={{ gap: ".3rem" }}>
           <div class="row between">
-            <span><b>{p.title}</b> <span class="muted small">signed {new Date(p.at).toLocaleString()} · <span class="mono">{short(p.sig)}</span></span></span>
+            {p.damaged
+              ? <span><b>{p.title}</b> <span class="muted small">Its signature can't be read, so it can't be looked up. Until you stop waiting for it, rhogov won't repeat the action it was for.</span></span>
+              : <span><b>{p.title}</b> <span class="muted small">signed {new Date(p.at).toLocaleString()} · <span class="mono">{short(p.sig)}</span></span></span>}
             <div class="row">
-              <button class="small" onClick={() => check(p)}>Check it</button>
-              <button class="small ghost" onClick={() => { if (confirm(`Stop waiting for “${p.title}”? If it still lands later and you do it again, it will happen twice.`)) forgetPending(p.id); }}>Stop waiting</button>
+              {!p.damaged && <button class="small" onClick={() => check(p)}>Check it</button>}
+              <button class="small ghost" onClick={() => { if (confirm(`Stop waiting for “${p.title}”? If it still lands later and you do it again, it will happen twice.`)) forgetPending(p); }}>Stop waiting</button>
             </div>
           </div>
-          {said[p.id] && <p role="status" class="small muted">{said[p.id]}</p>}
+          {said[p.key!] && <p role="status" class="small muted">{said[p.key!]}</p>}
         </div>
       ))}
     </div>

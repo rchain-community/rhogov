@@ -12,6 +12,7 @@ import { filterPeople, looksLike, nameError, resolvePerson, suggestNames } from 
 import { revAddressOf } from "../src/chain/keys";
 import { decryptKeystore, encryptKeystore, ethAddressOf, keystoreFileName, looksLikeKeystore } from "../src/chain/keystore";
 import { decode, NotCarried, RNode, type Tick } from "../src/chain/node";
+import { forgetPending, keepPending, pendingFor, pendingWrites, ReceiptRefused, writeId } from "../src/ui/pending-writes";
 
 let pass = 0, fail = 0;
 const ok = (label: string, cond: boolean, got?: unknown) => {
@@ -144,6 +145,9 @@ ok("vote counts: one per person per option, unknown options ignored",
   const g = globalThis as any;
   g.location ??= { hash: "", origin: "http://unit", pathname: "/" };
   g.window ??= { addEventListener() {}, removeEventListener() {}, scrollTo() {}, innerWidth: 1024, innerHeight: 768 };
+  // act() refuses a write when it can't read its record of pending writes, so give it storage.
+  const hadStorage = "localStorage" in g, mem = new Map<string, string>();
+  if (!hadStorage) g.localStorage = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => mem.set(k, v), removeItem: (k: string) => mem.delete(k), key: (i: number) => [...mem.keys()][i] ?? null, get length() { return mem.size; } };
   const { act } = await import("../src/ui/kit");
   let finish!: (value: number) => void;
   let secondRan = false;
@@ -153,6 +157,7 @@ ok("vote counts: one per person per option, unknown options ignored",
   ok("an in-flight write rejects a duplicate identity even if its title changes", second === undefined && !secondRan, { second, secondRan });
   finish(1);
   await first;
+  if (!hadStorage) delete g.localStorage;
 }
 
 // Arguments.
@@ -860,6 +865,59 @@ ok("non-argument rejected", decodeArg("hello") === null);
   ok("a declined review signs nothing, and doesn't stop the other", (await a) === "declined" && signedTerms.length === 1 && signedTerms[0].includes('"gb"'), signedTerms);
   await G.join("gc", "C");
   ok("a write with no review step attached signs without asking", signedTerms.length === 2);
+}
+
+// Pending writes: one record per network, signer and action; storage that refuses
+// or a record that can't be read never passes for "nothing pending".
+{
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  const mem = new Map<string, string>();
+  let refuseWrite = false, refuseRead = false;
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (k: string) => { if (refuseRead) throw new Error("denied"); return mem.has(k) ? mem.get(k)! : null; },
+      setItem: (k: string, v: string) => { if (refuseWrite) throw new Error("quota"); mem.set(k, String(v)); },
+      removeItem: (k: string) => { mem.delete(k); },
+      key: (i: number) => [...mem.keys()][i] ?? null,
+      get length() { return mem.size; },
+    },
+  });
+  try {
+    const id = writeId("leave:club"), at = 1;
+    const a = { id, title: "Leaving Club", node: "http://a:40403", addr: "1111A", sig: "sigA", at };
+    const b = { ...a, node: "http://b:40403", sig: "sigB" };
+    const c = { ...a, addr: "1111C", sig: "sigC" };
+    keepPending(a); keepPending(b); keepPending(c);
+    const sigOf = (n: string, ad: string) => { const p = pendingFor(id, n, ad); return p && p !== "unreadable" ? p.sig : p; };
+    ok("the same action pending on two networks and under two keys keeps three records",
+      sigOf(a.node, a.addr) === "sigA" && sigOf(b.node, b.addr) === "sigB" && sigOf(c.node, c.addr) === "sigC" && pendingWrites.value.length === 3,
+      [sigOf(a.node, a.addr), sigOf(b.node, b.addr), sigOf(c.node, c.addr)]);
+    forgetPending(b);
+    ok("forgetting one leaves the others", sigOf(b.node, b.addr) === null && sigOf(a.node, a.addr) === "sigA" && sigOf(c.node, c.addr) === "sigC");
+
+    const slotA = [...mem.keys()].find((k) => mem.get(k)!.includes("sigA"))!;
+    mem.set(slotA, "{not json");
+    const dam = pendingFor(id, a.node, a.addr);
+    ok("a record that can't be read blocks its action and is listed", dam !== null && dam !== "unreadable" && dam.damaged === true && pendingWrites.value.length >= 1);
+    mem.delete(slotA);
+
+    refuseWrite = true;
+    let threw: unknown = null;
+    try { keepPending({ ...a, sig: "sigA2" }); } catch (e) { threw = e; }
+    ok("storage that refuses the write throws before anything is sent", threw instanceof ReceiptRefused && sigOf(a.node, a.addr) === null);
+    refuseWrite = false;
+    refuseRead = true;
+    ok("storage that refuses the read is not 'nothing pending'", pendingFor(id, a.node, a.addr) === "unreadable");
+    refuseRead = false;
+
+    // A record kept before records were scoped (one per action) moves into its slot.
+    mem.set("rhogov:pending-write:" + id, JSON.stringify({ id, title: "Old", node: a.node, addr: a.addr, sig: "sigOld", at }));
+    ok("an unscoped record is found and moved", sigOf(a.node, a.addr) === "sigOld" && !mem.has("rhogov:pending-write:" + id) && sigOf(a.node, a.addr) === "sigOld");
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis, "localStorage", descriptor);
+    else delete (globalThis as { localStorage?: Storage }).localStorage;
+  }
 }
 
 console.log(`unit: ${pass}/${pass + fail} passed`);
