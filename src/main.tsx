@@ -62,12 +62,18 @@ function App() {
     <div class="app">
       <nav class="side">
         <div class="brand"><span class="logo">ρ</span> rhogov</div>
+        {ready && <a class="side-community" href="#/community" title={`${active.value!.name}: invite people, switch communities`}>{active.value!.name}</a>}
         {ready && <div class="nav">{NAV.map(([p, icon, label]) => <a href={`#${p}`} class={on(p) ? "on" : ""}><span aria-hidden="true">{icon}</span> {label}{p === "/inbox" && (waitingCount.value ?? 0) > 0 && <span class="count" aria-label={`${waitingCount.value} new`}>{waitingCount.value}</span>}</a>)}</div>}
         <Help />
         <div class="build muted" title="The version of rhogov this page is running">version {__BUILD__}</div>
-        {ready && <div class="foot"><div><b>{active.value!.name}</b></div><div>{displayName.value} · <span class="mono">{short(myAddr.value!)}</span></div></div>}
+        {ready && <div class="foot"><div>{displayName.value} · <span class="mono">{short(myAddr.value!)}</span></div></div>}
       </nav>
-      <main><UpdateBanner /><Page /></main>
+      <main>
+        <UpdateBanner />
+        {/* On phones the side bar is a tab bar with no room for the community, so it heads the page. */}
+        {ready && <a class="community-bar" href="#/community">{active.value!.name}</a>}
+        <Page />
+      </main>
       <Toasts />
       <ReviewModal />
     </div>
