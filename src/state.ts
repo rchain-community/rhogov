@@ -7,6 +7,7 @@
 
 import { signal, computed, effect } from "@preact/signals";
 import { Gov, type Community, type InboxMessage } from "./chain/gov";
+import { exportInboxArchive, parseInboxArchive } from "./inbox-archive";
 import { isValidKey, revAddressOf } from "./chain/keys";
 import { RNode } from "./chain/node";
 import { nameSkeleton } from "./chain/people";
@@ -428,6 +429,26 @@ export function archive(addr: string, c: Community, msgs: InboxMessage[]) {
   save(LS.inbox(addr, communityKey(c)), [...archived(addr, c), ...msgs]);
 }
 export function setArchive(addr: string, c: Community, msgs: InboxMessage[]) { save(LS.inbox(addr, communityKey(c)), msgs); }
+
+
+/** Transfers must not mistake unreadable/corrupt storage for an empty archive. */
+export function archiveForTransfer(addr: string, c: Community): InboxMessage[] {
+  let text: string | null;
+  try { text = localStorage.getItem(LS.inbox(addr, communityKey(c))); }
+  catch { throw new Error("This browser could not read its archive. Check its storage settings; existing messages were left untouched."); }
+  if (text === null) return [];
+  let msgs: unknown;
+  try { msgs = JSON.parse(text); }
+  catch { throw new Error("This browser's stored archive is damaged. Existing messages were left untouched; keep this browser data and report the problem."); }
+  if (!Array.isArray(msgs)) throw new Error("This browser's stored archive is damaged. Existing messages were left untouched; keep this browser data and report the problem.");
+  try { return parseInboxArchive(exportInboxArchive(addr, c, msgs), addr, c).messages; }
+  catch { throw new Error("This browser's stored archive contains older, invalid, or oversized message data that cannot be transferred safely. Existing messages were left untouched; keep this browser data and update rhogov or report the problem."); }
+}
+
+/** An import must report a refused storage write rather than claim success. */
+export function importArchive(addr: string, c: Community, msgs: InboxMessage[]) {
+  localStorage.setItem(LS.inbox(addr, communityKey(c)), JSON.stringify(msgs));
+}
 
 export const dismissed = signal<string[]>(load(LS.dismissed, []));
 export function dismiss(id: string) { dismissed.value = [...dismissed.value, id]; save(LS.dismissed, dismissed.value); }
