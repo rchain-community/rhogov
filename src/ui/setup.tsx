@@ -247,7 +247,7 @@ export function CommunityForm({ node }: { node: string }) {
         if (e instanceof StillUnknown) unknown = true; else remember(null);
         throw e;
       }
-    }, { risk: "irreversible", key: `install:${node}:${myAddr.value}`, done: "Three contracts installed: Inbox, Group, Issue." });
+    }, { risk: "irreversible", key: `install:${node}:${myAddr.value}`, done: "Three contracts installed: Inbox, Group, Issue.", receipt: false });
     setBusy(false);
     if (uris) { remember(null); addCommunity({ name: cname, node, ...uris }); go("/groups"); }
     else if (!unknown) remember(null);

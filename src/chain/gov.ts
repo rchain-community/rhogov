@@ -14,7 +14,7 @@
 import * as core from "./rgov-core.js";
 import { revAddressOf } from "./keys";
 import { looksLike, nameError } from "./people";
-import { RNode, type RhoValue } from "./node";
+import { RNode, type RhoValue, type Tick } from "./node";
 
 export const q = (s: string) => JSON.stringify(String(s));
 
@@ -29,14 +29,12 @@ export class ReviewDeclined extends Error {
  * This lives here, not in the UI, because this is the only place the term exists:
  * it is built and then signed inside one call, so a review that happened any earlier
  * would have no term to show and any later would be a review of something already
- * sent. `act()` sets it for the duration of one action.
+ * sent. The review step rides on the write's own progress callback (`Tick.review`,
+ * attached by `act()`), not on a module-wide setting, so two writes running at once
+ * each get their own review and one finishing never switches off the other's.
  */
-let reviewGate: ((term: string) => Promise<boolean>) | null = null;
-export const setReviewGate = (g: ((term: string) => Promise<boolean>) | null) => { reviewGate = g; };
-
-/** Await the gate if one is set; throws when the person declined. */
-async function gate(term: string): Promise<void> {
-  if (reviewGate && !(await reviewGate(term))) throw new ReviewDeclined();
+async function gate(term: string, t?: Tick): Promise<void> {
+  if (t?.review && !(await t.review(term))) throw new ReviewDeclined();
 }
 
 /**
@@ -354,7 +352,7 @@ export class Gov {
     const key = this.key();
     if (!key) throw new GovError("Set up your identity first (Account).");
     const term = forDeploy(core.writeProgram(uri, "self", verb, args));
-    await gate(term);
+    await gate(term, onTick);
     return check(await this.node.deploy(term, key, { onTick }));
   }
 
@@ -513,7 +511,7 @@ export class Gov {
     const key = this.key();
     if (!key) throw new GovError("Set up your identity first (Account).");
     const term = batchProgram(this.c[kind], calls);
-    await gate(term);
+    await gate(term, t);
     const v = await this.node.deploy(term, key, { onTick: t, phloLimit: 3_000_000 });
     const answers = asList(v[0] ?? null);
     const bad = answers.find((a) => Array.isArray(a) && a[0] === "gov-error");
@@ -593,7 +591,7 @@ export class Gov {
     const node = new RNode(nodeUrl);
     const term = forDeploy([core.installInboxProgram(), core.installGroupProgram(), core.installIssueProgram()].join("\n|\n"));
     onTick?.(opts.resume ? "Looking for the community you started earlier…" : "installing Inbox, Group and Issue…");
-    if (!opts.resume) await gate(term);
+    if (!opts.resume) await gate(term, onTick);
     // Measured: each install uses ~390k phlo, so three fit in 2M with room to spare.
     const v = opts.resume
       ? await node.outcome(opts.resume, { onTick })

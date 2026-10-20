@@ -77,6 +77,15 @@ export class NodeError extends Error {}
 
 const rev = (dust: number) => `${(dust / 1e8).toLocaleString(undefined, { maximumFractionDigits: 4 })} REV`;
 
+/**
+ * A write's progress callback. `act()` attaches two hooks to it, which travel
+ * with the callback through Gov to here: `review` is asked with the exact term
+ * before it is signed (gov.ts), and `signed` gets the signature after signing and
+ * before the deploy leaves the browser, so a write that might still land can be
+ * remembered across a reload.
+ */
+export type Tick = ((s: string) => void) & { review?: (term: string) => Promise<boolean>; signed?: (sig: string) => void };
+
 /** Not enough REV to pre-charge a deploy. `faucet` = this node can hand out test REV. */
 export class InsufficientFunds extends NodeError {
   constructor(public have: number, public need: number, public faucet: boolean) {
@@ -189,7 +198,7 @@ export class RNode {
   }
 
   /** Sign and submit. Returns the deploy's signature, which is how it is found again. */
-  async submit(term: string, key: string, phloLimit = 1_000_000): Promise<string> {
+  async submit(term: string, key: string, phloLimit = 1_000_000, beforeSend?: (sig: string) => void): Promise<string> {
     const st = await this.status().catch(() => ({} as NodeStatus));
     // The node pre-charges phloLimit × phloPrice, and a deploy it cannot charge
     // fails with no useful reason ("deploy error message not available…").
@@ -206,6 +215,7 @@ export class RNode {
       shardId: st.shardId || "root",
     };
     const { deployer, signature } = signDeployData(data, key);
+    beforeSend?.(signature); // before the POST, so a reply lost on the way back still leaves the signature behind
     let reply: unknown;
     try {
       reply = await this.post("/api/deploy", { data, deployer, signature, sigAlgorithm: "secp256k1" });
@@ -242,17 +252,25 @@ export class RNode {
     }
     if (unconfirmed)
       throw new NotCarried("The node didn't accept this, and it hasn't appeared in any block in the 2 minutes rhogov watched for it, so it was not carried and nothing was charged. It's safe to try again.");
-    throw new StillUnknown(sig, "It hasn't appeared in a block after 15 minutes, so this network is stalled. It may still be carried later. Don't repeat it yet, or it could happen twice: check again later (for a community, the setup screen offers to look for this one instead of installing another).");
+    throw new StillUnknown(sig, "It hasn't appeared in a block after 15 minutes, so this network is stalled. It may still be carried later. Don't repeat it yet, or it could happen twice: check again later: Account lists it, to look it up (for a community, the setup screen offers to look for this one instead of installing another).");
+  }
+
+  /** One look at a signed deploy, without waiting: in a block (and how it went), or not yet. */
+  async deployStatus(sig: string): Promise<"landed" | "failed" | "waiting"> {
+    const j = (await this.request(`/api/v1/deploy-status/${sig}`)) as Record<string, any>;
+    if (j?.ProcessedWithSuccess ?? j?.processedWithSuccess) { this.invalidate(); return "landed"; }
+    if (j?.ProcessedWithError ?? j?.processedWithError) return "failed";
+    return "waiting";
   }
 
   /**
    * Submit and wait for the outcome. `onSubmitted` gets the signature as soon as
    * it exists, so a caller can remember a deploy that might still land later.
    */
-  async deploy(term: string, key: string, opts: { phloLimit?: number; onTick?: (s: string) => void; onSubmitted?: (sig: string) => void } = {}): Promise<RhoValue[]> {
+  async deploy(term: string, key: string, opts: { phloLimit?: number; onTick?: Tick; onSubmitted?: (sig: string) => void } = {}): Promise<RhoValue[]> {
     let sig: string;
     try {
-      sig = await this.submit(term, key, opts.phloLimit);
+      sig = await this.submit(term, key, opts.phloLimit, opts.onTick?.signed);
     } catch (e) {
       if (!(e instanceof Unconfirmed)) throw e;
       opts.onSubmitted?.(e.sig);
