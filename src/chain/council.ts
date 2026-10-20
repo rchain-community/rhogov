@@ -29,7 +29,7 @@
 //     ballots — anyone can recompute it);
 //   - the combined score: Σ chamber power × chamber's weighted approval share.
 
-import type { Group, Issue, Outcome } from "./gov";
+import { type Group, type Issue, type Outcome, pendingOf } from "./gov";
 
 export const COUNCIL_PREFIX = "council-";
 export const isCouncilId = (id: string) => id.startsWith(COUNCIL_PREFIX) && !id.includes(".");
@@ -185,4 +185,22 @@ export function decodeArg(raw: string): Argument | null {
   const [side, option, ...rest] = raw.split("|");
   if ((side !== "pro" && side !== "con") || !rest.length) return null;
   return { raw, side, option, text: rest.join("|") };
+}
+
+/**
+ * Requests waiting on you, as an admin: one line per group, or per council for
+ * its stakeholder groups (approved together on the council's page).
+ */
+export function asking(groups: Group[], me: string): { name: string; n: number; to: string }[] {
+  const out = new Map<string, { name: string; who: Set<string>; to: string }>();
+  for (const g of groups.filter((g) => g.admins.includes(me))) {
+    const p = pendingOf(g);
+    if (!p.length) continue;
+    const council = groups.find((c) => isCouncilId(c.id) && isChamberOf(c.id, g.id));
+    const k = council?.id ?? g.id;
+    const e = out.get(k) ?? { name: council?.name ?? g.name, who: new Set<string>(), to: council ? `/c/${encodeURIComponent(council.id)}` : `/g/${encodeURIComponent(g.id)}/members` };
+    p.forEach((a) => e.who.add(a));
+    out.set(k, e);
+  }
+  return [...out.values()].map(({ name, who, to }) => ({ name, n: who.size, to }));
 }

@@ -50,7 +50,9 @@ no backend, no relay, no database and no account:
   or join one with an invite link. Every community is independent.
   An install that hasn't confirmed is remembered, and setup offers to look for it rather than install twice.
 - **Groups.** Open or invite-only. Admins invite by address (with an inbox notification)
-  and promote admins; anyone can join an open group.
+  and promote admins; anyone can join an open group. Anyone can ask to join an
+  invite-only one: the request shows as pending, and an admin approves it in one step
+  (invite, plus a trust rating, plus a council's open votes).
 - **A first run that says what to do.** Home opens with what rhogov is for, and a
   community with nothing in it yet offers the first group to make rather than an
   empty "all caught up". Everything happens inside a group, so that is the first step.
@@ -121,6 +123,7 @@ any rgov-core client can read them:
 | decision | Issue in the council (mode `approval`) |
 | pros and cons | Issue `<decisionId>.args` (options are `pro\|<option>\|<text>`; ballots are endorsements; its title is the background) |
 | phase and decision of record | the facilitator's entry in the decision's `results` |
+| request to join a group | membership of the open, hidden Group `~asks:<groupId>` (the asker joins it by their own key; pending = on it, not a member, not invited) |
 
 ## Interop with quantum-os
 

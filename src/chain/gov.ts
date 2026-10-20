@@ -91,6 +91,12 @@ export interface Group {
   admins: string[];
   members: Member[];
   invited: string[];
+  /**
+   * Everyone on the group's request list (its hidden `~asks:<gid>` group, see
+   * Gov.askToJoin), including people since admitted. `pendingOf` narrows it to
+   * those still waiting for an admin.
+   */
+  asked: string[];
   /** Standing delegations: delegator → delegate. */
   deleg: Record<string, string>;
   /** Per-issue delegations: issueId → (delegator → delegate). */
@@ -180,6 +186,7 @@ export function toGroup(id: string, raw: RhoValue): Group | null {
     admins: keys(g.admins),
     members,
     invited: keys(g.invited),
+    asked: [],
     deleg: asMap(g.deleg) as Record<string, string>,
     topic: asMap(g.topic) as Record<string, Record<string, string>>,
     ratings: asMap(g.ratings) as Record<string, Record<string, number>>,
@@ -320,6 +327,16 @@ export const sameName = (a: string, b: string) => a.trim() === b.trim();
 /** The hidden group holding a community's names (see Gov.names). */
 export const NAMES_GID = "~names";
 
+/** A group's request list (see Gov.askToJoin). Ids starting with "~" are never shown as groups. */
+export const ASKS_PREFIX = "~asks:";
+export const asksId = (gid: string) => ASKS_PREFIX + gid;
+
+const isMemberOf = (g: Group, a: string) => g.members.some((m) => m.addr === a);
+/** Asked to join and not yet let in: not a member, and (invite-only) not yet invited. */
+export const pendingOf = (g: Group) => g.asked.filter((a) => !isMemberOf(g, a) && !g.invited.includes(a));
+/** Whether this person is waiting on an admin of `g`. */
+export const isPending = (g: Group, a: string | null) => !!a && pendingOf(g).includes(a);
+
 export class Gov {
   readonly node: RNode;
   constructor(public c: Community, private key: () => string | null) {
@@ -356,12 +373,37 @@ export class Gov {
 
   async groupIds(): Promise<string[]> { return asList(await this.read(this.c.group, "groups")).map(String); }
 
-  async group(gid: string): Promise<Group | null> { return toGroup(gid, await this.read(this.c.group, "groupOf", [q(gid)])); }
+  private async rawGroup(gid: string): Promise<Group | null> { return toGroup(gid, await this.read(this.c.group, "groupOf", [q(gid)])); }
 
+  /** A group, with its request list attached. */
+  async group(gid: string): Promise<Group | null> {
+    const [g, asks] = await Promise.all([this.rawGroup(gid), this.rawGroup(asksId(gid)).catch(() => null)]);
+    return g && { ...g, asked: (asks?.members ?? []).map((m) => m.addr) };
+  }
+
+  /** Every visible group (not the hidden "~" ones), each with its request list attached. */
   async groups(): Promise<Group[]> {
-    const ids = (await this.groupIds()).filter((id) => id !== NAMES_GID);
-    const all = await Promise.all(ids.map((id) => this.group(id).catch(() => null)));
-    return all.filter((g): g is Group => !!g);
+    const ids = await this.groupIds();
+    const load = (xs: string[]) => Promise.all(xs.map((id) => this.rawGroup(id).catch(() => null)));
+    const [all, asks] = await Promise.all([load(ids.filter((id) => !id.startsWith("~"))), load(ids.filter((id) => id.startsWith(ASKS_PREFIX)))]);
+    const asked = new Map(asks.filter((a): a is Group => !!a).map((a) => [a.id.slice(ASKS_PREFIX.length), a.members.map((m) => m.addr)]));
+    return all.filter((g): g is Group => !!g).map((g) => ({ ...g, asked: asked.get(g.id) ?? [] }));
+  }
+
+  /**
+   * Ask to join an invite-only group. The contract has no "request" verb, so
+   * this is a convention like the name list: an open hidden group,
+   * `~asks:<gid>`, that the asker joins by their own key, in one deploy (create
+   * it if nobody has, an "already" answer being fine; leave, so its creator is
+   * listed like everyone else; join). Admins read it and approve by inviting
+   * (Gov.invite); the asker then joins, leaving the list in the same deploy.
+   */
+  askToJoin(gid: string, label: string, t?: (s: string) => void) {
+    return this.batch("group", Gov.askCalls(gid, label), t);
+  }
+  static askCalls(gid: string, label: string): [string, string[]][] {
+    const id = asksId(gid);
+    return [["create", [q(id), q(id), q("open")]], ["leave", [q(id)]], ["join", [q(id), q(label || "member")]]];
   }
 
   // --- names -----------------------------------------------------------------
@@ -372,7 +414,7 @@ export class Gov {
 
   /** address → name, from the community's name list. */
   async names(): Promise<Record<string, string>> {
-    const g = await this.group(NAMES_GID).catch(() => null);
+    const g = await this.rawGroup(NAMES_GID).catch(() => null);
     return Object.fromEntries((g?.members ?? []).filter((m) => m.label && m.label !== NAMES_GID).map((m) => [m.addr, m.label]));
   }
 

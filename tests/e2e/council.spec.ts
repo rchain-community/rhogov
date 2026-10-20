@@ -44,7 +44,8 @@ test("a council reaches a decision of record across stakeholder groups", async (
   await expect(waitingEst).toContainText("Bob");
   await expect(waitingEst).toContainText("Carol");
   for (const who of ["Bob", "Carol"]) {
-    await waitingEst.locator(".row", { hasText: who }).getByRole("button", { name: "Add to the voting-power estimates" }).click();
+    await waitingEst.locator(".row", { hasText: who }).getByRole("button", { name: "Approve…" }).click();
+    await alice.locator(".modal").getByRole("button", { name: "Approve", exact: true }).click();
     await settle(alice);
     await open(alice, council);
   }
@@ -86,7 +87,8 @@ test("a council reaches a decision of record across stakeholder groups", async (
   await open(alice, decision);
   const waiting = alice.locator(".card", { hasText: "Waiting to take part in this decision" });
   await expect(waiting.locator(".row", { hasText: "Dave" })).toContainText("in Developers");
-  await waiting.locator(".row", { hasText: "Dave" }).getByRole("button", { name: "Add to this decision" }).click();
+  await waiting.locator(".row", { hasText: "Dave" }).getByRole("button", { name: "Approve…" }).click();
+  await alice.locator(".modal").getByRole("button", { name: "Approve", exact: true }).click();
   await settle(alice);
   await open(dave, decision);
   await expect(dave.getByText("You're waiting to be added")).toHaveCount(0);
