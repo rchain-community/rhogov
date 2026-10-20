@@ -16,6 +16,7 @@ test("the facilitator adds a stakeholder group to a running council", async ({ b
   await alice.getByRole("button", { name: "Create council" }).click();
   await settle(alice);
   const council = await alice.evaluate(() => location.hash);
+  await expect(alice.locator(".side-community")).toHaveText("Research Co-op"); // the side bar names the community
 
   // An estimate made while the council had its first four groups.
   await open(alice, council + "/power");

@@ -9,6 +9,7 @@ import { active, chainReset, communities, displayName, gov, listedName, myAddr, 
 import { Modal, nameOf, recentErrors, route } from "./kit";
 import { nameProblem } from "./name-sync";
 import { newVersion } from "./update";
+import { backgroundNotificationChoice, notificationAvailable } from "./inbox-watch";
 import { readPendingInstall, setupNode } from "./setup";
 
 const REPO = "https://github.com/rchain-community/rhogov";
@@ -35,9 +36,9 @@ function screenHelp(): { title: string; text: string; link: string } {
       return { title: "A group", text: "Its votes, members and settings. Open a vote, or vote on one that's open.", link: section("3-groups") };
     case "v": return { title: "A vote", text: "Choose one or more options (or rank them) and press Vote. You can change your vote while it's open. The node counts it, with trust and delegation.", link: section("4-voting") };
     case "councils": case "c": return { title: "Councils", text: "Decisions across stakeholder groups: estimate each group's voting power, deliberate with pros and cons, then vote. The facilitator can add a stakeholder group later.", link: section("9-councils-decisions-across-stakeholder-groups") };
-    case "inbox": return { title: "Inbox", text: "Messages and invitations sent to you. Collect them to read them; they then live in this browser. Export archive saves the collected messages to a readable JSON file, without your key. Import it in another browser with the same key and community; existing messages stay and repeated imports add no extra copies. This costs no fee and does not restore messages on chain. Files can be edited, so imported messages are not proof of their sender.", link: section("8-inbox") };
+    case "inbox": return { title: "Inbox", text: "Messages and invitations sent to you. Collect them to read them; they then live in this browser. Export archive saves the collected messages to a readable JSON file, without your key. Import it in another browser with the same key and community; existing messages stay and repeated imports add no extra copies. This costs no fee and does not restore messages on chain. Files can be edited, so imported messages are not proof of their sender. Background system notifications are optional: rhogov asks only after you press Enable notifications, then a hidden tab checks about every five minutes.", link: section("8-inbox") };
     case "community": return { title: "Community", text: "The invite link to share, switching communities, and communities kept from a network's earlier chain. The network address and the three contract addresses are under “Where it lives”, closed by default — you only need them to wire rhogov to a quantum-os room or a node.", link: section("2-communities-and-invitations") };
-    case "account": return { title: "Account", text: "Your name, your address, your balance, and saving your key as a password-protected keystore file.", link: section("10-your-account-and-your-key") };
+    case "account": return { title: "Account", text: "Your name, your address, your balance, saving your key as a password-protected keystore file, and recovering a remembered decline of background Inbox notifications without prompting automatically.", link: section("10-your-account-and-your-key") };
     default: return { title: "rhogov", text: "", link: GUIDE };
   }
 }
@@ -84,6 +85,14 @@ async function tipsFor(): Promise<Tip[]> {
   if (route.value.parts[0] === "inbox") tips.push({
     text: "To move collected messages to another browser, export the archive here, then use the same key and community there to import it. Keep the readable file private; it does not include your key.",
     href: "#/inbox", label: "Your archive",
+  });
+  if (route.value.parts[0] === "inbox" && notificationAvailable() && backgroundNotificationChoice.value === "unset") tips.push({
+    text: "Want message alerts while this tab is hidden? Enable them from Inbox. Permission is requested only after you choose to enable them.",
+    href: "#/inbox", label: "Inbox notifications",
+  });
+  if (route.value.parts[0] === "account" && notificationAvailable() && backgroundNotificationChoice.value === "declined") tips.push({
+    text: "Background Inbox notifications are off. You can deliberately reconsider them here; rhogov still will not request browser permission until you press Enable notifications in Inbox.",
+    href: "#/account", label: "Notification choice",
   });
   const unread = Object.values(inbox).reduce((a, b) => a + b, 0);
   if (unread) tips.push({ text: `${unread} new message${unread > 1 ? "s are" : " is"} waiting for you.`, href: "#/inbox", label: "Open Inbox" });

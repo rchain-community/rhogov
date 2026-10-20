@@ -20,7 +20,13 @@ import {
   type InboxArchive,
 } from "../inbox-archive";
 import { learnFrom } from "./groups";
-import { checkInbox } from "./inbox-watch";
+import {
+  backgroundNotificationChoice,
+  checkInbox,
+  declineBackgroundNotifications,
+  enableBackgroundNotifications,
+  notificationAvailable,
+} from "./inbox-watch";
 import {
   Addr,
   Info,
@@ -73,6 +79,8 @@ export function InboxScreen() {
     useState<InboxArchive | null>(null);
   const [reading, setReading] =
     useState(false);
+  const [notificationNote, setNotificationNote] =
+    useState("");
 
   const readToken = useRef(0);
 
@@ -352,6 +360,19 @@ export function InboxScreen() {
             )
         }
       </Loading>
+      {notificationAvailable() && backgroundNotificationChoice.value === "unset" && (
+        <div class="callout row between" style={{ margin: ".6rem 0 1rem" }}>
+          <span><b>Background message alerts</b><br /><span class="small">If you choose this, a hidden tab checks about every five minutes and can show a system notification. Nothing is requested on first load.</span></span>
+          <div class="row">
+            <button class="ghost" onClick={() => { declineBackgroundNotifications(); setNotificationNote(""); }}>No thanks</button>
+            <button class="primary" onClick={async () => {
+              const ok = await enableBackgroundNotifications();
+              setNotificationNote(ok ? "Background notifications are on." : "Background notifications are off; your browser did not grant permission.");
+            }}>Enable notifications</button>
+          </div>
+        </div>
+      )}
+      {notificationNote && <p role="status" class="small muted">{notificationNote}</p>}
 
       <div
         class="card soft stack"

@@ -74,7 +74,11 @@ no backend, no relay, no database and no account:
   smaller. The readable JSON contains no identity key and is not proof of sender.
   Messages are not encrypted.
   New arrivals raise an alert, a count on Inbox and one in the tab title (one free read
-  a minute).
+  a minute while visible). Background system notifications are explicit opt-in only: the
+  browser permission is requested from the Inbox button, never on first load; if enabled,
+  a hidden tab checks about every five minutes. A decline is remembered and not asked again.
+  Account offers **Reconsider in Inbox** for a remembered decline; that reset itself never
+  opens the browser permission prompt.
 - **Multi-stakeholder councils**: see below.
 - **Help that knows where you are.** Help in the menu explains the current screen and lists
   next steps from your state (setup, funds, name, groups, votes, inbox). **Report a problem**
