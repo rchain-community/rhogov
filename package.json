@@ -29,6 +29,6 @@
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "vite": "^6.4.4",
-    "vite-plugin-singlefile": "^2.3.3"
+    "vite-plugin-singlefile": "^2.3.4"
   }
 }
