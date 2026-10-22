@@ -6,7 +6,7 @@ import {
   chamberId, chamberPower, combine, councilsOf, decodeArg, encodeArg, estimateBallot, isAuxIssue, parseEstimate, weightsIssueId,
   approvals,
 } from "../chain/council";
-import { Gov, type Group, type Issue, asksId, isPending, makeId, pendingOf, q, qList, qSet } from "../chain/gov";
+import { Gov, type Group, type Issue, asksId, isMemberOf, isPending, makeId, pendingOf, q, qList, qSet } from "../chain/gov";
 import { displayName, gov, myAddr } from "../state";
 import { ApproveModal, DelegateModal, learnFrom } from "./groups";
 import { Addr, Info, Loading, Modal, PersonField, act, go, nameOf, useAsync } from "./kit";
@@ -14,7 +14,6 @@ import { Ballot } from "./votes";
 
 const cHref = (cid: string, ...rest: string[]) => `/c/${[cid, ...rest].map(encodeURIComponent).join("/")}`;
 const pct = (x: number) => `${Math.round(x * 100)}%`;
-const isIn = (g: Group, a: string | null) => !!a && g.members.some((m) => m.addr === a);
 
 // --- loading a council -------------------------------------------------------------
 
@@ -26,8 +25,9 @@ interface CouncilData extends Council {
 
 async function loadCouncil(cid: string): Promise<CouncilData | null> {
   const G = gov.value!;
-  const groups = await G.groups();
-  learnFrom(groups);
+  const read = await G.groupsRead();
+  const groups = read.groups;
+  learnFrom(groups, { community: G.c, addr: myAddr.value ?? "" }, read);
   const c = councilsOf(groups).find((x) => x.group.id === cid);
   if (!c) return null;
   const issues = await G.issues(cid);
@@ -53,8 +53,9 @@ function recordOf(i: Issue): { phase: PhaseId; rationale?: string; actions?: str
 export function CouncilsScreen() {
   const G = gov.value!;
   const a = useAsync(async () => {
-    const groups = await G.groups();
-    learnFrom(groups);
+    const read = await G.groupsRead();
+    const groups = read.groups;
+    learnFrom(groups, { community: G.c, addr: myAddr.value ?? "" }, read);
     const cs = councilsOf(groups);
     const extra = await Promise.all(cs.map(async (c) => {
       const issues = await G.issues(c.group.id).catch(() => [] as Issue[]);
@@ -74,7 +75,7 @@ export function CouncilsScreen() {
         <div class="grid section">
           {a.data!.map(({ c, purpose, open }) => (
             <div class="card click" onClick={() => go(cHref(c.group.id))}>
-              <div class="row between"><h3>{c.group.name}</h3>{isIn(c.group, myAddr.value) && <span class="badge accent">You take part</span>}</div>
+              <div class="row between"><h3>{c.group.name}</h3>{isMemberOf(c.group, myAddr.value) && <span class="badge accent">You take part</span>}</div>
               {purpose && <p class="small" style={{ margin: ".2rem 0 .4rem" }}>{purpose}</p>}
               <div class="muted small">{c.chambers.length} stakeholder groups · {open} open decision{open === 1 ? "" : "s"}</div>
             </div>
@@ -158,7 +159,7 @@ export function CouncilScreen({ cid, tab = "decisions", sub }: { cid: string; ta
       const facilitator = d.weights?.by ?? d.group.admins[0];
       const newcomers = d.participants.filter((p) => !(d.weights?.voters ?? []).includes(p));
       const asking = me ? askingIn(d, me) : [];
-      const approved = me ? d.chambers.filter((ch) => ch.invited.includes(me) && !isIn(ch, me)) : [];
+      const approved = me ? d.chambers.filter((ch) => ch.invited.includes(me) && !isMemberOf(ch, me)) : [];
       const waitingOn = me ? d.chambers.filter((ch) => isPending(ch, me)) : [];
       const setTab = (t: string) => go(cHref(cid, t));
       return (
@@ -176,7 +177,7 @@ export function CouncilScreen({ cid, tab = "decisions", sub }: { cid: string; ta
           {waitingOn.length > 0 && !approved.length && (
             <div class="callout small" style={{ marginTop: ".8rem" }}>You asked to join {waitingOn.map((c) => c.name).join(" and ")}. Waiting for {nameOf(facilitator)} or another admin to approve.</div>
           )}
-          {me && !d.chambers.some((ch) => isIn(ch, me)) && !waitingOn.length && !approved.length && (
+          {me && !d.chambers.some((ch) => isMemberOf(ch, me)) && !waitingOn.length && !approved.length && (
             <div class="callout row between" style={{ marginTop: ".8rem" }}>
               <span>You're not in any stakeholder group yet. Pick the ones you belong to.</span>
               <button class="primary" onClick={() => setTab("stakeholders")}>Choose</button>
@@ -217,7 +218,7 @@ function WaitingPanel({ d, issues, what }: { d: CouncilData; issues: Issue[]; wh
   const onAll = (p: string) => open.every((i) => i.voters.includes(p));
   const late = d.participants.filter((p) => open.length && !onAll(p));
   const waiting = [...new Set([...asking, ...late])];
-  const chambersOf = (p: string) => d.chambers.filter((ch) => isIn(ch, p));
+  const chambersOf = (p: string) => d.chambers.filter((ch) => isMemberOf(ch, p));
   const askedOf = (p: string) => d.chambers.filter((ch) => isPending(ch, p));
   const admins = d.chambers.filter((ch) => !!me && ch.admins.includes(me));
   const add = (people: string[]) => {
@@ -278,7 +279,7 @@ function JoinApproved({ d, chambers }: { d: CouncilData; chambers: Group[] }) {
   const me = myAddr.value!;
   const label = displayName.value || "member";
   const join = () => act(`Joining ${chambers.map((c) => c.name).join(" and ")}`, (t) => G.batch("group", [
-    ...(isIn(d.group, me) ? [] : [["join", [q(d.group.id), q(label)]] as [string, string[]]]),
+    ...(isMemberOf(d.group, me) ? [] : [["join", [q(d.group.id), q(label)]] as [string, string[]]]),
     ...chambers.flatMap((ch) => [
       ["join", [q(ch.id), q(label)]] as [string, string[]],
       ...(ch.asked.includes(me) ? [["leave", [q(asksId(ch.id))]] as [string, string[]]] : []),
@@ -318,15 +319,15 @@ function Stakeholders({ d }: { d: CouncilData }) {
   const G = gov.value!;
   const me = myAddr.value;
   const [sel, setSel] = useState<string[]>([]);
-  const joinable = d.chambers.filter((ch) => !isIn(ch, me) && (ch.policy === "open" || (!!me && ch.invited.includes(me))));
+  const joinable = d.chambers.filter((ch) => !isMemberOf(ch, me) && (ch.policy === "open" || (!!me && ch.invited.includes(me))));
   // Invite-only and no invitation: ask, and the group's admins approve (WaitingPanel).
-  const askable = d.chambers.filter((ch) => !isIn(ch, me) && !joinable.includes(ch) && !isPending(ch, me));
+  const askable = d.chambers.filter((ch) => !isMemberOf(ch, me) && !joinable.includes(ch) && !isPending(ch, me));
   const label = displayName.value || "member";
   const toJoin = sel.filter((id) => joinable.some((c) => c.id === id));
   const toAsk = sel.filter((id) => askable.some((c) => c.id === id));
   const join = () => {
     const calls: [string, string[]][] = [
-      ...(isIn(d.group, me) ? [] : [["join", [q(d.group.id), q(label)]] as [string, string[]]]),
+      ...(isMemberOf(d.group, me) ? [] : [["join", [q(d.group.id), q(label)]] as [string, string[]]]),
       ...toJoin.flatMap((id) => [["join", [q(id), q(label)]] as [string, string[]], ...(me && d.chambers.find((c) => c.id === id)?.asked.includes(me) ? [["leave", [q(asksId(id))]] as [string, string[]]] : [])]),
       ...toAsk.flatMap((id) => Gov.askCalls(id, label)),
     ];
@@ -341,12 +342,12 @@ function Stakeholders({ d }: { d: CouncilData }) {
   return (
     <div class="stack">
       <p class="muted">Belong to every group that describes you — a developer who also holds tokens joins both, and has a voice in each.</p>
-      {me && me === (d.weights?.by ?? d.group.admins[0]) && d.chambers.filter((ch) => isIn(ch, me)).length > 1 && (
+      {me && me === (d.weights?.by ?? d.group.admins[0]) && d.chambers.filter((ch) => isMemberOf(ch, me)).length > 1 && (
         <div class="callout warn small">As the council's creator you started out in every stakeholder group. <b>Leave the ones you don't belong to</b>, or your ballot counts in all of them. (Hand admin of invite-only groups to someone in them first.)</div>
       )}
       <div class="grid">
         {d.chambers.map((ch) => {
-          const mine = isIn(ch, me);
+          const mine = isMemberOf(ch, me);
           const can = joinable.includes(ch);
           const ask = askable.includes(ch);
           const on = sel.includes(ch.id);
@@ -527,7 +528,7 @@ function Decision({ d, i, args, results }: { d: CouncilData; i: Issue; args: Iss
   const facilitator = me === i.by;
   const power = chamberPower(d.chambers.map((c) => c.id), d.weights);
   const total = combine(i.options, results, power);
-  const myChambers = d.chambers.filter((ch) => isIn(ch, me));
+  const myChambers = d.chambers.filter((ch) => isMemberOf(ch, me));
   const onRoll = !!me && i.voters.includes(me);
   const [recording, setRecording] = useState(false);
   const [delegIn, setDelegIn] = useState<Group | null>(null);

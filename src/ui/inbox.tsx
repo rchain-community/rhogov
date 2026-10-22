@@ -9,6 +9,7 @@ import {
   gov,
   importArchive,
   learnNames,
+  memberships,
   myAddr,
   setArchive,
 } from "../state";
@@ -19,7 +20,7 @@ import {
   parseInboxArchive,
   type InboxArchive,
 } from "../inbox-archive";
-import { learnFrom } from "./groups";
+import { JoinButton, learnFrom } from "./groups";
 import {
   backgroundNotificationChoice,
   checkInbox,
@@ -27,6 +28,7 @@ import {
   enableBackgroundNotifications,
   notificationAvailable,
 } from "./inbox-watch";
+import { inviteRows, type InviteRow, type InviteState } from "./invitations";
 import {
   Addr,
   Info,
@@ -49,10 +51,19 @@ export function InboxScreen() {
     [c.inbox, me],
   );
 
-  // Names for the recipient picker and the senders.
+  // The live groups: invitation status (including invitations and join requests
+  // with no local note) and names for everyone they mention.
+  const groupsRead = useAsync(
+    async () => {
+      const read = await G.groupsRead();
+      learnFrom(read.groups, { community: G.c, addr: me }, read);
+      return { read, community: G.c.group, addr: me };
+    },
+    [c.group, me],
+  );
+  // Names for the sender of every note this browser has kept.
   useAsync(
     async () => {
-      learnFrom(await G.groups());
       learnNames(
         archived(me, c).map((m) => ({
           addr: m.from,
@@ -111,6 +122,21 @@ export function InboxScreen() {
     0,
   );
 
+  // Ignore a group read that finished after a community/key switch.
+  const fresh = groupsRead.data &&
+    groupsRead.data.community === c.group &&
+    groupsRead.data.addr === me
+    ? groupsRead.data.read
+    : undefined;
+  const rows = inviteRows({
+    read: fresh,
+    cached: memberships.value,
+    archive: msgs,
+    me,
+  });
+  const inRows = new Set(rows.flatMap((r) => r.notes));
+  const other = msgs.filter((m) => !inRows.has(m));
+
   const collect = async () => {
     const got = await act(
       "Collecting your messages",
@@ -135,6 +161,13 @@ export function InboxScreen() {
       (x) => x !== m,
     );
 
+    setArchive(me, c, next);
+    setMsgs(next);
+  };
+
+  const removeNotes = (row: InviteRow) => {
+    const gone = new Set(row.notes);
+    const next = msgs.filter((m) => !gone.has(m));
     setArchive(me, c, next);
     setMsgs(next);
   };
@@ -360,6 +393,23 @@ export function InboxScreen() {
             )
         }
       </Loading>
+      {groupsRead.error && !waiting.error && (
+        <div class="callout warn small" role="status">
+          <b>Couldn't read this community's groups.</b> Invitation status may be out of date.{" "}
+          <button class="ghost small" onClick={groupsRead.reload}>Try again</button>
+        </div>
+      )}
+      {(rows.length > 0 || (waiting.data?.invite ?? 0) > 0) && (
+        <div class="section">
+          <h2>Invitations and requests</h2>
+          {(waiting.data?.invite ?? 0) > 0 && (
+            <p class="muted small">An invitation message is waiting on chain — <b>Collect</b> above to read it.</p>
+          )}
+          <div class="stack">
+            {rows.map((r) => <Invitation key={r.gid} row={r} onDelete={() => removeNotes(r)} />)}
+          </div>
+        </div>
+      )}
       {notificationAvailable() && backgroundNotificationChoice.value === "unset" && (
         <div class="callout row between" style={{ margin: ".6rem 0 1rem" }}>
           <span><b>Background message alerts</b><br /><span class="small">If you choose this, a hidden tab checks about every five minutes and can show a system notification. Nothing is requested on first load.</span></span>
@@ -473,7 +523,7 @@ export function InboxScreen() {
         )
         : (
           <div class="stack">
-            {[...msgs]
+            {[...other]
               .reverse()
               .sort(
                 (a, b) =>
@@ -621,6 +671,23 @@ export function InboxScreen() {
             collected, so don't
             send secrets.
           </p>
+
+          <p>
+            <b>Invitations</b> and
+            requests to join are
+            not messages: a group's
+            on-chain state records
+            who is invited and who
+            asked to join, so they
+            follow your key to any
+            browser. A note that
+            announced an invitation
+            is a message — it lives
+            in the browser that
+            collected it, and
+            deleting it doesn't
+            cancel the invitation.
+          </p>
         </Info>
       </div>
 
@@ -698,6 +765,50 @@ export function InboxScreen() {
           )}
         </Modal>
       )}
+    </div>
+  );
+}
+
+const BADGE: Record<InviteState, [string, string]> = {
+  pending: ["Waiting for you", "warn"],
+  asked: ["Waiting for approval", "warn"],
+  member: ["You're a member", "accent"],
+  open: ["Open — you can join", "accent"],
+  closed: ["No longer open", ""],
+  missing: ["Group not found", "danger"],
+  unknown: ["Couldn't read the group", "warn"],
+};
+
+function Invitation({ row, onDelete }: { row: InviteRow; onDelete: () => void }) {
+  const [label, kind] = BADGE[row.state];
+  const href = `#/g/${encodeURIComponent(row.gid)}`;
+  return (
+    <div class="card">
+      <div class="row between">
+        <div class="row"><h3 style={{ margin: 0 }}>{row.name}</h3><span class={`badge ${kind}`}>{label}</span></div>
+        <div class="row">
+          {row.state === "pending" && row.group && <JoinButton g={row.group} />}
+          {row.state !== "missing" && <a class="small" href={href}>Open group →</a>}
+          {row.note && <button class="ghost small" aria-label="Delete the note" title="Delete this note from this browser. The invitation on chain stays until you join." onClick={onDelete}>✕</button>}
+        </div>
+      </div>
+      {row.lastKnown && <div class="muted small">Last known {new Date(row.lastKnown).toLocaleString()} — the chain hasn't answered yet.</div>}
+      {row.note ? (
+        <>
+          <div class="row" style={{ marginTop: ".5rem" }}>
+            <Addr addr={row.note.from} />
+            <span class="muted small">{row.note.at ? new Date(row.note.at).toLocaleString() : ""}</span>
+          </div>
+          {row.note.fields.subject && <h3 style={{ marginTop: ".5rem" }}>{row.note.fields.subject}</h3>}
+          <p style={{ whiteSpace: "pre-wrap", margin: ".3rem 0 0" }}>{row.note.fields.body}</p>
+        </>
+      ) : row.state === "pending" ? (
+        <p class="muted small" style={{ marginTop: ".5rem" }}>The invitation is in the group's on-chain state. The message that announced it isn't in this browser.</p>
+      ) : row.state === "asked" ? (
+        <p class="muted small" style={{ marginTop: ".5rem" }}>You asked to join this group. The request is on chain; an admin approves it.</p>
+      ) : row.state === "missing" ? (
+        <p class="muted small" style={{ marginTop: ".5rem" }}>This group isn't in this community any more.</p>
+      ) : null}
     </div>
   );
 }

@@ -27,6 +27,8 @@ export interface Seed {
   communities?: Invite[];
   active?: string | null;
   setupNode?: string;
+  /** Full localStorage keys → JSON values, e.g. a rhogov:membership:* snapshot. */
+  membership?: Record<string, unknown>;
 }
 
 /**
@@ -42,6 +44,7 @@ export async function seed(page: Page, s: Seed) {
     if (v.communities !== undefined) put("rhogov:communities", v.communities);
     if (v.active !== undefined) (v.active === null ? localStorage.removeItem("rhogov:active") : put("rhogov:active", v.active));
     if (v.setupNode !== undefined) localStorage.setItem("rhogov:setupNode", v.setupNode);
+    if (v.membership) for (const [k, value] of Object.entries(v.membership)) put(k, value);
   }, s);
 }
 

@@ -1,7 +1,7 @@
 // groups.tsx — the groups directory and a group's page (members, trust, delegation, votes).
 import { useState } from "preact/hooks";
-import { type Group, type Issue, type Standing, asksId, isPending, makeId, pendingOf, q, qSet } from "../chain/gov";
-import { displayName, gov, learnNames, myAddr } from "../state";
+import { type Community, type Group, type Issue, type Standing, asksId, isMemberOf, isPending, makeId, membershipStatus, pendingOf, q, qSet } from "../chain/gov";
+import { displayName, forgetMembership, gov, learnGroups, learnNames, myAddr } from "../state";
 import { Addr, Info, Loading, Modal, PLAIN, PersonField, Trust, act, go, href, nameOf, useAsync, usePeopleFilter } from "./kit";
 import { IssueCard, NewIssueModal } from "./votes";
 import { COUNCIL_PREFIX } from "../chain/council";
@@ -11,17 +11,25 @@ export const memberLabel = (g: Group, addr: string) => {
   const m = g.members.find((x) => x.addr === addr);
   return m && m.label && m.label !== g.name ? m.label : "";
 };
-export const learnFrom = (gs: Group[]) =>
+export const learnFrom = (
+  gs: Group[],
+  scope?: { community: Community; addr: string },
+  all?: { ids: string[]; unreadable?: string[] },
+) => {
+  learnGroups(gs, scope, all);
   learnNames(gs.flatMap((g) => g.members.map((m) => ({ addr: m.addr, label: memberLabel(g, m.addr) }))));
-
-const isMember = (g: Group, a: string | null) => !!a && g.members.some((m) => m.addr === a);
+};
 
 // --- directory ---------------------------------------------------------------
 
 export function GroupsScreen() {
   const G = gov.value!;
   // Councils and their chambers live under Councils; plain groups here.
-  const a = useAsync(async () => { const gs = await G.groups(); learnFrom(gs); return gs.filter((g) => !g.id.startsWith(COUNCIL_PREFIX)); }, [G.c.group]);
+  const a = useAsync(async () => {
+    const r = await G.groupsRead();
+    learnFrom(r.groups, { community: G.c, addr: myAddr.value ?? "" }, r);
+    return r.groups.filter((g) => !g.id.startsWith(COUNCIL_PREFIX));
+  }, [G.c.group]);
   const [creating, setCreating] = useState(false);
   return (
     <div>
@@ -31,8 +39,8 @@ export function GroupsScreen() {
       </div>
       <p class="muted">A group is a set of members who vote together, delegate to each other and vouch for each other.</p>
       <Loading a={a}>{() => {
-        const mine = a.data!.filter((g) => isMember(g, myAddr.value));
-        const others = a.data!.filter((g) => !isMember(g, myAddr.value));
+        const mine = a.data!.filter((g) => isMemberOf(g, myAddr.value));
+        const others = a.data!.filter((g) => !isMemberOf(g, myAddr.value));
         return (
           <>
             <div class="section">
@@ -56,14 +64,14 @@ export function GroupsScreen() {
 
 function GroupCard({ g }: { g: Group }) {
   const me = myAddr.value;
-  const invited = !!me && g.invited.includes(me);
+  const status = membershipStatus(g, me);
   return (
     <div class="card click" onClick={() => go(`/g/${encodeURIComponent(g.id)}`)}>
       <div class="row between"><h3>{g.name}</h3>{g.policy === "invite" ? <span class="badge">Invite only</span> : <span class="badge accent">Open</span>}</div>
-      <div class="muted small">{g.members.length} member{g.members.length === 1 ? "" : "s"}{g.admins.includes(me ?? "") ? " · you're an admin" : ""}</div>
-      {invited && <div style={{ marginTop: ".5rem" }}><span class="badge warn">You're invited</span></div>}
-      {isPending(g, me) && <div style={{ marginTop: ".5rem" }}><span class="badge">You asked to join</span></div>}
-      {!!me && g.admins.includes(me) && pendingOf(g).length > 0 && <div style={{ marginTop: ".5rem" }}><span class="badge warn">{pendingOf(g).length} asking to join</span></div>}
+      <div class="muted small">{g.members.length} member{g.members.length === 1 ? "" : "s"}{status === "admin" ? " · you're an admin" : ""}</div>
+      {status === "invited" && <div style={{ marginTop: ".5rem" }}><span class="badge warn">You're invited</span></div>}
+      {status === "asked" && <div style={{ marginTop: ".5rem" }}><span class="badge">You asked to join</span></div>}
+      {status === "admin" && pendingOf(g).length > 0 && <div style={{ marginTop: ".5rem" }}><span class="badge warn">{pendingOf(g).length} asking to join</span></div>}
     </div>
   );
 }
@@ -103,7 +111,8 @@ export function GroupScreen({ gid, tab = "votes" }: { gid: string; tab?: string 
   const G = gov.value!;
   const a = useAsync(async () => {
     const [g, st, issues] = await Promise.all([G.group(gid), G.standing(gid), G.issues(gid)]);
-    if (g) learnFrom([g]);
+    if (g) learnFrom([g], { community: G.c, addr: myAddr.value ?? "" });
+    else forgetMembership(gid);
     return { g, st, issues };
   }, [G.c.group, gid]);
   const me = myAddr.value;
@@ -111,7 +120,7 @@ export function GroupScreen({ gid, tab = "votes" }: { gid: string; tab?: string 
     <Loading a={a}>{() => {
       const { g, st, issues } = a.data!;
       if (!g) return <div class="empty">This group doesn't exist in this community. <a href="#/groups">See all groups</a></div>;
-      const member = isMember(g, me);
+      const member = isMemberOf(g, me);
       const setTab = (t: string) => go(`/g/${encodeURIComponent(gid)}/${t}`);
       return (
         <div>
@@ -122,7 +131,7 @@ export function GroupScreen({ gid, tab = "votes" }: { gid: string; tab?: string 
               <div class="row small muted">
                 {g.policy === "invite" ? <span class="badge">Invite only</span> : <span class="badge accent">Open</span>}
                 <span>{g.members.length} member{g.members.length === 1 ? "" : "s"}</span>
-                {me && g.admins.includes(me) && <span class="badge accent">You're an admin</span>}
+                {membershipStatus(g, me) === "admin" && <span class="badge accent">You're an admin</span>}
                 {me && st.discredited.includes(me) && <span class="badge danger">You've been censured</span>}
               </div>
             </div>
@@ -191,8 +200,8 @@ const LEVELS = ["No trust", "A little", "Some", "Solid", "Strong", "Full (admin)
 function Members({ g, st }: { g: Group; st: Standing }) {
   const G = gov.value!;
   const me = myAddr.value;
-  const member = isMember(g, me);
-  const admin = !!me && g.admins.includes(me);
+  const member = isMemberOf(g, me);
+  const admin = membershipStatus(g, me) === "admin";
   const myLevel = me ? st.levels[me] ?? 0 : 0;
   const myDelegate = me ? g.deleg[me] : undefined;
   // Delegations made for one particular vote, which the group view never showed: they
@@ -334,15 +343,15 @@ export function ApproveModal({ addr, groups, preselect, rolls, onClose }: {
 }) {
   const G = gov.value!;
   const me = myAddr.value!;
-  const st = useAsync(async () => Object.fromEntries(await Promise.all(groups.filter((g) => isMember(g, me)).map(async (g) =>
+  const st = useAsync(async () => Object.fromEntries(await Promise.all(groups.filter((g) => isMemberOf(g, me)).map(async (g) =>
     [g.id, (await G.standing(g.id).catch(() => null))?.levels[me] ?? 0] as const))), [addr]);
-  const isIn = (g: Group) => isMember(g, addr);
+  const isIn = (g: Group) => isMemberOf(g, addr);
   const needsInvite = (g: Group) => g.policy === "invite" && !isIn(g) && !g.invited.includes(addr);
   const canInvite = (g: Group) => g.admins.includes(me);
   const usable = (g: Group) => !needsInvite(g) || canInvite(g);
   const [sel, setSel] = useState<string[]>(() => groups.filter((g) => usable(g) && (isIn(g) || g.asked.includes(addr) || preselect?.includes(g.id))).map((g) => g.id));
   const chosen = groups.filter((g) => sel.includes(g.id));
-  const ratable = chosen.filter((g) => isMember(g, me));
+  const ratable = chosen.filter((g) => isMemberOf(g, me));
   const myLevels = ratable.map((g) => st.data?.[g.id] ?? 0);
   const cap = myLevels.length ? Math.max(0, Math.min(...myLevels) - 1) : 0;
   const [level, setLevel] = useState<number | null>(null);
@@ -468,7 +477,7 @@ function InviteModal({ g, onClose }: { g: Group; onClose: () => void }) {
   const G = gov.value!;
   const [addr, setAddr] = useState<string | null>(null);
   const [notify, setNotify] = useState(true);
-  const already = !!addr && g.members.some((m) => m.addr === addr);
+  const already = isMemberOf(g, addr);
   const send = async () => {
     const a = addr!;
     onClose();
@@ -506,7 +515,7 @@ function About({ g }: { g: Group }) {
           <div><b>Stored in:</b> <span class="mono">{G.c.group}</span></div>
         </div>
       </div>
-      {isMember(g, me) && <div><button class="danger" onClick={() => act(`Leaving ${g.name}`, (t) => G.leave(g.id, t), { risk: "irreversible", key: `leave:${g.id}`, confirm: `Leave ${g.name}? Your standing delegation in this group is dropped too.` }).then((r) => r !== undefined && go("/groups"))}>Leave group</button></div>}
+      {isMemberOf(g, me) && <div><button class="danger" onClick={() => act(`Leaving ${g.name}`, (t) => G.leave(g.id, t), { risk: "irreversible", key: `leave:${g.id}`, confirm: `Leave ${g.name}? Your standing delegation in this group is dropped too.` }).then((r) => r !== undefined && go("/groups"))}>Leave group</button></div>}
       <p class="small"><a href={href("g", g.id, "members")}>Members and trust →</a></p>
     </div>
   );

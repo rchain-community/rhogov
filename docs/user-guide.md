@@ -112,7 +112,11 @@ recognise this network…" before going on. Only do so if you trust whoever sent
 ![The invite link](images/invite.png)
 
 You can belong to several communities; switch between them on the **Community**
-page.
+page. That list is kept in this browser, not on chain — a community is just a
+set of contract addresses. On another device, open a community's invite link
+(every row on the switch list has a copy button) or enter its addresses by hand.
+Your group membership, invitations and council seats are on chain and follow
+your key wherever you sign in.
 
 The same page has a closed section, **Where it lives, and entering contracts by
 hand**, holding the network address and the three contract addresses. You only
@@ -156,6 +160,13 @@ invites the person and, if you choose a level, records how much you trust them
 ([section 6](#6-trust)). They then see "You're invited to join" on Home and join
 with one click. An approval writes their address into the group's public state
 and can't be withdrawn; a request you don't approve simply stays pending.
+
+**Invitations are chain state.** An invitation records your address in the
+group's public state, so it follows your key to any browser or device, and it
+stays until you join. The note an admin can optionally send is a separate inbox
+message: collecting it keeps it in that browser only, and deleting the note does
+not cancel the invitation. rhogov shows the invitation as pending in the group
+and in your Inbox until you join.
 
 A group's page has three tabs: **Votes**, **Members**, and **About** (its
 settings, and **Leave group**).
@@ -268,7 +279,13 @@ and send.
   shown to them.
 - **Collect** takes your messages out of the chain and keeps them in your
   browser. After that they're gone from the chain, so nobody else can take them.
-- Invitations to groups arrive here too, with a button to open the group.
+- **Invitations and requests to join** appear in their own section, read from the
+  group's on-chain state. They show up in any browser signed in with your key —
+  even if the note that announced one was collected somewhere else — and their
+  status tracks the group live: waiting for you, waiting for an admin, already a
+  member, no longer open, or the group couldn't be read. A note is a message: it
+  lives only in the browser that collected it, and deleting it doesn't cancel the
+  invitation or the request.
 - **You're told when something arrives**, wherever you are in the app: an alert
   with an **Open Inbox** link, a count next to **Inbox**, and the count in the
   browser tab's title, e.g. "(2) rhogov". While the tab is visible, the app checks
@@ -349,7 +366,9 @@ then counts in each. For an invite-only group (validators, say) the tick reads
 "ask to join": the same press asks the facilitator to let you in, and the
 council's page says you're waiting. Once they approve, it says "You're approved
 for …" with a **Join** button. Each stakeholder group is a normal group, with its own
-members, trust, delegation and censure (**Members & trust →**).
+members, trust, delegation and censure (**Members & trust →**). Your seat is
+ordinary group membership on chain, so it follows your key to any browser; an
+invitation to a stakeholder group appears like any other group invitation.
 
 ### Voting power
 
@@ -510,6 +529,7 @@ over all the same.
 **Public, by design, and visible to anyone:**
 
 - who belongs to which group, and their trust levels;
+- who has been invited to which group (an invitation stays published until it is accepted), and who has asked to join one;
 - who rated, delegated to and censured whom;
 - every ballot (that's what makes the count verifiable);
 - pros, cons, endorsements and decisions of record;
