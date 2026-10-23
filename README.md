@@ -1,21 +1,21 @@
 # rhogov
 
-**[User guide →](docs/user-guide.md)** · **[Open the app →](https://rchain-community.github.io/rhogov/)**
+**[User guide →](docs/user-guide.md)** · **[Open the app →](https://rhovision-org.github.io/rhogov/)**
 
 **Decide things together on RChain.** An intuitive governance app for the
-[rchain-rust](https://github.com/rchain-community/rchain-rust) node: groups, liquid
+[rholo](https://github.com/rhovision-org/rholo) node: groups, liquid
 democracy, a web of trust with accountability, multi-stakeholder councils, and inboxes,
 all on chain.
 
-rhogov is the successor UI to [rgov](https://github.com/rchain-community/rgov). It doesn't
-run rgov's 2021 contracts. It uses the governance that rchain-rust and
-[quantum-os](https://github.com/rchain-community/quantum-os) now provide:
+rhogov is the successor UI to [rgov](https://github.com/rhovision-org/rgov). It doesn't
+run rgov's 2021 contracts. It uses the governance that rholo and
+[quantum-os](https://github.com/rhovision-org/quantum-os) now provide:
 
 | piece | where it comes from | what it does |
 |---|---|---|
-| **Inbox, Group, Issue contracts** | quantum-os [`rgov-core.js`](https://github.com/rchain-community/quantum-os/blob/main/RGov_Core.md) (vendored at [`src/chain/rgov-core.js`](src/chain/rgov-core.js)) | hold the facts: members, roles, delegations, trust ratings, censures, ballots, messages |
-| **`rho:gov:trustLevels`, `:censure`, `:resolveWeights`, `:tally`** | rchain-rust native system processes ([`qucalc`](https://github.com/rchain-community/rchain-rust/tree/dev/docs/src/qucalc)) | compute policy: trust levels, discrediting, liquid-democracy weights, the winner |
-| **master dictionary** | rchain-rust genesis ([issue #99](https://github.com/rchain-community/rchain-rust/issues/99)) | display names rooted in your own address (`<addr>/profile/name`) |
+| **Inbox, Group, Issue contracts** | quantum-os [`rgov-core.js`](https://github.com/rhovision-org/quantum-os/blob/main/RGov_Core.md) (vendored at [`src/chain/rgov-core.js`](src/chain/rgov-core.js)) | hold the facts: members, roles, delegations, trust ratings, censures, ballots, messages |
+| **`rho:gov:trustLevels`, `:censure`, `:resolveWeights`, `:tally`** | rholo native system processes ([`qucalc`](https://github.com/rhovision-org/rholo/tree/dev/docs/src/qucalc)) | compute policy: trust levels, discrediting, liquid-democracy weights, the winner |
+| **master dictionary** | rholo genesis ([issue #99](https://github.com/rhovision-org/rholo/issues/99)) | display names rooted in your own address (`<addr>/profile/name`) |
 
 **State lives in contracts, computation is native, and no policy lives in a contract.**
 Every number rhogov shows about standing or outcome comes from one read-only query that
@@ -98,8 +98,8 @@ no backend, no relay, no database and no account:
 
 ### Multi-stakeholder councils
 
-Built from rchain-rust's
-[multi-stakeholder governance](https://github.com/rchain-community/rchain-rust/blob/dev/docs/src/qucalc/multi-stakeholder-governance.md)
+Built from rholo's
+[multi-stakeholder governance](https://github.com/rhovision-org/rholo/blob/dev/docs/src/qucalc/multi-stakeholder-governance.md)
 design:
 
 - **Stakeholder groups.** Users, Developers, Validators, Token holders, Service providers,
@@ -144,7 +144,7 @@ Both then read and write the same groups, delegations, ratings and ballots.
 ## Networks
 
 rhogov opens on the **Rholang playground** (`https://playground.rhobot.net`), a public
-rchain-rust dev chain with a faucet. A newcomer creates a key, presses **Get test REV**,
+rholo dev chain with a faucet. A newcomer creates a key, presses **Get test REV**,
 and can start a community straight away; the newcomer test does exactly that in about
 30 seconds. The public **testnet** (`https://testnet.rhobot.net`) has the same faucet (it's the one
 [r-wallet](https://rhowallet.org) uses), and a **local node** or any other rnode URL can be
@@ -167,12 +167,12 @@ npm run build        # dist/index.html, the whole app in one file
 ```
 
 You need an rnode with its HTTP API reachable from the browser: `--api-host`, port 40403.
-Built and tested against **rchain-rust `dev` @ `bc80abb`**. An older build (for example
+Built and tested against **rholo `dev` @ `bc80abb`**. An older build (for example
 quantum-os's bundled `bin/rnode`) answers registry lookups in the pre-C18 `(uri, value)`
 shape and doesn't match map patterns with a remainder, so the contracts report "no facet".
 
 For a local chain with funded throwaway keys, use quantum-os
-`scripts/localnet/run-node.sh --fresh` with `RNODE=` pointing at a current rchain-rust build.
+`scripts/localnet/run-node.sh --fresh` with `RNODE=` pointing at a current rholo build.
 Its keys (`alice`, `bob`, `carol`, `dave` in `pk.txt`) are funded at genesis and **worthless
 anywhere else**.
 

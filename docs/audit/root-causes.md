@@ -28,19 +28,19 @@ both registers.
 
 | Finding | ID | Root cause |
 |---|---|---|
-| #9, #11, #12, #51 | CS-002, CS-001, CS-003, V-10 | **RC-01** empty states — [#52](https://github.com/rchain-community/rhogov/issues/52) |
-| #31, #32 | RT-07, RT-02 | **RC-02** no write gate — [#53](https://github.com/rchain-community/rhogov/issues/53) |
-| #21, #25, #28, #42, #43, #44 | RT-03, RT-14, RT-16, V-01, V-02, V-03 | **RC-03** derived weight — [#54](https://github.com/rchain-community/rhogov/issues/54) |
-| #20, #27, #37, #40, #45, #50 | RT-13, RT-10, RT-04, RT-11, V-04, V-09 | **RC-04** result provenance — [#55](https://github.com/rchain-community/rhogov/issues/55) |
-| #15, #16, #33 | CS-006, CS-008, RT-06 | **RC-05** failure and stale states — [#56](https://github.com/rchain-community/rhogov/issues/56) |
-| #22, #34, #49 | RT-09, RT-12, V-08 | **RC-06** copy vs. system — [#57](https://github.com/rchain-community/rhogov/issues/57) |
-| #13, #14, #46, #48 | CS-004, CS-005, V-05, V-07 | **RC-07** jargon in labels — [#58](https://github.com/rchain-community/rhogov/issues/58) |
-| #10 | CS-007 | singleton — [issue](https://github.com/rchain-community/rhogov/issues/10) |
-| #26 | RT-15 | singleton — [issue](https://github.com/rchain-community/rhogov/issues/26) |
-| #30 | RT-01 | singleton — [issue](https://github.com/rchain-community/rhogov/issues/30) |
-| #38 | RT-05 | singleton — [issue](https://github.com/rchain-community/rhogov/issues/38) |
-| #39 | RT-08 | singleton — [issue](https://github.com/rchain-community/rhogov/issues/39) |
-| #47 | V-06 | singleton — [issue](https://github.com/rchain-community/rhogov/issues/47) |
+| #9, #11, #12, #51 | CS-002, CS-001, CS-003, V-10 | **RC-01** empty states — [#52](https://github.com/rhovision-org/rhogov/issues/52) |
+| #31, #32 | RT-07, RT-02 | **RC-02** no write gate — [#53](https://github.com/rhovision-org/rhogov/issues/53) |
+| #21, #25, #28, #42, #43, #44 | RT-03, RT-14, RT-16, V-01, V-02, V-03 | **RC-03** derived weight — [#54](https://github.com/rhovision-org/rhogov/issues/54) |
+| #20, #27, #37, #40, #45, #50 | RT-13, RT-10, RT-04, RT-11, V-04, V-09 | **RC-04** result provenance — [#55](https://github.com/rhovision-org/rhogov/issues/55) |
+| #15, #16, #33 | CS-006, CS-008, RT-06 | **RC-05** failure and stale states — [#56](https://github.com/rhovision-org/rhogov/issues/56) |
+| #22, #34, #49 | RT-09, RT-12, V-08 | **RC-06** copy vs. system — [#57](https://github.com/rhovision-org/rhogov/issues/57) |
+| #13, #14, #46, #48 | CS-004, CS-005, V-05, V-07 | **RC-07** jargon in labels — [#58](https://github.com/rhovision-org/rhogov/issues/58) |
+| #10 | CS-007 | singleton — [issue](https://github.com/rhovision-org/rhogov/issues/10) |
+| #26 | RT-15 | singleton — [issue](https://github.com/rhovision-org/rhogov/issues/26) |
+| #30 | RT-01 | singleton — [issue](https://github.com/rhovision-org/rhogov/issues/30) |
+| #38 | RT-05 | singleton — [issue](https://github.com/rhovision-org/rhogov/issues/38) |
+| #39 | RT-08 | singleton — [issue](https://github.com/rhovision-org/rhogov/issues/39) |
+| #47 | V-06 | singleton — [issue](https://github.com/rhovision-org/rhogov/issues/47) |
 
 28 grouped + 6 singletons = 34. The `vibes` duplicates fold into the buckets they duplicate (#48↔#13
 identical targets, #49↔#34, #51↔#9, #43↔#28, #44↔#21, #45↔#27); the `vibes` label stays on them for
@@ -70,13 +70,13 @@ Each issue carries its own root cause, fix plan, design scope and open decisions
 
 | RC | Issue | The mechanism | Members | Owner |
 |---|---|---|---|---|
-| RC-01 | [#52](https://github.com/rchain-community/rhogov/issues/52) | Screens are written for the populated case; emptiness is one `else` that congratulates, and the first action is an inline link in the last section (`home.tsx:37,58-59,78`, `council.tsx:83`) | 4 | client |
-| RC-02 | [#53](https://github.com/rchain-community/rhogov/issues/53) | `act()` has no gate: confirmation is 7 ad-hoc `window.confirm()` calls over 5 files and review keys on an opt-in `preview` only 2 call sites pass (`kit.tsx:175-178`) | 2 | client + upstream |
-| RC-03 | [#54](https://github.com/rchain-community/rhogov/issues/54) | Weight is recomputed natively from live facts and never shown, so writes move it silently and no voter sees their own (`gov.ts:200,210-213`, `groups.tsx:216-228`) | 6 | client + upstream |
-| RC-04 | [#55](https://github.com/rchain-community/rhogov/issues/55) | Result screens recompute at render time and label the recomputation as the outcome (`votes.tsx:235,267-274`, `council.ts:104-115,160-168`, `council.tsx:599-611`) | 6 | client (+ upstream) |
-| RC-05 | [#56](https://github.com/rchain-community/rhogov/issues/56) | The read path has no failure contract: bare and dead-ended with no data, silently stale with data (`kit.tsx:45,216-219`, `settings.tsx:133-135`) | 3 | client |
-| RC-06 | [#57](https://github.com/rchain-community/rhogov/issues/57) | Strings asserting a guarantee are hand-written and never checked against the code that enforces it (`setup.tsx:225`, `groups.tsx:238,259`) | 3 | client |
-| RC-07 | [#58](https://github.com/rchain-community/rhogov/issues/58) | Labels are literals in the mechanism's vocabulary while the plain gloss sits in a collapsed sibling (`groups.tsx:243,199`, `votes.tsx:168,146`, `kit.tsx:165`) | 4 | client |
+| RC-01 | [#52](https://github.com/rhovision-org/rhogov/issues/52) | Screens are written for the populated case; emptiness is one `else` that congratulates, and the first action is an inline link in the last section (`home.tsx:37,58-59,78`, `council.tsx:83`) | 4 | client |
+| RC-02 | [#53](https://github.com/rhovision-org/rhogov/issues/53) | `act()` has no gate: confirmation is 7 ad-hoc `window.confirm()` calls over 5 files and review keys on an opt-in `preview` only 2 call sites pass (`kit.tsx:175-178`) | 2 | client + upstream |
+| RC-03 | [#54](https://github.com/rhovision-org/rhogov/issues/54) | Weight is recomputed natively from live facts and never shown, so writes move it silently and no voter sees their own (`gov.ts:200,210-213`, `groups.tsx:216-228`) | 6 | client + upstream |
+| RC-04 | [#55](https://github.com/rhovision-org/rhogov/issues/55) | Result screens recompute at render time and label the recomputation as the outcome (`votes.tsx:235,267-274`, `council.ts:104-115,160-168`, `council.tsx:599-611`) | 6 | client (+ upstream) |
+| RC-05 | [#56](https://github.com/rhovision-org/rhogov/issues/56) | The read path has no failure contract: bare and dead-ended with no data, silently stale with data (`kit.tsx:45,216-219`, `settings.tsx:133-135`) | 3 | client |
+| RC-06 | [#57](https://github.com/rhovision-org/rhogov/issues/57) | Strings asserting a guarantee are hand-written and never checked against the code that enforces it (`setup.tsx:225`, `groups.tsx:238,259`) | 3 | client |
+| RC-07 | [#58](https://github.com/rhovision-org/rhogov/issues/58) | Labels are literals in the mechanism's vocabulary while the plain gloss sits in a collapsed sibling (`groups.tsx:243,199`, `votes.tsx:168,146`, `kit.tsx:165`) | 4 | client |
 
 ## The six singletons
 
@@ -85,12 +85,12 @@ the fix plan. All six are fixed now — see "Where these stand" in the two regis
 
 | Issue | Why it stands alone |
 |---|---|
-| [#10](https://github.com/rchain-community/rhogov/issues/10) CS-007 | A **state-propagation bug**: `settings.tsx:139` writes the invite's node to localStorage but never to the module-level `setupNode` signal (`setup.tsx:14-15`), and the wizard's step ignores the active community. Fix is signal sync — a different file from any bucket's. |
-| [#30](https://github.com/rchain-community/rhogov/issues/30) RT-01 | A **validation and disclosure gap**: `parseInvite` (`state.ts:105-106`) checks only a URL shape, and the host renders muted (`settings.tsx:147`). Fix is in `parseInvite`/`JoinScreen`, not in a gate. |
-| [#39](https://github.com/rchain-community/rhogov/issues/39) RT-08 | The harm is the **advice**: `node.ts:184-188,214` tells the user to retry a deploy that may already have landed. Fix is deploy-status reconciliation, not a gate. (Its missing in-flight lock folds into RC-02.) |
-| [#38](https://github.com/rchain-community/rhogov/issues/38) RT-05 | Name identity: the store is not per-community (`state.ts:140,143-144,152`) and `nameError` (`people.ts:9-15`) does no Unicode normalisation. Container is backlog #4. |
-| [#26](https://github.com/rchain-community/rhogov/issues/26) RT-15 | Two mechanisms under one title: the public `invited` set with no withdrawal verb (upstream), and plaintext bodies (shared with RC-06). Split in the body. |
-| [#47](https://github.com/rchain-community/rhogov/issues/47) V-06 | Layout and prominence only: the raw-rholang settings (`settings.tsx:59-131`) sit at the same weight as daily controls. |
+| [#10](https://github.com/rhovision-org/rhogov/issues/10) CS-007 | A **state-propagation bug**: `settings.tsx:139` writes the invite's node to localStorage but never to the module-level `setupNode` signal (`setup.tsx:14-15`), and the wizard's step ignores the active community. Fix is signal sync — a different file from any bucket's. |
+| [#30](https://github.com/rhovision-org/rhogov/issues/30) RT-01 | A **validation and disclosure gap**: `parseInvite` (`state.ts:105-106`) checks only a URL shape, and the host renders muted (`settings.tsx:147`). Fix is in `parseInvite`/`JoinScreen`, not in a gate. |
+| [#39](https://github.com/rhovision-org/rhogov/issues/39) RT-08 | The harm is the **advice**: `node.ts:184-188,214` tells the user to retry a deploy that may already have landed. Fix is deploy-status reconciliation, not a gate. (Its missing in-flight lock folds into RC-02.) |
+| [#38](https://github.com/rhovision-org/rhogov/issues/38) RT-05 | Name identity: the store is not per-community (`state.ts:140,143-144,152`) and `nameError` (`people.ts:9-15`) does no Unicode normalisation. Container is backlog #4. |
+| [#26](https://github.com/rhovision-org/rhogov/issues/26) RT-15 | Two mechanisms under one title: the public `invited` set with no withdrawal verb (upstream), and plaintext bodies (shared with RC-06). Split in the body. |
+| [#47](https://github.com/rhovision-org/rhogov/issues/47) V-06 | Layout and prominence only: the raw-rholang settings (`settings.tsx:59-131`) sit at the same weight as daily controls. |
 
 ## Corrections this pass forced
 
@@ -111,16 +111,16 @@ the fix plan. All six are fixed now — see "Where these stand" in the two regis
 ## Upstream seams
 
 The three reviewed drafts are filed this pass in
-[`rchain-community/quantum-os`](https://github.com/rchain-community/quantum-os), because the fixes
+[`rhovision-org/quantum-os`](https://github.com/rhovision-org/quantum-os), because the fixes
 live in the vendored `src/chain/rgov-core.js`, which this repo must not edit (`CLAUDE.md:44-47`).
 
 | Seam | Contract line | Backs | Filed as | Draft |
 |---|---|---|---|---|
-| `setRoll` replaces the electorate with no membership check, refused only when the issue is *closed* | `rgov-core.js:690-704` | #32, RC-02 | [quantum-os#244](https://github.com/rchain-community/quantum-os/issues/244) | [`upstream/setroll-electorate.md`](upstream/setroll-electorate.md) |
-| `propose` is ungated — any member can post a competing result | `rgov-core.js:771-779` | #20, #27, #37, RC-04 | [quantum-os#245](https://github.com/rchain-community/quantum-os/issues/245) | [`upstream/propose-ungated.md`](upstream/propose-ungated.md) |
-| No `uninvite` verb exists, so a mistaken invitation stays published | `rgov-core.js:477-487`, `:615` | #26 | [quantum-os#246](https://github.com/rchain-community/quantum-os/issues/246) | [`upstream/uninvite-missing.md`](upstream/uninvite-missing.md) |
+| `setRoll` replaces the electorate with no membership check, refused only when the issue is *closed* | `rgov-core.js:690-704` | #32, RC-02 | [quantum-os#244](https://github.com/rhovision-org/quantum-os/issues/244) | [`upstream/setroll-electorate.md`](upstream/setroll-electorate.md) |
+| `propose` is ungated — any member can post a competing result | `rgov-core.js:771-779` | #20, #27, #37, RC-04 | [quantum-os#245](https://github.com/rhovision-org/quantum-os/issues/245) | [`upstream/propose-ungated.md`](upstream/propose-ungated.md) |
+| No `uninvite` verb exists, so a mistaken invitation stays published | `rgov-core.js:477-487`, `:615` | #26 | [quantum-os#246](https://github.com/rhovision-org/quantum-os/issues/246) | [`upstream/uninvite-missing.md`](upstream/uninvite-missing.md) |
 
-Two further seams stay **unfiled and undrafted**, because confirming them needs the rchain-rust
+Two further seams stay **unfiled and undrafted**, because confirming them needs the rholo
 native source rather than this repo: the censure threshold's ceiling-rounding and cascading slash,
 and trust weighting activating on a single rating (`src/chain/gov.ts:210-213`).
 
@@ -130,7 +130,7 @@ with nobody able to invite or promote. It is contract-only, so it can be written
 file alone — it is the cheapest thing on the upstream list, and the reason it is still open is that the
 audit found it and never wrote it up.
 
-All of it is collected in [#75](https://github.com/rchain-community/rhogov/issues/75), the handoff to
+All of it is collected in [#75](https://github.com/rhovision-org/rhogov/issues/75), the handoff to
 quantum-os.
 
 ## Status — 2026-10-12
@@ -161,7 +161,7 @@ filed in quantum-os (#244, #245, #246).
 **What is not done, and is not this repo's to do:** the contract halves. `setRoll` still permits
 replacing an electorate, `propose` is still ungated, and an invitation still cannot be withdrawn.
 The `setRole`/`leave` last-admin guard remains **undrafted** — written up nowhere, filed nowhere.
-All four are collected in [#75](https://github.com/rchain-community/rhogov/issues/75), the handoff to
+All four are collected in [#75](https://github.com/rhovision-org/rhogov/issues/75), the handoff to
 quantum-os.
 
 The findings themselves are unchanged — that is the point of keeping them. What changed is the code

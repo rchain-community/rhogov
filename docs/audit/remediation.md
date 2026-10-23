@@ -259,9 +259,9 @@ rather than omitted.
 
 | Upstream issue | Backs | Status |
 |---|---|---|
-| [quantum-os#244](https://github.com/rchain-community/quantum-os/issues/244) `setRoll` | RC-02's contract half | filed |
-| [quantum-os#245](https://github.com/rchain-community/quantum-os/issues/245) `propose` | RC-04's notion of *whose* record is the record | filed |
-| [quantum-os#246](https://github.com/rchain-community/quantum-os/issues/246) `uninvite` | #26's real fix | filed |
+| [quantum-os#244](https://github.com/rhovision-org/quantum-os/issues/244) `setRoll` | RC-02's contract half | filed |
+| [quantum-os#245](https://github.com/rhovision-org/quantum-os/issues/245) `propose` | RC-04's notion of *whose* record is the record | filed |
+| [quantum-os#246](https://github.com/rhovision-org/quantum-os/issues/246) `uninvite` | #26's real fix | filed |
 | `setRole` / `leave` last-admin guard | RC-03's stranding half | **undrafted** — recorded in [`root-causes.md`](root-causes.md), not filed |
 
 **Sequencing:** file nothing new until the three filed issues are triaged upstream. RC-02, RC-04 and

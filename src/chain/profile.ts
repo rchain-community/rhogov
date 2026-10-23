@@ -1,6 +1,6 @@
-// profile.ts — display names in rchain-rust's genesis master dictionary.
+// profile.ts — display names in rholo's genesis master dictionary.
 //
-// The dictionary (rchain-rust casper/src/genesis/resources/rgov/MasterDictionary.rho,
+// The dictionary (rholo casper/src/genesis/resources/rgov/MasterDictionary.rho,
 // issue #99) roots every name in the identity that owns it: a caller may publish
 // only under `<their REV address>/…`, derived on chain from the signing key. So
 // `<addr>/profile/name` is a display name nobody but `addr` can set — chain-wide,

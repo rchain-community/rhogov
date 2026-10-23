@@ -1,4 +1,4 @@
-// node.ts — rchain-rust's HTTP API, from the browser.
+// node.ts — rholo's HTTP API, from the browser.
 //
 // Three operations, and the difference is what the node does with your term:
 //
@@ -9,7 +9,7 @@
 //             answer is whatever the term sent to rho:rchain:deployId, read
 //             back from GET /api/v1/deploy-status/{sig}.
 //
-// Values arrive as rchain-rust's externally tagged RhoExpr. Since AUDIT C38 the
+// Values arrive as rholo's externally tagged RhoExpr. Since AUDIT C38 the
 // payload sits under a `data` envelope ({"ExprInt":{"data":42}}); older builds
 // sent it bare ({"ExprInt":42}) and maps as [[k, v], …] pairs. `decode` accepts
 // every one of those spellings (spec/API-SCHEMA.md rule 1, "the client accepting

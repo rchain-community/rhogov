@@ -1,7 +1,7 @@
 {
   "name": "rhogov",
   "version": "0.1.0",
-  "description": "An intuitive governance UI for RChain: groups, liquid democracy, trust and inboxes over rchain-rust's rho:gov natives and quantum-os's rgov-core contracts.",
+  "description": "An intuitive governance UI for RChain: groups, liquid democracy, trust and inboxes over rholo's rho:gov natives and quantum-os's rgov-core contracts.",
   "type": "module",
   "license": "Apache-2.0",
   "scripts": {

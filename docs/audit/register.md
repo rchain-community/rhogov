@@ -15,14 +15,14 @@ suite.
 
 | ID | Sev | Finding | Probe | Target | Issue |
 |---|---|---|---|---|---|
-| CS-002 | **S1** | An empty community is told *"You're all caught up."* | P2 | `src/ui/home.tsx:39` | [#9](https://github.com/rchain-community/rhogov/issues/9) |
-| CS-007 | **S1** | An invite re-asks the network and re-asks to join the community you just joined (a stray click installs a second set of contracts, ~0.02 REV) | P7a, P7b | `src/ui/settings.tsx:137-141`, `src/ui/setup.tsx:14-15,217-219` | [#10](https://github.com/rchain-community/rhogov/issues/10) |
-| CS-001 | S3 | Home never says what rhogov is for | P1 | `src/ui/home.tsx:23-24` | [#11](https://github.com/rchain-community/rhogov/issues/11) |
-| CS-003 | S2 | The empty community's call to action is buried below a false success message | P3 | `src/ui/home.tsx:58` | [#12](https://github.com/rchain-community/rhogov/issues/12) |
-| CS-004 | S3 | Unglossed jargon on the cold-start path (`censure`, `roll`, `phlo`) | P4 | `src/ui/groups.tsx:240`, `src/ui/votes.tsx:168`, `src/ui/kit.tsx:164` | [#13](https://github.com/rchain-community/rhogov/issues/13) |
-| CS-005 | S3 | Delegation is offered only as "Delegate my vote" | P5 | `src/ui/groups.tsx:197`, `src/ui/votes.tsx:146` | [#14](https://github.com/rchain-community/rhogov/issues/14) |
-| CS-006 | S2 | A damaged invite link is a dead end with nothing to click in the page | P6 | `src/ui/settings.tsx:135`, `src/main.tsx:31,48,61` | [#15](https://github.com/rchain-community/rhogov/issues/15) |
-| CS-008 | S2 | A community that cannot be read fails without naming it or offering a way out | P8, P11 | `src/ui/kit.tsx:215-219` | [#16](https://github.com/rchain-community/rhogov/issues/16) |
+| CS-002 | **S1** | An empty community is told *"You're all caught up."* | P2 | `src/ui/home.tsx:39` | [#9](https://github.com/rhovision-org/rhogov/issues/9) |
+| CS-007 | **S1** | An invite re-asks the network and re-asks to join the community you just joined (a stray click installs a second set of contracts, ~0.02 REV) | P7a, P7b | `src/ui/settings.tsx:137-141`, `src/ui/setup.tsx:14-15,217-219` | [#10](https://github.com/rhovision-org/rhogov/issues/10) |
+| CS-001 | S3 | Home never says what rhogov is for | P1 | `src/ui/home.tsx:23-24` | [#11](https://github.com/rhovision-org/rhogov/issues/11) |
+| CS-003 | S2 | The empty community's call to action is buried below a false success message | P3 | `src/ui/home.tsx:58` | [#12](https://github.com/rhovision-org/rhogov/issues/12) |
+| CS-004 | S3 | Unglossed jargon on the cold-start path (`censure`, `roll`, `phlo`) | P4 | `src/ui/groups.tsx:240`, `src/ui/votes.tsx:168`, `src/ui/kit.tsx:164` | [#13](https://github.com/rhovision-org/rhogov/issues/13) |
+| CS-005 | S3 | Delegation is offered only as "Delegate my vote" | P5 | `src/ui/groups.tsx:197`, `src/ui/votes.tsx:146` | [#14](https://github.com/rhovision-org/rhogov/issues/14) |
+| CS-006 | S2 | A damaged invite link is a dead end with nothing to click in the page | P6 | `src/ui/settings.tsx:135`, `src/main.tsx:31,48,61` | [#15](https://github.com/rhovision-org/rhogov/issues/15) |
+| CS-008 | S2 | A community that cannot be read fails without naming it or offering a way out | P8, P11 | `src/ui/kit.tsx:215-219` | [#16](https://github.com/rhovision-org/rhogov/issues/16) |
 
 **Regrouped by root cause.** These rows are unchanged and are the durable evidence; what changed is
 the tracker issue, not the finding. **A closed finding is not a fixed finding** — the probe stays red
@@ -30,9 +30,9 @@ until the code changes. See [`root-causes.md`](root-causes.md).
 
 | Finding | Issue | Now |
 |---|---|---|
-| CS-001, CS-002, CS-003 | #11, #9, #12 | closed → **RC-01** ([#52](https://github.com/rchain-community/rhogov/issues/52)) |
-| CS-004, CS-005 | #13, #14 | closed → **RC-07** ([#58](https://github.com/rchain-community/rhogov/issues/58)) |
-| CS-006, CS-008 | #15, #16 | closed → **RC-05** ([#56](https://github.com/rchain-community/rhogov/issues/56)) |
+| CS-001, CS-002, CS-003 | #11, #9, #12 | closed → **RC-01** ([#52](https://github.com/rhovision-org/rhogov/issues/52)) |
+| CS-004, CS-005 | #13, #14 | closed → **RC-07** ([#58](https://github.com/rhovision-org/rhogov/issues/58)) |
+| CS-006, CS-008 | #15, #16 | closed → **RC-05** ([#56](https://github.com/rhovision-org/rhogov/issues/56)) |
 | CS-007 | #10 | **kept** — state-propagation bug, its own issue |
 
 All eight are **measured**, not argued: the probe fails with evidence in the failure message
