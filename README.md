@@ -2,7 +2,7 @@
 
 **[User guide →](docs/user-guide.md)** · **[Open the app →](https://rchain-community.github.io/rhogov/)**
 
-**Decide things together on RChain.** An intuitive governance app for the
+**Decide things together on Rholo.** An intuitive governance app for the
 [rchain-rust](https://github.com/rchain-community/rchain-rust) node: groups, liquid
 democracy, a web of trust with accountability, multi-stakeholder councils, and inboxes,
 all on chain.
@@ -98,7 +98,7 @@ no backend, no relay, no database and no account:
 
 ### Multi-stakeholder councils
 
-Built from rchain-rust's
+Built from rholo-rust's
 [multi-stakeholder governance](https://github.com/rchain-community/rchain-rust/blob/dev/docs/src/qucalc/multi-stakeholder-governance.md)
 design:
 
