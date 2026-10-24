@@ -200,6 +200,13 @@ export class RNode {
   /** Sign and submit. Returns the deploy's signature, which is how it is found again. */
   async submit(term: string, key: string, phloLimit = 1_000_000, beforeSend?: (sig: string) => void): Promise<string> {
     const st = await this.status().catch(() => ({} as NodeStatus));
+    // The shard a deploy must carry is the chain's own — `/testnet`, `/playground`, `/root`. The node
+    // reports the full id in `/api/status` and refuses a deploy that names any other one
+    // (`deploys_shard_identifier`), so a bare "root" is not a shard id on either rebuilt network.
+    // The other fields below tolerate a status we could not read; this one cannot, because a guessed
+    // shard is a deploy the node throws away.
+    const shardId = st.shardId;
+    if (!shardId) throw new NodeError("the node did not report its shardId; the deploy would be refused");
     // The node pre-charges phloLimit × phloPrice, and a deploy it cannot charge
     // fails with no useful reason ("deploy error message not available…").
     // Check first and say what is actually wrong.
@@ -212,7 +219,7 @@ export class RNode {
       phloPrice: price,
       phloLimit,
       validAfterBlockNumber: Math.max(0, (st.latestBlockNumber ?? 0) - 1),
-      shardId: st.shardId || "root",
+      shardId,
     };
     const { deployer, signature } = signDeployData(data, key);
     beforeSend?.(signature); // before the POST, so a reply lost on the way back still leaves the signature behind
