@@ -1,4 +1,4 @@
-// chain-check.ts — drive the Gov API the UI uses against a live rchain-rust node.
+// chain-check.ts — drive the Gov API the UI uses against a live rholo node.
 //
 //   npx tsx tests/chain-check.ts [--node http://127.0.0.1:40403]
 //

@@ -3,7 +3,7 @@
 // Ported from quantum-os packages/browser/src/rholang.ts, which is verified
 // against rnode: the signature is DER secp256k1 over blake2b256 of the
 // DeployDataProto protobuf, and the REV address is derived exactly as
-// rchain-rust's rholang/src/util/rev_address.rs derives it — so the address
+// rholo's rholang/src/util/rev_address.rs derives it — so the address
 // shown is the address charged.
 
 import { secp256k1 } from "@noble/curves/secp256k1.js";

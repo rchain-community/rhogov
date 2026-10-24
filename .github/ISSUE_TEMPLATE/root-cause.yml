@@ -60,7 +60,7 @@ body:
       options:
         - "client-fixable (this repo)"
         - "upstream — quantum-os"
-        - "upstream — rchain-rust"
+        - "upstream — rholo"
         - "client + upstream"
     validations:
       required: true

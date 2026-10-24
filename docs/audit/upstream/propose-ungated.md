@@ -1,7 +1,7 @@
 # Draft upstream issue — `propose` is ungated, so any member can post a result on any issue
 
 **Target:** quantum-os (vendored here as `src/chain/rgov-core.js`; see `CLAUDE.md:44-47`)
-**Status:** **filed** — [quantum-os#245](https://github.com/rchain-community/quantum-os/issues/245).
+**Status:** **filed** — [quantum-os#245](https://github.com/rhovision-org/quantum-os/issues/245).
 **Found by:** the red-team tabletop, scenario T4 (`docs/audit/red-team-tabletop.md`).
 
 ## What the contract does

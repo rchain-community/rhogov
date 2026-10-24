@@ -13,7 +13,7 @@ import { newVersion } from "./update";
 import { backgroundNotificationChoice, notificationAvailable } from "./inbox-watch";
 import { readPendingInstall, setupNode } from "./setup";
 
-const REPO = "https://github.com/rchain-community/rhogov";
+const REPO = "https://github.com/rhovision-org/rhogov";
 export const GUIDE = `${REPO}/blob/main/docs/user-guide.md`;
 export const README = `${REPO}#readme`;
 const NEW_ISSUE = `${REPO}/issues/new`;

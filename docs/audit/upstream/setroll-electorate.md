@@ -1,7 +1,7 @@
 # Draft upstream issue — `setRoll` can replace an issue's electorate after ballots are cast
 
 **Target:** quantum-os (the contract is `src/chain/rgov-core.js` here, vendored; see `CLAUDE.md:44-47`)
-**Status:** **filed** — [quantum-os#244](https://github.com/rchain-community/quantum-os/issues/244).
+**Status:** **filed** — [quantum-os#244](https://github.com/rhovision-org/quantum-os/issues/244).
 **Found by:** the red-team tabletop, scenario T2 (`docs/audit/red-team-tabletop.md`).
 
 ## What the contract does

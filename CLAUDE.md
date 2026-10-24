@@ -4,13 +4,13 @@ Project context for Claude Code sessions. Read it before changing anything.
 
 ## What this is
 
-**rhogov** is a governance app for the [rchain-rust](https://github.com/rchain-community/rchain-rust)
+**rhogov** is a governance app for the [rholo](https://github.com/rhovision-org/rholo)
 node: groups, liquid democracy, a web of trust with censure, multi-stakeholder councils and
 inboxes, all on chain. It is the successor UI to rgov. It runs on
-[quantum-os](https://github.com/rchain-community/quantum-os)'s rgov-core contracts and
-rchain-rust's `rho:gov:*` natives.
+[quantum-os](https://github.com/rhovision-org/quantum-os)'s rgov-core contracts and
+rholo's `rho:gov:*` natives.
 
-- **Live:** https://rchain-community.github.io/rhogov/. Every push to `main` deploys it
+- **Live:** https://rhovision-org.github.io/rhogov/. Every push to `main` deploys it
   through `.github/workflows/pages.yml`.
 - **Default network:** the Rholang playground, https://playground.rhobot.net. It's a
   dev-mode node with a faucet and **no name directory**.
@@ -145,7 +145,7 @@ npm run test:chain       # the Gov API against a live node
 
 - **Local node.** Use quantum-os's localnet. Clone quantum-os beside this repo, then run
   `cd ../quantum-os/scripts/localnet && bash run-node.sh`. It needs `bin/rnode` built from
-  rchain-rust `dev` @ `bc80abb` or later. It serves `http://127.0.0.1:40403`, the default
+  rholo `dev` @ `bc80abb` or later. It serves `http://127.0.0.1:40403`, the default
   `RHOGOV_NODE`.
   - Run it in the background; it is long-lived.
   - The test keys (Alice/Bob/Carol/Dave in `tests/e2e/helpers.ts`) are funded at genesis.

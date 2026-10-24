@@ -11,7 +11,7 @@ question is:
 > predictions and injects below are the record of the exercise as it was played. What fixed each
 > finding, and which half of it remains upstream, is in
 > [`register-redteam.md`](register-redteam.md) → *Where these stand*; the upstream half is collected in
-> [#75](https://github.com/rchain-community/rhogov/issues/75).
+> [#75](https://github.com/rhovision-org/rhogov/issues/75).
 >
 > **Two things changed in the app since these were written**, so a scenario that names a control may
 > name it differently from the one on screen: **Censure** is now **Dispute their trust**, **Delegate my
@@ -41,7 +41,7 @@ what the node computed**, and whether an actor can change the inputs everyone el
 2. **No fixtures but browser state.** Every community is installed this run by a real deploy.
    `rhogov:*` localStorage is the only permitted fixture.
 3. **`src/chain/rgov-core.js` is vendored** (`CLAUDE.md:44-47`). Upstream seams are written up
-   for quantum-os / rchain-rust, never edited here.
+   for quantum-os / rholo, never edited here.
 4. **No key material in any artefact.** Reports say only *whether* a key is set — the shape the
    app's own report already uses (`src/ui/help.tsx:132-161`).
 5. **Probes assert the client-observable seam.** A probe observes what the UI shows and does;
@@ -170,7 +170,7 @@ recorded, or has "Make admin" pressed. *Objective:* convert a flat group to admi
 rates a member" is a hint, not a warning (`groups.tsx:202`); ② the first rating is level 0 and
 looks inert; ③ the next tally shows admins at ×6. *Should:* the weight consequence is shown
 before the write, and "Make admin" states that it grants weight 6.
-*Finding:* **RT-03** — client + upstream (rchain-rust: one rating should not be enough).
+*Finding:* **RT-03** — client + upstream (rholo: one rating should not be enough).
 
 **T4 · Record — or propose — a winner that lost.** *Rungs* RD, RB.
 *Setup:* a council decision with a live tally; the facilitator records a different winner, and a
@@ -212,7 +212,7 @@ writes are disabled, and the retry advice separates the two cases. *Finding:* **
 *Injects:* ① the copy says "two-thirds (and at least two)"; ② the real threshold is
 `max(2, ⌈⅔·eligible⌉)` and it **cascades**; ③ vouchers lose what they staked, unshown before
 signing. *Should:* the threshold and the cascade are stated. *Finding:* **RT-09** — client +
-upstream (rchain-rust: threshold semantics).
+upstream (rholo: threshold semantics).
 
 **T10 · Council arithmetic presented as the node's.** *Rungs* RC, RA.
 *Setup:* a council with asymmetric estimates. *Objective:* show a browser number read as the
@@ -361,7 +361,7 @@ All twelve scenarios have a filed issue; seven of them (the row above) rest on r
 probe, and each of those carried an "Evidence-pending" marker on its issue. **Those seven are fixed
 too** — they were never probed, so nothing turns green to prove them; `register-redteam.md` →
 *Where these stand* names what fixed each, and the upstream halves are in
-[#75](https://github.com/rchain-community/rhogov/issues/75).
+[#75](https://github.com/rhovision-org/rhogov/issues/75).
 
 ## Findings register
 

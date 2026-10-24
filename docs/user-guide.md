@@ -1,6 +1,6 @@
 # rhogov user guide
 
-[rhogov](https://rchain-community.github.io/rhogov/#/) helps a group of people decide things together on RChain. You can vote,
+[rhogov](https://rhovision-org.github.io/rhogov/#/) helps a group of people decide things together on RChain. You can vote,
 hand your vote to someone you trust, vouch for each other, hold each other to
 account, send each other messages, and run decisions across several kinds of
 stakeholders. Everything is recorded on the blockchain, and no administrator
@@ -9,7 +9,7 @@ sits in the middle.
 This guide walks through rhogov the way you'll meet it. You don't need to know
 anything about blockchains to follow it.
 
-[Click here](https://rchain-community.github.io/rhogov/#/join?c=eyJuYW1lIjoiY29sYWIiLCJub2RlIjoiaHR0cHM6Ly9wbGF5Z3JvdW5kLnJob2JvdC5uZXQiLCJpbmJveCI6InJobzppZDpwNHdxN29xdGViNWdwN280Y3I4bjN1Y3E3bWNyOWRkZ2F5Z2ttZXd1cG1qM2d5Y3B3ZmFvIiwiZ3JvdXAiOiJyaG86aWQ6bzh3cmg5azVicG9kcmZyank3ajRkeG1pcmNtcXQ3ZTZkOXBxZXV0dWQ2ZGI1Y3hhZ3l5byIsImlzc3VlIjoicmhvOmlkOjR4ZGpzd2d3NjNuaHF0Nmo2cHF1cnlxN2d1czduM2ltemRubnpmY3gzNzVldWpzaHlwN28ifQ) to join the [RhoVision community](https://opencollective.com/rho-vision-community) rhogov on the rholang playground.
+[Click here](https://rhovision-org.github.io/rhogov/#/join?c=eyJuYW1lIjoiY29sYWIiLCJub2RlIjoiaHR0cHM6Ly9wbGF5Z3JvdW5kLnJob2JvdC5uZXQiLCJpbmJveCI6InJobzppZDpwNHdxN29xdGViNWdwN280Y3I4bjN1Y3E3bWNyOWRkZ2F5Z2ttZXd1cG1qM2d5Y3B3ZmFvIiwiZ3JvdXAiOiJyaG86aWQ6bzh3cmg5azVicG9kcmZyank3ajRkeG1pcmNtcXQ3ZTZkOXBxZXV0dWQ2ZGI1Y3hhZ3l5byIsImlzc3VlIjoicmhvOmlkOjR4ZGpzd2d3NjNuaHF0Nmo2cHF1cnlxN2d1czduM2ltemRubnpmY3gzNzVldWpzaHlwN28ifQ) to join the [RhoVision community](https://opencollective.com/rho-vision-community) rhogov on the rholang playground.
 
 **Contents**
 
@@ -31,7 +31,7 @@ anything about blockchains to follow it.
 
 ## 1. Getting started
 
-Open [rhogov](https://rchain-community.github.io/rhogov). The first screen walks you through three short steps.
+Open [rhogov](https://rhovision-org.github.io/rhogov). The first screen walks you through three short steps.
 
 ![The welcome screen](images/welcome.png)
 

@@ -1,6 +1,6 @@
 // council.ts — multi-stakeholder governance on the rgov-core contracts.
 //
-// Design source: rchain-rust docs/src/qucalc/multi-stakeholder-governance.md.
+// Design source: rholo docs/src/qucalc/multi-stakeholder-governance.md.
 // It asks for stakeholder groups whose voting power is "the median of
 // individual estimates", a facilitated, phased decision process with pros and
 // cons (à la ConsiderIt), and "tally estimates and stakeholder-weighted results".

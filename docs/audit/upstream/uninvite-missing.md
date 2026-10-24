@@ -1,7 +1,7 @@
 # Draft upstream issue — an invitation cannot be withdrawn, and the invited address is public
 
 **Target:** quantum-os (vendored here as `src/chain/rgov-core.js`; see `CLAUDE.md:44-47`)
-**Status:** **filed** — [quantum-os#246](https://github.com/rchain-community/quantum-os/issues/246).
+**Status:** **filed** — [quantum-os#246](https://github.com/rhovision-org/quantum-os/issues/246).
 **Found by:** the red-team tabletop, scenario T5-adjacent (boundary TB4/TB6).
 
 ## What the contract does
